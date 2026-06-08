@@ -107,7 +107,9 @@
   
     .floating-nav { position: sticky; top: 0px; background: var(--bg); display: flex; padding: 12px 16px 8px 16px; z-index: 10; border-bottom: 1px solid var(--line); margin-bottom: 16px; margin-top: -8px; gap: 8px; }
     .view { padding-top: 0 !important; }
-    .floating-nav-btn { padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; background: transparent; border: 1px solid transparent; }
+    .floating-nav-btn { padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; background: transparent; border: 1px solid transparent; }
+    .floating-nav-btn svg { width: 17px; height: 17px; stroke: currentColor; opacity: 0.9; }
+    .floating-nav-btn.active svg { opacity: 1; }
     .floating-nav-btn.active { background: var(--surface-2); color: var(--accent-brand); border-color: var(--line); }
     .view { padding-bottom: 120px !important; }
 
@@ -218,10 +220,10 @@
   <!-- Top Navigation Tabs -->
   <div class="floating-nav">
     <div id="nav-daily" class="floating-nav-btn active" onclick="switchView('view-daily')">
-      📅 カレンダー
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" stroke-width="1.8"/><path d="M7.5 3.5V7" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 3.5V7" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 9.5H20.5" stroke-width="1.8" stroke-linecap="round"/><path d="M8 13h3" stroke-width="1.8" stroke-linecap="round"/><path d="M8 17h8" stroke-width="1.8" stroke-linecap="round"/></svg>カレンダー
     </div>
     <div id="nav-report" class="floating-nav-btn" onclick="switchView('view-report')">
-      📊 レポート
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19.5V10.5" stroke-width="1.8" stroke-linecap="round"/><path d="M12 19.5V5.5" stroke-width="1.8" stroke-linecap="round"/><path d="M19 19.5V13.5" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 19.5H20.5" stroke-width="1.8" stroke-linecap="round"/></svg>レポート
     </div>
   </div>
     
@@ -313,7 +315,15 @@
   <!-- Bottom Sheet: Exercise Selection -->
   
     <!-- Report View -->
-    <div id="view-report" class="view" style="padding-left:16px; padding-right:16px;">
+    <div id="view-report" class="app view" style="padding-left:16px; padding-right:16px;">
+      <div class="floating-nav">
+        <div id="nav-daily-report" class="floating-nav-btn" onclick="switchView('view-daily')">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" stroke-width="1.8"/><path d="M7.5 3.5V7" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 3.5V7" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 9.5H20.5" stroke-width="1.8" stroke-linecap="round"/><path d="M8 13h3" stroke-width="1.8" stroke-linecap="round"/><path d="M8 17h8" stroke-width="1.8" stroke-linecap="round"/></svg>記録
+        </div>
+        <div id="nav-report-report" class="floating-nav-btn active" onclick="switchView('view-report')">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19.5V10.5" stroke-width="1.8" stroke-linecap="round"/><path d="M12 19.5V5.5" stroke-width="1.8" stroke-linecap="round"/><path d="M19 19.5V13.5" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 19.5H20.5" stroke-width="1.8" stroke-linecap="round"/></svg>レポート
+        </div>
+      </div>
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px;">
         <div>
           <h2 style="font-size:24px; font-weight:800;">レポート</h2>
@@ -881,14 +891,20 @@ function init() {
     // --- View Navigation ---
     function switchView(viewId) {
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.getElementById(viewId).classList.add('active');
+      const target = document.getElementById(viewId);
+      if (target) target.classList.add('active');
 
-      // Update floating nav
       document.querySelectorAll('.floating-nav-btn').forEach(i => i.classList.remove('active'));
       if (viewId === 'view-daily' || viewId === 'view-exercise') {
-        document.getElementById('nav-daily').classList.add('active');
+        ['nav-daily', 'nav-daily-report'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('active');
+        });
       } else if (viewId === 'view-report') {
-        document.getElementById('nav-report').classList.add('active');
+        ['nav-report', 'nav-report-report'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('active');
+        });
       }
 
       if (viewId === 'view-daily') {
@@ -896,6 +912,8 @@ function init() {
         viewYear = dObj.getFullYear();
         viewMonth = dObj.getMonth();
         renderCalendar();
+        renderDailyLogs();
+        updateTodayTemplate();
       } else if (viewId === 'view-report') {
         reportDateObj = new Date();
         renderReport();
@@ -1813,13 +1831,5 @@ function saveWorkout() {
   </script>
 
 
-
-  <div style="display:none">
-    <div id="nav-daily" class="floating-nav-btn active" onclick="switchView('view-daily')">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-      記録
-    </div>
-    <div id="nav-report" class="floating-nav-btn" onclick="switchView('view-report')">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>
 </body>
 </html>
