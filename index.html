@@ -47,6 +47,11 @@
     .fab-btn { pointer-events: auto; background: var(--accent-brand); color: #000; font-size: 16px; font-weight: 700; border: none; border-radius: 24px; padding: 16px 32px; box-shadow: 0 4px 16px rgba(208, 253, 62, 0.3); display: flex; align-items: center; gap: 8px; cursor: pointer;}
     .fab-btn:active { transform: scale(0.96); }
 
+    
+    .swipe-row { position: relative; overflow: hidden; }
+    .swipe-main { position: relative; z-index: 2; background: var(--bg); transition: transform 0.18s ease; touch-action: pan-y; }
+    .swipe-delete { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; background: #ff453a; color: #fff; border: none; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 1; }
+
     /* Daily Logs List */
     .log-group { margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); overflow: hidden;}
     .log-group-header { padding: 12px 16px; font-weight: 600; font-size: 15px; background: var(--surface-3); display: flex; justify-content: space-between;}
@@ -962,6 +967,12 @@ function init() {
       return `${diffDays}日前`;
     }
 
+    // 部位ごとの色（記録画面・レポートで共通利用）
+    const catColors = {
+      '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
+      '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
+    };
+
     function getCategoryForExercise(exName) {
       for (const [cat, exList] of Object.entries(exercises)) {
         if (exList.includes(exName)) return cat;
@@ -1024,11 +1035,6 @@ function init() {
           prevStats.sets[cat] += 1;
         }
       });
-
-      const catColors = {
-        '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
-        '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
-      };
 
       const volHtml = allCats.map(cat => {
         if (cat === 'その他' && currentStats.volume[cat] === 0 && prevStats.volume[cat] === 0) return '';
@@ -1191,25 +1197,22 @@ function init() {
           totalVol += (s.weight * s.reps);
         });
 
-        const catColorMapLog = {
-          '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
-          '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
-        };
-        const cat = getCategoryForExercise(g.exercise);
-        const barColor = catColorMapLog[cat] || catColorMapLog['その他'];
         // CSS for transition
         return `
-        <div class="log-group" style="background:var(--bg); border:none; border-bottom:1px solid var(--line); border-radius:0; margin-bottom:0;">
-          <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
-            <div style="width:4px; height:24px; background:${barColor}; border-radius:2px; margin-right:12px;"></div>
-            <div style="flex:1;">
-              <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
-              <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
-            </div>
-            <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
-          </div>
-          <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
-            <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
+        <div class="swipe-row" style="background:var(--bg); border-bottom:1px solid var(--line);">
+          <button class="swipe-delete" onclick="deleteLogGroupByExercise('${g.exercise.replace(/'/g, "\'")}')">削除</button>
+          <div class="swipe-main" id="swipe-${gIdx}" ontouchstart="swipeStart(event, ${gIdx})" ontouchmove="swipeMove(event, ${gIdx})" ontouchend="swipeEnd(event, ${gIdx})">
+            <div class="log-group" style="background:var(--bg); border:none; border-radius:0; margin-bottom:0;">
+              <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+                <div style="width:4px; height:24px; background:${catColors[getCategoryForExercise(g.exercise)] || catColors['その他']}; border-radius:2px; margin-right:12px;"></div>
+                <div style="flex:1;">
+                  <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
+                  <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
+                </div>
+                <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
+              </div>
+              <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
+                <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
               ${(() => {
                 const memoSet = g.sets.find(s => s.memo);
                 return memoSet && memoSet.memo ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoSet.memo}</div>` : '';
@@ -1227,7 +1230,70 @@ function init() {
             <button onclick="editExercise('${g.exercise}')" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">この種目を編集 / セット追加</button>
           </div>
         </div>
+          </div>
+        </div>
       `}).join('');
+    }
+
+    // --- スワイプで削除 ---
+    let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swipeOpenEl = null, swipeDir = null;
+
+    function swipeStart(e, idx) {
+      const el = document.getElementById('swipe-' + idx);
+      // 他に開いている行があれば閉じる
+      if (swipeOpenEl && swipeOpenEl !== el) {
+        swipeOpenEl.style.transition = 'transform 0.18s ease';
+        swipeOpenEl.style.transform = 'translateX(0)';
+        swipeOpenEl = null;
+      }
+      swipeStartX = e.touches[0].clientX;
+      swipeStartY = e.touches[0].clientY;
+      swipeDeltaX = 0;
+      swipeDir = null;
+    }
+
+    function swipeMove(e, idx) {
+      const el = document.getElementById('swipe-' + idx);
+      if (!el) return;
+      const dx = e.touches[0].clientX - swipeStartX;
+      const dy = e.touches[0].clientY - swipeStartY;
+      // 最初の動きで横/縦どちらの操作か判定（縦なら通常スクロールに任せる）
+      if (swipeDir === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        swipeDir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      }
+      if (swipeDir !== 'h') return;
+      e.preventDefault();
+      swipeDeltaX = dx;
+      let tx = dx;
+      if (tx > 0) tx = 0;        // 右方向には動かさない
+      if (tx < -88) tx = -88;    // 削除ボタンの幅まで
+      el.style.transition = 'none';
+      el.style.transform = 'translateX(' + tx + 'px)';
+    }
+
+    function swipeEnd(e, idx) {
+      const el = document.getElementById('swipe-' + idx);
+      if (!el) return;
+      if (swipeDir !== 'h') { swipeDir = null; return; }
+      el.style.transition = 'transform 0.18s ease';
+      if (swipeDeltaX < -44) {   // 半分以上スワイプしたら開いた状態で固定
+        el.style.transform = 'translateX(-88px)';
+        swipeOpenEl = el;
+      } else {                   // それ以外は元に戻す
+        el.style.transform = 'translateX(0)';
+        if (swipeOpenEl === el) swipeOpenEl = null;
+      }
+      swipeDeltaX = 0;
+      swipeDir = null;
+    }
+
+    // 表示中の日付の、指定種目の記録をまとめて削除
+    function deleteLogGroupByExercise(exercise) {
+      if (!confirm('「' + exercise + '」の記録を削除しますか？')) return;
+      logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === exercise));
+      localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+      swipeOpenEl = null;
+      renderDailyLogs();
     }
 
     function toggleLogGroup(idx) {
