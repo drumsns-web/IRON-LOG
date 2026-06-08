@@ -1307,12 +1307,24 @@ function init() {
         });
       }
 
+      const catColorMap = {
+        '胸': '#e74c3c',
+        '肩': '#e67e22',
+        '腕': '#f1c40f',
+        '背中': '#9b59b6',
+        '脚': '#2ecc71',
+        '腹': '#3498db',
+        'その他': '#95a5a6'
+      };
+      const catColor = catColorMap[activeCategory] || catColorMap['その他'];
+      const glow = catColor + '22';
+      const border = catColor + '55';
       listDiv.innerHTML = displayList.map((e, i) => {
         if (isEditMode) {
           const upDis = i === 0 ? 'opacity:0.25; pointer-events:none;' : '';
           const downDis = i === displayList.length - 1 ? 'opacity:0.25; pointer-events:none;' : '';
           return `
-          <div class="ex-item" style="justify-content:space-between;">
+          <div class="ex-item" style="justify-content:space-between; background:linear-gradient(90deg, ${glow}, transparent); border-left:4px solid ${catColor}; padding-left:12px; border-radius:10px; margin-bottom:8px;">
             <div style="display:flex; align-items:center; flex:1; gap:6px;">
               <button onclick="moveEx('${e}',-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
               <button onclick="moveEx('${e}',1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
@@ -1329,14 +1341,14 @@ function init() {
             ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
             : '';
           return `
-          <div class="ex-item" style="justify-content:space-between;">
-            <div style="display:flex; align-items:center; flex:1;" onclick="chooseEx('${e}')">
-              <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px;"></div>
-              ${e}${freqBadge}
+          <div class="ex-item" onclick="chooseEx('${e}')" style="justify-content:space-between; background:linear-gradient(90deg, ${glow}, transparent); border-left:4px solid ${catColor}; padding-left:12px; border-radius:10px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; flex:1;">
+              <div style="width:10px; height:10px; border-radius:50%; background:${catColor}; box-shadow:0 0 0 3px ${glow}; flex:0 0 10px; margin-right:12px;"></div>
+              <span>${e}</span>${freqBadge}
             </div>
           </div>`;
         }
-      }).join('');
+      }).join('');;
     }
 
     // 並び順モードの切替
