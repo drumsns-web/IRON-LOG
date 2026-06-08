@@ -102,7 +102,7 @@
 
     /* Ex Selection Bottom Sheet */
     .sheet-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; z-index: 100; backdrop-filter: blur(2px); transition: opacity 0.2s; opacity: 0; }
-    .sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-radius: 20px 20px 0 0; padding: 0; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 101; display: flex; flex-direction: column; max-height: 90vh; }
+    .sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-radius: 20px 20px 0 0; padding: 0; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 101; display: flex; flex-direction: column; max-height: min(90vh, calc(100vh - 112px)); max-height: min(90dvh, calc(100dvh - 112px)); }
     .sheet-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); }
     .sheet-header h3 { margin: 0; font-size: 16px; }
     .sheet-header button { width: auto; min-height: 30px; padding: 0 12px; font-size: 14px; background: transparent; color: var(--muted); border: none; cursor: pointer;}
@@ -267,9 +267,21 @@
 #settingsSheetScroll {
   padding: 24px 16px;
   overflow-y: auto;
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 186px);
+  max-height: calc(100dvh - 186px);
   -webkit-overflow-scrolling: touch;
   padding-bottom: 300px; /* キーボードが出たとき用の余白を強制的に確保 */
+}
+
+@media (max-width: 700px) {
+  #settingsSheet {
+    max-height: calc(100vh - 176px);
+    max-height: calc(100dvh - 176px);
+  }
+  #settingsSheetScroll {
+    max-height: calc(100vh - 242px);
+    max-height: calc(100dvh - 242px);
+  }
 }
 
 </style>
