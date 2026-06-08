@@ -108,6 +108,20 @@
     .cat-tab.active { background: var(--surface-3); color: var(--text); border-color: var(--line); }
     .ex-list { flex: 1; overflow-y: auto; padding: 0 16px; }
     .ex-item { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; font-weight:500;}
+    .ex-swipe-row { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
+    .ex-swipe-delete { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: none; background: var(--danger); color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1; }
+    .ex-swipe-main { position: relative; z-index: 2; background: var(--surface); transition: transform 0.18s ease; touch-action: pan-y; }
+    .ex-swipe-main .ex-item { border-bottom: none; }
+    .ex-swipe-row.open .ex-swipe-main { transform: translateX(-88px); }
+    .ex-add-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 220; backdrop-filter: blur(4px); }
+    .ex-add-dialog { width: min(420px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.45); }
+    .ex-add-dialog h3 { margin: 0 0 14px; font-size: 18px; }
+    .ex-add-dialog input { width: 100%; min-height: 52px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; color: var(--text); font-size: 17px; outline: none; padding: 0 14px; }
+    .ex-add-dialog input:focus { border-color: var(--accent-brand); }
+    .ex-add-actions { display: flex; gap: 10px; margin-top: 14px; }
+    .ex-add-actions button { flex: 1; min-height: 46px; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .ex-add-cancel { background: var(--surface-3); color: var(--text); }
+    .ex-add-submit { background: var(--accent-brand); color: #000; }
 
   
     .floating-nav { position: sticky; top: 0px; background: var(--bg); display: flex; padding: 12px 16px 8px 16px; z-index: 10; border-bottom: 1px solid var(--line); margin-bottom: 16px; margin-top: -8px; gap: 8px; }
@@ -362,10 +376,17 @@
       <button id="sortModeBtn" onclick="toggleSortMode()" style="background:var(--surface-2); border:1px solid var(--line); color:var(--muted); font-size:12px; font-weight:600; padding:6px 12px; border-radius:16px; width:auto; min-height:auto; cursor:pointer;">並び: 頻度順</button>
     </div>
     <div class="ex-list" id="sheetExList"></div>
-    <div id="addExForm" style="display:none; padding:16px; border-top:1px solid var(--line); background:var(--surface);">
-      <div style="display:flex; gap:8px;">
-        <input type="text" id="newExInput" placeholder="現在の部位に種目を追加" style="flex:1;">
-        <button onclick="addEx()" style="background:var(--surface-3); width:auto; padding:0 16px;">追加</button>
+    <div id="addExForm" style="display:none; padding:12px 16px; border-top:1px solid var(--line); background:var(--surface);">
+      <button onclick="openAddExModal()" style="width:100%; min-height:48px; border:none; border-radius:12px; background:var(--accent-brand); color:#000; font-size:15px; font-weight:700; cursor:pointer;">+ 新しい種目を追加</button>
+    </div>
+  </div>
+  <div class="ex-add-modal" id="addExModal" onclick="closeAddExModal(event)">
+    <div class="ex-add-dialog" onclick="event.stopPropagation()">
+      <h3>新しい種目を追加</h3>
+      <input type="text" id="newExInput" placeholder="種目名を入力" onkeydown="if(event.key === 'Enter') addEx()">
+      <div class="ex-add-actions">
+        <button class="ex-add-cancel" onclick="closeAddExModal()">キャンセル</button>
+        <button class="ex-add-submit" onclick="addEx()">追加</button>
       </div>
     </div>
   </div>
@@ -1360,6 +1381,10 @@ function init() {
       return days.size;
     }
 
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
     function renderSheetExList() {
       const listDiv = document.getElementById('sheetExList');
       if (!exercises[activeCategory] || exercises[activeCategory].length === 0) {
@@ -1367,7 +1392,6 @@ function init() {
         return;
       }
       const original = exercises[activeCategory];
-      // 編集モード中、または手動順モードは配列順（手動順）。それ以外は頻度順（同頻度は配列順を維持）。
       let displayList;
       if (isEditMode || exSortMode === 'manual') {
         displayList = [...original];
@@ -1380,36 +1404,96 @@ function init() {
       }
 
       listDiv.innerHTML = displayList.map((e, i) => {
+        const safeName = encodeURIComponent(e);
+        const label = escapeHtml(e);
         if (isEditMode) {
           const upDis = i === 0 ? 'opacity:0.25; pointer-events:none;' : '';
           const downDis = i === displayList.length - 1 ? 'opacity:0.25; pointer-events:none;' : '';
           return `
           <div class="ex-item" style="justify-content:space-between;">
-            <div style="display:flex; align-items:center; flex:1; gap:6px;">
-              <button onclick="moveEx('${e}',-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
-              <button onclick="moveEx('${e}',1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
-              <span style="margin-left:4px;">${e}</span>
+            <div style="display:flex; align-items:center; flex:1; gap:6px; min-width:0;">
+              <button onclick="moveEx(decodeURIComponent('${safeName}'),-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
+              <button onclick="moveEx(decodeURIComponent('${safeName}'),1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
+              <span style="margin-left:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${label}</span>
             </div>
             <div style="display:flex; gap:8px;">
-              <button onclick="renameEx('${e}')" style="background:transparent; border:1px solid var(--line); color:var(--text); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">名前変更</button>
-              <button onclick="deleteEx('${e}')" style="background:transparent; border:1px solid var(--danger); color:var(--danger); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">削除</button>
-            </div>
-          </div>`;
-        } else {
-          const freq = getExerciseFrequency(e);
-          const freqBadge = freq > 0
-            ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
-            : '';
-          return `
-          <div class="ex-item" style="justify-content:space-between;">
-            <div style="display:flex; align-items:center; flex:1;" onclick="chooseEx('${e}')">
-              <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px;"></div>
-              ${e}${freqBadge}
+              <button onclick="renameEx(decodeURIComponent('${safeName}'))" style="background:transparent; border:1px solid var(--line); color:var(--text); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">名前変更</button>
+              <button onclick="deleteEx(decodeURIComponent('${safeName}'))" style="background:transparent; border:1px solid var(--danger); color:var(--danger); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">削除</button>
             </div>
           </div>`;
         }
+
+        const freq = getExerciseFrequency(e);
+        const freqBadge = freq > 0
+          ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
+          : '';
+        return `
+          <div class="ex-swipe-row" data-ex-name="${safeName}">
+            <button class="ex-swipe-delete" onclick="deleteEx(decodeURIComponent('${safeName}'))">削除</button>
+            <div class="ex-swipe-main">
+              <div class="ex-item" style="justify-content:space-between;">
+                <div style="display:flex; align-items:center; flex:1; min-width:0;">
+                  <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px; flex:0 0 auto;"></div>
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${label}</span>${freqBadge}
+                </div>
+              </div>
+            </div>
+          </div>`;
       }).join('');
+      initExerciseSwipeRows();
     }
+
+    function initExerciseSwipeRows() {
+      document.querySelectorAll('.ex-swipe-row').forEach(row => {
+        const main = row.querySelector('.ex-swipe-main');
+        let startX = 0, startY = 0, currentX = 0, dragging = false;
+
+        main.addEventListener('touchstart', e => {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          currentX = row.classList.contains('open') ? -88 : 0;
+          dragging = false;
+          main.style.transition = 'none';
+        }, { passive: true });
+
+        main.addEventListener('touchmove', e => {
+          const dx = e.touches[0].clientX - startX;
+          const dy = e.touches[0].clientY - startY;
+          if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+          dragging = true;
+          e.preventDefault();
+          const next = Math.min(0, Math.max(-88, currentX + dx));
+          main.style.transform = `translateX(${next}px)`;
+        }, { passive: false });
+
+        main.addEventListener('touchend', e => {
+          const dx = e.changedTouches[0].clientX - startX;
+          const wasOpen = currentX === -88;
+          const shouldOpen = wasOpen ? dx < 44 : dx < -44;
+          main.style.transition = '';
+          main.style.transform = '';
+          if (dragging) {
+            row.classList.toggle('open', shouldOpen);
+            main.dataset.swiping = '1';
+            setTimeout(() => { main.dataset.swiping = ''; }, 250);
+          }
+        });
+
+        main.addEventListener('click', e => {
+          if (main.dataset.swiping === '1') {
+            e.preventDefault();
+            return;
+          }
+          if (row.classList.contains('open')) {
+            row.classList.remove('open');
+            e.preventDefault();
+            return;
+          }
+          chooseEx(decodeURIComponent(row.dataset.exName));
+        });
+      });
+    }
+
 
     // 並び順モードの切替
     function toggleSortMode() {
@@ -1438,16 +1522,31 @@ function init() {
       renderSheetExList();
     }
 
+    function openAddExModal() {
+      const modal = document.getElementById('addExModal');
+      const input = document.getElementById('newExInput');
+      modal.style.display = 'flex';
+      input.value = '';
+      setTimeout(() => input.focus(), 80);
+    }
+
+    function closeAddExModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      document.getElementById('addExModal').style.display = 'none';
+    }
+
     function addEx() {
       const v = document.getElementById('newExInput').value.trim();
       if (!v) return;
       if (!exercises[activeCategory]) exercises[activeCategory] = [];
-      if (!exercises[activeCategory].includes(v)) {
-        exercises[activeCategory].push(v);
-        saveExercises();
-        document.getElementById('newExInput').value = '';
-        renderSheetExList();
+      if (exercises[activeCategory].includes(v)) {
+        alert('その種目は既に存在します');
+        return;
       }
+      exercises[activeCategory].push(v);
+      saveExercises();
+      closeAddExModal();
+      renderSheetExList();
     }
 
     function renameEx(oldName) {
