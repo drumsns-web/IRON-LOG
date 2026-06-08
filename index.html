@@ -35,11 +35,15 @@
     .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: 600; font-size: 15px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
     .cal-day-name { font-size: 11px; color: var(--muted); padding-bottom: 6px; }
-    .cal-day { padding: 8px 0; border-radius: 8px; font-size: 15px; cursor: pointer; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; min-height: 40px; box-sizing: border-box; }
+    .cal-day { padding: 5px 0 4px; border-radius: 8px; font-size: 15px; cursor: pointer; border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; box-sizing: border-box; }
     .cal-day:active { background: var(--surface-3); }
-    .cal-day.active { color: #000; font-weight: 700; background: var(--accent-brand); }
+    .cal-day.active { color: var(--text); font-weight: 700; background: transparent; }
+    .cal-day-number { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .cal-day.active .cal-day-number { color: #000; background: var(--accent-brand); }
     .cal-day.has-log { position: relative; }
-    .cal-day.has-log::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: var(--accent-2); border-radius: 50%; }
+    .cal-day.has-log::after { display: none; }
+    .cal-dots { display: flex; justify-content: center; align-items: center; gap: 3px; min-height: 6px; max-width: 42px; overflow: hidden; }
+    .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex: 0 0 auto; }
     .cal-day.empty { opacity: 0; pointer-events: none; }
 
     /* Floating Add Button */
@@ -106,6 +110,7 @@
     .cat-tabs::-webkit-scrollbar { display: none; }
     .cat-tab { padding: 8px 16px; border-radius: 20px; background: var(--surface-2); color: var(--muted); font-size: 14px; font-weight: 500; white-space: nowrap; border: 1px solid transparent; cursor: pointer;}
     .cat-tab.active { background: var(--surface-3); color: var(--text); border-color: var(--line); }
+    .cat-tab-color { width: 18px; height: 3px; border-radius: 999px; margin-bottom: 5px; }
     .ex-list { flex: 1; overflow-y: auto; padding: 0 16px; }
     .ex-item { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; font-weight:500;}
     .ex-swipe-row { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
@@ -188,6 +193,54 @@
 }
 .template-row input:focus {
   border-color: var(--accent-brand);
+}
+.color-settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.color-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface-3);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.color-setting-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.color-setting-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+.color-setting-row input[type="color"] {
+  width: 48px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.color-reset-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 }
 .today-template-card {
   background: rgba(208, 253, 62, 0.05);
@@ -377,7 +430,7 @@
     </div>
     <div class="ex-list" id="sheetExList"></div>
     <div id="addExForm" style="display:none; padding:12px 16px; border-top:1px solid var(--line); background:var(--surface);">
-      <button onclick="openAddExModal()" style="width:100%; min-height:48px; border:none; border-radius:12px; background:var(--accent-brand); color:#000; font-size:15px; font-weight:700; cursor:pointer;">+ 新しい種目を追加</button>
+      <button id="addExOpenBtn" onclick="openAddExModal()" style="width:100%; min-height:48px; border:none; border-radius:12px; background:var(--accent-brand); color:#000; font-size:15px; font-weight:700; cursor:pointer;">+ 新しい種目を追加</button>
     </div>
   </div>
   <div class="ex-add-modal" id="addExModal" onclick="closeAddExModal(event)">
@@ -447,6 +500,17 @@
       </div>
     </details>
     <!-- =================================== -->
+
+    <details class="template-details">
+      <summary>🎨 部位カラー</summary>
+      <div class="template-body">
+        <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
+          ここで変更した色は、カレンダー・レポート・記録一覧・種目追加に反映されます。
+        </div>
+        <div class="color-settings-grid" id="catColorSettings"></div>
+        <button class="color-reset-btn" onclick="resetCatColors()">初期カラーに戻す</button>
+      </div>
+    </details>
 
       <div style="font-size:13px; color:var(--muted); margin-bottom:12px;">データのバックアップ・復元</div>
       <div style="display:flex; flex-direction:column; gap:12px;">
@@ -730,6 +794,7 @@
       document.getElementById('sheetOverlay').style.display = 'block';
       setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
       document.getElementById('settingsSheet').style.transform = 'translateY(0)';
+      renderCatColorSettings();
     }
 
     function closeSettingsSheet() {
@@ -750,6 +815,7 @@
       const data = {
         logs: logs,
         exercises: exercises,
+        catColors: catColors,
         exportDate: new Date().toISOString()
       };
       const jsonStr = JSON.stringify(data, null, 2);
@@ -803,6 +869,9 @@
               localStorage.setItem(STORE_LOGS, JSON.stringify(data.logs));
               if (data.exercises) {
                 localStorage.setItem(STORE_EX, JSON.stringify(data.exercises));
+              }
+              if (data.catColors) {
+                localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(data.catColors));
               }
               alert('データを復元しました。画面を再読み込みします。');
               location.reload();
@@ -989,9 +1058,14 @@ function init() {
     }
 
     // 部位ごとの色（記録画面・レポートで共通利用）
-    const catColors = {
+    const STORE_CAT_COLORS = 'ironlog-category-colors-v1';
+    const defaultCatColors = {
       '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
       '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
+    };
+    let catColors = {
+      ...defaultCatColors,
+      ...(JSON.parse(localStorage.getItem(STORE_CAT_COLORS) || '{}'))
     };
 
     function getCategoryForExercise(exName) {
@@ -999,6 +1073,57 @@ function init() {
         if (exList.includes(exName)) return cat;
       }
       return 'その他';
+    }
+
+    function getReadableTextColor(hexColor) {
+      const hex = String(hexColor || '').replace('#', '');
+      if (hex.length !== 6) return '#000';
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return ((r * 299 + g * 587 + b * 114) / 1000) > 150 ? '#000' : '#fff';
+    }
+
+    function renderCatColorSettings() {
+      const container = document.getElementById('catColorSettings');
+      if (!container) return;
+      const cats = Object.keys(defaultCatColors);
+      container.innerHTML = cats.map(cat => {
+        const color = catColors[cat] || defaultCatColors[cat];
+        return `
+          <div class="color-setting-row">
+            <div class="color-setting-label">
+              <span class="color-setting-dot" style="background:${color};"></span>
+              <span>${cat}</span>
+            </div>
+            <input type="color" value="${color}" onchange="saveCatColor('${cat}', this.value)" aria-label="${cat}の色">
+          </div>
+        `;
+      }).join('');
+    }
+
+    function saveCatColor(cat, color) {
+      catColors[cat] = color;
+      localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(catColors));
+      refreshColorDependentViews();
+      renderCatColorSettings();
+    }
+
+    function resetCatColors() {
+      if (!confirm('部位カラーを初期設定に戻しますか？')) return;
+      catColors = { ...defaultCatColors };
+      localStorage.removeItem(STORE_CAT_COLORS);
+      refreshColorDependentViews();
+      renderCatColorSettings();
+    }
+
+    function refreshColorDependentViews() {
+      renderCalendar();
+      renderDailyLogs();
+      renderCatTabs();
+      renderSheetExList();
+      const reportView = document.getElementById('view-report');
+      if (reportView && reportView.classList.contains('active')) renderReport();
     }
 
         function toggleReportDetail(type, cat) {
@@ -1146,6 +1271,18 @@ function init() {
       document.getElementById('reportSetList').innerHTML = setHtml || '<div style="color:var(--muted); text-align:center; padding:12px;">記録なし</div>';
     }
 // --- Daily Home View ---
+    function getCategoriesForDate(dateStr) {
+      const cats = [];
+      logs
+        .filter(l => l.date === dateStr)
+        .sort((a, b) => a.id - b.id)
+        .forEach(l => {
+          const cat = getCategoryForExercise(l.exercise);
+          if (!cats.includes(cat)) cats.push(cat);
+        });
+      return cats;
+    }
+
     function renderCalendar() {
       document.getElementById('calMonth').textContent = `${viewYear}年${viewMonth+1}月`;
       const grid = document.getElementById('calGrid');
@@ -1155,14 +1292,15 @@ function init() {
 
       const firstDay = new Date(viewYear, viewMonth, 1).getDay();
       const lastDate = new Date(viewYear, viewMonth+1, 0).getDate();
-      const logDates = new Set(logs.map(l => l.date));
 
       for(let i=0; i<firstDay; i++) grid.innerHTML += `<div class="cal-day empty"></div>`;
       for(let i=1; i<=lastDate; i++) {
         const dStr = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-        const isHasLog = logDates.has(dStr) ? 'has-log' : '';
+        const dayCats = getCategoriesForDate(dStr);
+        const isHasLog = dayCats.length > 0 ? 'has-log' : '';
         const isActive = dStr === currentDateStr ? 'active' : '';
-        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" onclick="selectDate('${dStr}')">${i}</div>`;
+        const dotsHtml = dayCats.slice(0, 6).map(cat => `<span class="cal-dot" style="background:${catColors[cat] || catColors['その他']};"></span>`).join('');
+        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" onclick="selectDate('${dStr}')"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
       }
     }
 
@@ -1349,11 +1487,19 @@ function init() {
     }
     function renderCatTabs() {
       const tabsDiv = document.getElementById('catTabs');
+      const activeColor = catColors[activeCategory] || catColors['その他'];
+      const addBtn = document.getElementById('addExOpenBtn');
+      if (addBtn) {
+        addBtn.style.background = activeColor;
+        addBtn.style.color = getReadableTextColor(activeColor);
+      }
       tabsDiv.innerHTML = Object.keys(exercises).map(cat => {
         const lastTrained = getLastTrainedDaysString(cat, currentDateStr);
+        const catColor = catColors[cat] || catColors['その他'];
         const lastTrainedHtml = lastTrained === '今日' ? `<div style="font-size:10px; color:var(--accent-brand); margin-top:2px;">今日</div>` : `<div style="font-size:10px; color:var(--muted); margin-top:2px;">${lastTrained}</div>`;
         return `
-        <div class="cat-tab ${cat === activeCategory ? 'active' : ''}" onclick="selectCat('${cat}')" style="display:flex; flex-direction:column; align-items:center; line-height:1.2;">
+        <div class="cat-tab ${cat === activeCategory ? 'active' : ''}" onclick="selectCat('${cat}')" style="display:flex; flex-direction:column; align-items:center; line-height:1.2; ${cat === activeCategory ? `border-color:${catColor};` : ''}">
+          <div class="cat-tab-color" style="background:${catColor};"></div>
           <div>${cat}</div>
           ${lastTrainedHtml}
         </div>
@@ -1406,6 +1552,8 @@ function init() {
       listDiv.innerHTML = displayList.map((e, i) => {
         const safeName = encodeURIComponent(e);
         const label = escapeHtml(e);
+        const exCat = getCategoryForExercise(e);
+        const exColor = catColors[exCat] || catColors['その他'];
         if (isEditMode) {
           const upDis = i === 0 ? 'opacity:0.25; pointer-events:none;' : '';
           const downDis = i === displayList.length - 1 ? 'opacity:0.25; pointer-events:none;' : '';
@@ -1414,6 +1562,7 @@ function init() {
             <div style="display:flex; align-items:center; flex:1; gap:6px; min-width:0;">
               <button onclick="moveEx(decodeURIComponent('${safeName}'),-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
               <button onclick="moveEx(decodeURIComponent('${safeName}'),1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
+              <div style="width:4px; height:16px; background:${exColor}; border-radius:2px; margin-left:4px; flex:0 0 auto;"></div>
               <span style="margin-left:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${label}</span>
             </div>
             <div style="display:flex; gap:8px;">
@@ -1433,7 +1582,7 @@ function init() {
             <div class="ex-swipe-main">
               <div class="ex-item" style="justify-content:space-between;">
                 <div style="display:flex; align-items:center; flex:1; min-width:0;">
-                  <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px; flex:0 0 auto;"></div>
+                  <div style="width:4px; height:16px; background:${exColor}; border-radius:2px; margin-right:12px; flex:0 0 auto;"></div>
                   <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${label}</span>${freqBadge}
                 </div>
               </div>
