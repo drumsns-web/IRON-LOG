@@ -1229,11 +1229,13 @@ function init() {
             <button onclick="editExercise('${g.exercise}')" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">この種目を編集 / セット追加</button>
           </div>
         </div>
+          </div>
+        </div>
       `}).join('');
     }
 
     // --- スワイプで削除 ---
-    let swipeStartX = 0, swipeDeltaX = 0, swipeOpenEl = null;
+    let swipeStartX = 0, swipeStartY = 0, swipeDeltaX = 0, swipeOpenEl = null, swipeDir = null;
 
     function swipeStart(e, idx) {
       const el = document.getElementById('swipe-' + idx);
@@ -1244,14 +1246,24 @@ function init() {
         swipeOpenEl = null;
       }
       swipeStartX = e.touches[0].clientX;
+      swipeStartY = e.touches[0].clientY;
       swipeDeltaX = 0;
+      swipeDir = null;
     }
 
     function swipeMove(e, idx) {
       const el = document.getElementById('swipe-' + idx);
       if (!el) return;
-      swipeDeltaX = e.touches[0].clientX - swipeStartX;
-      let tx = swipeDeltaX;
+      const dx = e.touches[0].clientX - swipeStartX;
+      const dy = e.touches[0].clientY - swipeStartY;
+      // 最初の動きで横/縦どちらの操作か判定（縦なら通常スクロールに任せる）
+      if (swipeDir === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        swipeDir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      }
+      if (swipeDir !== 'h') return;
+      e.preventDefault();
+      swipeDeltaX = dx;
+      let tx = dx;
       if (tx > 0) tx = 0;        // 右方向には動かさない
       if (tx < -88) tx = -88;    // 削除ボタンの幅まで
       el.style.transition = 'none';
@@ -1261,6 +1273,7 @@ function init() {
     function swipeEnd(e, idx) {
       const el = document.getElementById('swipe-' + idx);
       if (!el) return;
+      if (swipeDir !== 'h') { swipeDir = null; return; }
       el.style.transition = 'transform 0.18s ease';
       if (swipeDeltaX < -44) {   // 半分以上スワイプしたら開いた状態で固定
         el.style.transform = 'translateX(-88px)';
@@ -1270,6 +1283,7 @@ function init() {
         if (swipeOpenEl === el) swipeOpenEl = null;
       }
       swipeDeltaX = 0;
+      swipeDir = null;
     }
 
     // 表示中の日付の、指定種目の記録をまとめて削除
