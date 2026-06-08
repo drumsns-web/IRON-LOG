@@ -47,10 +47,10 @@
     .fab-btn { pointer-events: auto; background: var(--accent-brand); color: #000; font-size: 16px; font-weight: 700; border: none; border-radius: 24px; padding: 16px 32px; box-shadow: 0 4px 16px rgba(208, 253, 62, 0.3); display: flex; align-items: center; gap: 8px; cursor: pointer;}
     .fab-btn:active { transform: scale(0.96); }
 
-
-    .swipe-wrap { position: relative; overflow: hidden; }
-    .swipe-card { position: relative; background: inherit; transition: transform 0.18s ease; touch-action: pan-y; }
-    .swipe-delete { position: absolute; top: 0; right: 0; bottom: 0; width: 96px; display: flex; align-items: center; justify-content: center; background: #ff453a; color: #fff; font-weight: 700; border: none; }
+    
+    .swipe-row { position: relative; overflow: hidden; }
+    .swipe-main { position: relative; z-index: 2; background: var(--bg); transition: transform 0.18s ease; touch-action: pan-y; }
+    .swipe-delete { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; background: #ff453a; color: #fff; border: none; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 1; }
 
     /* Daily Logs List */
     .log-group { margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); overflow: hidden;}
@@ -1198,22 +1198,20 @@ function init() {
 
         // CSS for transition
         return `
-        <div class="log-group" style="background:var(--bg); border:none; border-bottom:1px solid var(--line); border-radius:0; margin-bottom:0; position:relative; overflow:hidden;">
+        <div class="swipe-row" style="background:var(--bg); border-bottom:1px solid var(--line);">
           <button class="swipe-delete" onclick="deleteLogGroupByExercise('${g.exercise.replace(/'/g, "\'")}')">削除</button>
-          <div class="swipe-card" id="swipe-${gIdx}" 
-               ontouchstart="swipeStart(event, ${gIdx})" 
-               ontouchmove="swipeMove(event, ${gIdx})" 
-               ontouchend="swipeEnd(event, ${gIdx})">
-            <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
-              <div style="width:4px; height:24px; background:var(--danger); border-radius:2px; margin-right:12px;"></div>
-              <div style="flex:1;">
-                <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
-                <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
+          <div class="swipe-main" id="swipe-${gIdx}" ontouchstart="swipeStart(event, ${gIdx})" ontouchmove="swipeMove(event, ${gIdx})" ontouchend="swipeEnd(event, ${gIdx})">
+            <div class="log-group" style="background:var(--bg); border:none; border-radius:0; margin-bottom:0;">
+              <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+                <div style="width:4px; height:24px; background:var(--danger); border-radius:2px; margin-right:12px;"></div>
+                <div style="flex:1;">
+                  <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
+                  <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
+                </div>
+                <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
               </div>
-              <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
-            </div>
-            <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
-              <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
+              <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
+                <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
               ${(() => {
                 const memoSet = g.sets.find(s => s.memo);
                 return memoSet && memoSet.memo ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoSet.memo}</div>` : '';
