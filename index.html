@@ -343,6 +343,9 @@
       <button id="editExBtn" onclick="toggleEditMode()" style="color:var(--accent-brand);">編集</button>
     </div>
     <div class="cat-tabs" id="catTabs"></div>
+    <div style="display:flex; justify-content:flex-end; align-items:center; padding:8px 16px; border-bottom:1px solid var(--line);">
+      <button id="sortModeBtn" onclick="toggleSortMode()" style="background:var(--surface-2); border:1px solid var(--line); color:var(--muted); font-size:12px; font-weight:600; padding:6px 12px; border-radius:16px; width:auto; min-height:auto; cursor:pointer;">並び: 頻度順</button>
+    </div>
     <div class="ex-list" id="sheetExList"></div>
     <div id="addExForm" style="display:none; padding:16px; border-top:1px solid var(--line); background:var(--surface);">
       <div style="display:flex; gap:8px;">
@@ -499,6 +502,11 @@
     const STORE_EX = 'ironlog-ex-v5';
     let exercises = JSON.parse(localStorage.getItem(STORE_EX));
     if (!exercises || Array.isArray(exercises)) exercises = defaultExercises;
+
+    // 種目リストの並び順モード: 'freq'(頻度順) または 'manual'(手動順)
+    const STORE_SORT = 'ironlog-ex-sort-mode';
+    let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
+
 
     // State
     const todayObj = new Date();
@@ -1219,6 +1227,7 @@ function init() {
       isEditMode = false;
       document.getElementById('editExBtn').textContent = '編集';
       document.getElementById('addExForm').style.display = 'none';
+      updateSortModeBtn();
       renderCatTabs();
       renderSheetExList();
     }
@@ -1267,33 +1276,76 @@ function init() {
         listDiv.innerHTML = '<div style="padding:20px; text-align:center; color:var(--muted);">種目がありません</div>';
         return;
       }
-      // 頻度が高い種目を上に。同頻度なら元の登録順を維持。
       const original = exercises[activeCategory];
-      const sortedList = [...original].sort((a, b) => {
-        const fb = getExerciseFrequency(b), fa = getExerciseFrequency(a);
-        if (fb !== fa) return fb - fa;
-        return original.indexOf(a) - original.indexOf(b);
-      });
-      listDiv.innerHTML = sortedList.map(e => {
-        const freq = getExerciseFrequency(e);
-        const freqBadge = (!isEditMode && freq > 0)
-          ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
-          : '';
-        return `
-        <div class="ex-item" style="justify-content:space-between;">
-          <div style="display:flex; align-items:center; flex:1;" onclick="${isEditMode ? '' : `chooseEx('${e}')`}">
-            <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px; display:${isEditMode ? 'none' : 'block'}"></div>
-            ${e}${freqBadge}
-          </div>
-          ${isEditMode ? `
-            <div style="display:flex; gap:8px;">
-              <button onclick="renameEx('${e}')" style="background:transparent; border:1px solid var(--line); color:var(--text); width:auto; padding:4px 12px; min-height:32px; font-size:12px;">名前変更</button>
-              <button onclick="deleteEx('${e}')" style="background:transparent; border:1px solid var(--danger); color:var(--danger); width:auto; padding:4px 12px; min-height:32px; font-size:12px;">削除</button>
+      // 編集モード中、または手動順モードは配列順（手動順）。それ以外は頻度順（同頻度は配列順を維持）。
+      let displayList;
+      if (isEditMode || exSortMode === 'manual') {
+        displayList = [...original];
+      } else {
+        displayList = [...original].sort((a, b) => {
+          const fb = getExerciseFrequency(b), fa = getExerciseFrequency(a);
+          if (fb !== fa) return fb - fa;
+          return original.indexOf(a) - original.indexOf(b);
+        });
+      }
+
+      listDiv.innerHTML = displayList.map((e, i) => {
+        if (isEditMode) {
+          const upDis = i === 0 ? 'opacity:0.25; pointer-events:none;' : '';
+          const downDis = i === displayList.length - 1 ? 'opacity:0.25; pointer-events:none;' : '';
+          return `
+          <div class="ex-item" style="justify-content:space-between;">
+            <div style="display:flex; align-items:center; flex:1; gap:6px;">
+              <button onclick="moveEx('${e}',-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
+              <button onclick="moveEx('${e}',1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
+              <span style="margin-left:4px;">${e}</span>
             </div>
-          ` : ''}
-        </div>
-      `;
+            <div style="display:flex; gap:8px;">
+              <button onclick="renameEx('${e}')" style="background:transparent; border:1px solid var(--line); color:var(--text); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">名前変更</button>
+              <button onclick="deleteEx('${e}')" style="background:transparent; border:1px solid var(--danger); color:var(--danger); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">削除</button>
+            </div>
+          </div>`;
+        } else {
+          const freq = getExerciseFrequency(e);
+          const freqBadge = freq > 0
+            ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
+            : '';
+          return `
+          <div class="ex-item" style="justify-content:space-between;">
+            <div style="display:flex; align-items:center; flex:1;" onclick="chooseEx('${e}')">
+              <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px;"></div>
+              ${e}${freqBadge}
+            </div>
+          </div>`;
+        }
       }).join('');
+    }
+
+    // 並び順モードの切替
+    function toggleSortMode() {
+      exSortMode = (exSortMode === 'freq') ? 'manual' : 'freq';
+      localStorage.setItem(STORE_SORT, exSortMode);
+      updateSortModeBtn();
+      renderSheetExList();
+    }
+    function updateSortModeBtn() {
+      const btn = document.getElementById('sortModeBtn');
+      if (!btn) return;
+      btn.textContent = exSortMode === 'freq' ? '並び: 頻度順' : '並び: 手動順';
+    }
+
+    // 編集モードでの種目の並べ替え（手動順を保存）
+    function moveEx(eName, direction) {
+      const arr = exercises[activeCategory];
+      const idx = arr.indexOf(eName);
+      if (idx === -1) return;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= arr.length) return;
+      const tmp = arr[idx];
+      arr[idx] = arr[newIdx];
+      arr[newIdx] = tmp;
+      saveExercises();
+      renderSheetExList();
     }
 
     function addEx() {
