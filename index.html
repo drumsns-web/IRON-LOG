@@ -47,11 +47,6 @@
     .fab-btn { pointer-events: auto; background: var(--accent-brand); color: #000; font-size: 16px; font-weight: 700; border: none; border-radius: 24px; padding: 16px 32px; box-shadow: 0 4px 16px rgba(208, 253, 62, 0.3); display: flex; align-items: center; gap: 8px; cursor: pointer;}
     .fab-btn:active { transform: scale(0.96); }
 
-    
-    .swipe-row { position: relative; overflow: hidden; }
-    .swipe-main { position: relative; z-index: 2; background: var(--bg); transition: transform 0.18s ease; touch-action: pan-y; }
-    .swipe-delete { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; background: #ff453a; color: #fff; border: none; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 1; }
-
     /* Daily Logs List */
     .log-group { margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); overflow: hidden;}
     .log-group-header { padding: 12px 16px; font-weight: 600; font-size: 15px; background: var(--surface-3); display: flex; justify-content: space-between;}
@@ -1198,20 +1193,17 @@ function init() {
 
         // CSS for transition
         return `
-        <div class="swipe-row" style="background:var(--bg); border-bottom:1px solid var(--line);">
-          <button class="swipe-delete" onclick="deleteLogGroupByExercise('${g.exercise.replace(/'/g, "\'")}')">削除</button>
-          <div class="swipe-main" id="swipe-${gIdx}" ontouchstart="swipeStart(event, ${gIdx})" ontouchmove="swipeMove(event, ${gIdx})" ontouchend="swipeEnd(event, ${gIdx})">
-            <div class="log-group" style="background:var(--bg); border:none; border-radius:0; margin-bottom:0;">
-              <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
-                <div style="width:4px; height:24px; background:var(--danger); border-radius:2px; margin-right:12px;"></div>
-                <div style="flex:1;">
-                  <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
-                  <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
-                </div>
-                <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
-              </div>
-              <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
-                <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
+        <div class="log-group" style="background:var(--bg); border:none; border-bottom:1px solid var(--line); border-radius:0; margin-bottom:0;">
+          <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+            <div style="width:4px; height:24px; background:var(--danger); border-radius:2px; margin-right:12px;"></div>
+            <div style="flex:1;">
+              <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
+              <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
+            </div>
+            <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
+          </div>
+          <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
+            <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
               ${(() => {
                 const memoSet = g.sets.find(s => s.memo);
                 return memoSet && memoSet.memo ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoSet.memo}</div>` : '';
@@ -1244,6 +1236,64 @@ function init() {
       }
     }
 
+
+    // --- Swipe to Delete (Daily Logs) ---
+    let swipeState = { idx: null, startX: 0, currentX: 0, openIdx: null };
+
+    function swipeStart(e, idx) {
+      if (!e.touches || !e.touches[0]) return;
+      if (swipeState.openIdx !== null && swipeState.openIdx !== idx) {
+        const openEl = document.getElementById(`swipe-${swipeState.openIdx}`);
+        if (openEl) openEl.style.transform = 'translateX(0px)';
+      }
+      swipeState.idx = idx;
+      swipeState.startX = e.touches[0].clientX;
+      swipeState.currentX = swipeState.startX;
+    }
+
+    function swipeMove(e, idx) {
+      if (swipeState.idx !== idx) return;
+      if (!e.touches || !e.touches[0]) return;
+      swipeState.currentX = e.touches[0].clientX;
+      const diff = swipeState.currentX - swipeState.startX;
+      if (diff < 0) {
+        if (Math.abs(diff) > 10) e.preventDefault();
+        const el = document.getElementById(`swipe-${idx}`);
+        if (el) el.style.transform = `translateX(${Math.max(diff, -88)}px)`;
+      }
+    }
+
+    function swipeEnd(e, idx) {
+      if (swipeState.idx !== idx) return;
+      const diff = swipeState.currentX - swipeState.startX;
+      const el = document.getElementById(`swipe-${idx}`);
+      if (el) el.style.transition = 'transform 0.18s ease';
+      if (diff < -42) {
+        if (el) el.style.transform = 'translateX(-88px)';
+        swipeState.openIdx = idx;
+      } else {
+        if (el) el.style.transform = 'translateX(0px)';
+        swipeState.openIdx = null;
+      }
+      swipeState.idx = null;
+    }
+
+    function closeOpenSwipe() {
+      if (swipeState.openIdx === null) return;
+      const openEl = document.getElementById(`swipe-${swipeState.openIdx}`);
+      if (openEl) openEl.style.transform = 'translateX(0px)';
+      swipeState.openIdx = null;
+    }
+
+    function deleteLogGroupByExercise(exName) {
+      if (!confirm(`「${exName}」を本日の記録から削除しますか？`)) return;
+      logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === exName));
+      localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+      closeOpenSwipe();
+      renderCalendar();
+      renderDailyLogs();
+      updateReportData();
+    }
 
     // --- Sheet ---
     function openExSheet() {
