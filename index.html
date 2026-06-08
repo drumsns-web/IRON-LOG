@@ -38,15 +38,21 @@
     .cal-day { padding: 8px 0; border-radius: 8px; font-size: 15px; cursor: pointer; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; min-height: 40px; box-sizing: border-box; }
     .cal-day:active { background: var(--surface-3); }
     .cal-day.active { color: #000; font-weight: 700; background: var(--accent-brand); }
-    .cal-day { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 8px; }
+    .cal-day.has-log { position: relative; }
+    .cal-day.has-log::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: var(--accent-2); border-radius: 50%; }
     .cal-day.empty { opacity: 0; pointer-events: none; }
-    .cal-dots { display: flex; gap: 2px; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
-    .cal-dot { width: 4px; height: 4px; border-radius: 50%; }
 
     /* Floating Add Button */
     .fab-container { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 50;}
     .fab-btn { pointer-events: auto; background: var(--accent-brand); color: #000; font-size: 16px; font-weight: 700; border: none; border-radius: 24px; padding: 16px 32px; box-shadow: 0 4px 16px rgba(208, 253, 62, 0.3); display: flex; align-items: center; gap: 8px; cursor: pointer;}
     .fab-btn:active { transform: scale(0.96); }
+
+    
+    /* Swipe to delete */
+    .swipe-container { position: relative; overflow: hidden; }
+    .swipe-content { position: relative; z-index: 2; transition: transform 0.2s ease-out; background: var(--bg); }
+    .swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; z-index: 1; }
+    .swipe-delete-btn { background: var(--danger); color: white; border: none; padding: 0 24px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 80px; }
 
     /* Daily Logs List */
     .log-group { margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); overflow: hidden;}
@@ -1129,33 +1135,14 @@ function init() {
 
       const firstDay = new Date(viewYear, viewMonth, 1).getDay();
       const lastDate = new Date(viewYear, viewMonth+1, 0).getDate();
-      const logsByDate = {};
-      logs.forEach(l => {
-        if (!logsByDate[l.date]) logsByDate[l.date] = new Set();
-        logsByDate[l.date].add(getCategoryForExercise(l.exercise));
-      });
-
-      const catColorMapCal = {
-        '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
-        '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
-      };
+      const logDates = new Set(logs.map(l => l.date));
 
       for(let i=0; i<firstDay; i++) grid.innerHTML += `<div class="cal-day empty"></div>`;
       for(let i=1; i<=lastDate; i++) {
         const dStr = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        const isHasLog = logDates.has(dStr) ? 'has-log' : '';
         const isActive = dStr === currentDateStr ? 'active' : '';
-
-        let dotsHtml = '';
-        if (logsByDate[dStr]) {
-          const cats = Array.from(logsByDate[dStr]);
-          const displayCats = cats.slice(0, 5);
-          dotsHtml = `<div class="cal-dots">` + displayCats.map(c => `<div class="cal-dot" style="background:${catColorMapCal[c] || catColorMapCal['その他']}"></div>`).join('') + `</div>`;
-        }
-
-        grid.innerHTML += `<div class="cal-day ${isActive}" onclick="selectDate('${dStr}')">
-          <div style="z-index:1">${i}</div>
-          ${dotsHtml}
-        </div>`;
+        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" onclick="selectDate('${dStr}')">${i}</div>`;
       }
     }
 
@@ -1211,18 +1198,21 @@ function init() {
           totalVol += (s.weight * s.reps);
         });
 
-        const catColorMapLog = {
-          '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
-          '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
-        };
-        const cat = getCategoryForExercise(g.exercise);
-        const barColor = catColorMapLog[cat] || catColorMapLog['その他'];
-
         // CSS for transition
+        // Extract set IDs for deletion
+        const setIds = g.sets.map(s => s.id).join(',');
+
         return `
-        <div class="log-group" style="background:var(--bg); border:none; border-bottom:1px solid var(--line); border-radius:0; margin-bottom:0;">
-          <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
-            <div style="width:4px; height:24px; background:${barColor}; border-radius:2px; margin-right:12px;"></div>
+        <div class="log-group swipe-container" style="background:var(--bg); border:none; border-bottom:1px solid var(--line); border-radius:0; margin-bottom:0;">
+          <div class="swipe-actions">
+            <button class="swipe-delete-btn" onclick="deleteLogGroup('${setIds}')">削除</button>
+          </div>
+          <div class="swipe-content" id="swipe-content-${gIdx}" 
+               ontouchstart="handleSwipeStart(event, ${gIdx})" 
+               ontouchmove="handleSwipeMove(event, ${gIdx})" 
+               ontouchend="handleSwipeEnd(event, ${gIdx})">
+            <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+            <div style="width:4px; height:24px; background:var(--danger); border-radius:2px; margin-right:12px;"></div>
             <div style="flex:1;">
               <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
               <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
@@ -1334,24 +1324,12 @@ function init() {
         });
       }
 
-      const catColorMap = {
-        '胸': '#e74c3c',
-        '肩': '#e67e22',
-        '腕': '#f1c40f',
-        '背中': '#9b59b6',
-        '脚': '#2ecc71',
-        '腹': '#3498db',
-        'その他': '#95a5a6'
-      };
-      const catColor = catColorMap[activeCategory] || catColorMap['その他'];
-      const glow = catColor + '22';
-      const border = catColor + '55';
       listDiv.innerHTML = displayList.map((e, i) => {
         if (isEditMode) {
           const upDis = i === 0 ? 'opacity:0.25; pointer-events:none;' : '';
           const downDis = i === displayList.length - 1 ? 'opacity:0.25; pointer-events:none;' : '';
           return `
-          <div class="ex-item" style="justify-content:space-between; background:linear-gradient(90deg, ${glow}, transparent); border-left:4px solid ${catColor}; padding-left:12px; border-radius:10px; margin-bottom:8px;">
+          <div class="ex-item" style="justify-content:space-between;">
             <div style="display:flex; align-items:center; flex:1; gap:6px;">
               <button onclick="moveEx('${e}',-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
               <button onclick="moveEx('${e}',1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
@@ -1368,9 +1346,10 @@ function init() {
             ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
             : '';
           return `
-          <div class="ex-item" onclick="chooseEx('${e}')" style="justify-content:space-between; background:linear-gradient(90deg, ${glow}, transparent); border-left:4px solid ${catColor}; padding-left:12px; border-radius:10px; margin-bottom:8px;">
-            <div style="display:flex; align-items:center; flex:1;">
-              <span>${e}</span>${freqBadge}
+          <div class="ex-item" style="justify-content:space-between;">
+            <div style="display:flex; align-items:center; flex:1;" onclick="chooseEx('${e}')">
+              <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px;"></div>
+              ${e}${freqBadge}
             </div>
           </div>`;
         }
