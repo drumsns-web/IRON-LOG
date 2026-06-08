@@ -1,42 +1,20 @@
-はい、それでは**コピー用のコード全文**を出力します。
-
-コードが長いため、チャット画面上でスクロールしやすくコピー漏れが起きにくいように、**テキストファイル**としてもご用意しました。以下のファイルリンクを開くとブラウザ上でコードがそのままテキスト表示されるので、そこから「すべて選択 → コピー」すると簡単です。
-
-[index_full_code.txt を開く](sandbox:/root/index_full_code.txt)
-
-もしチャット画面から直接コピーしたい場合は、以下のコードブロック右上の「コピー」ボタンをご利用ください。
-
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Iron Log</title>
-  <!-- ... existing styles and head ... -->
+  <title>Iron Log - 統合版</title>
   <style>
     :root {
-      --bg: #000000;
-      --surface: #121212;
-      --surface-2: #1c1c1e;
-      --surface-3: #2c2c2e;
-      --text: #f3f5f7;
-      --muted: #8e8e93;
-      --line: #2c2c2e;
-      --accent: #ff453a;
-      --accent-brand: #d0fd3e;
-      --accent-2: #32d74b;
+      --bg: #000000; --surface: #121212; --surface-2: #1c1c1e; --surface-3: #2c2c2e;
+      --text: #f3f5f7; --muted: #8e8e93; --line: #2c2c2e;
+      --accent: #ff453a; --accent-brand: #d0fd3e; --accent-2: #32d74b;
       --danger: #ff453a;
       --radius: 12px;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh;}
+
     .app { max-width: 600px; margin: 0 auto; padding: 16px; padding-bottom: 100px; }
 
     /* View Management */
@@ -45,83 +23,81 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
     /* Header */
-    .header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;}
     h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
     .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
 
     .card { background: var(--surface); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; border: 1px solid var(--line); }
-
     .section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .section-title h2 { margin: 0; font-size: 16px; font-weight: 600; }
 
-    /* Calendar from v4 */
+    /* Calendar (from v4) */
     .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: 600; font-size: 15px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
     .cal-day-name { font-size: 11px; color: var(--muted); padding-bottom: 6px; }
+    .cal-day { padding: 8px 0; border-radius: 8px; font-size: 15px; cursor: pointer; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; min-height: 40px; box-sizing: border-box; }
+    .cal-day:active { background: var(--surface-3); }
+    .cal-day.active { color: #000; font-weight: 700; background: var(--accent-brand); }
     .cal-day { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 8px; }
     .cal-day.empty { opacity: 0; pointer-events: none; }
     .cal-dots { display: flex; gap: 2px; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); }
     .cal-dot { width: 4px; height: 4px; border-radius: 50%; }
-    .cal-day:active { background: var(--surface-3); }
-    .cal-day.active { color: #000; font-weight: 700; background: var(--accent-brand); }
-    .cal-day.has-log { position: relative; }
-    .cal-day.has-log::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: var(--accent-2); border-radius: 50%; }
-    .cal-day.empty { opacity: 0; pointer-events: none; }
 
     /* Floating Add Button */
     .fab-container { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 50;}
-    .fab-btn { pointer-events: auto; background: var(--accent-brand); color: #000; font-size: 16px; font-weight: 700; border: none; border-radius: 24px; padding: 16px 32px; box-shadow: 0 4px 16px rgba(208, 253, 62, 0.3); display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .fab-btn { pointer-events: auto; background: var(--accent-brand); color: #000; font-size: 16px; font-weight: 700; border: none; border-radius: 24px; padding: 16px 32px; box-shadow: 0 4px 16px rgba(208, 253, 62, 0.3); display: flex; align-items: center; gap: 8px; cursor: pointer;}
     .fab-btn:active { transform: scale(0.96); }
 
     /* Daily Logs List */
-    .log-group { margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); overflow: hidden; }
-    .log-group-header { padding: 12px 16px; font-weight: 600; font-size: 15px; background: var(--surface-3); display: flex; justify-content: space-between; }
-    .log-row { display: flex; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
+    .log-group { margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); overflow: hidden;}
+    .log-group-header { padding: 12px 16px; font-weight: 600; font-size: 15px; background: var(--surface-3); display: flex; justify-content: space-between;}
+    .log-row { display: flex; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 14px;}
     .log-row:last-child { border-bottom: none; }
-    .log-row .tag { font-size: 11px; color: var(--muted); background: var(--surface); padding: 2px 6px; border-radius: 4px; }
+    .log-row .tag { font-size: 11px; color: var(--muted); background: var(--surface); padding: 2px 6px; border-radius: 4px;}
     .empty-msg { color: var(--muted); text-align: center; padding: 30px; font-size: 14px; }
 
     /* --- EXERCISE ENTRY VIEW --- */
-    .nav-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-top: 8px; }
-    .nav-header .back-btn { width: 36px; height: 36px; border-radius: 18px; background: var(--surface-2); display: flex; justify-content: center; align-items: center; border: none; color: #fff; cursor: pointer; font-size: 20px; line-height: 1; }
+    .nav-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding-top: 8px;}
+    .nav-header .back-btn { width: 36px; height: 36px; border-radius: 18px; background: var(--surface-2); display: flex; justify-content: center; align-items: center; border: none; color: #fff; cursor: pointer; font-size: 20px; line-height: 1;}
     .nav-header h1 { margin: 0; font-size: 18px; font-weight: 600; flex: 1; text-align: center; }
 
-    .set-list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; overflow:hidden; }
-    .set-header { display: flex; padding: 10px 16px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); font-weight: 600; }
-    .set-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); gap: 10px; transition: background 0.2s; }
+    .set-list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; overflow:hidden;}
+    .set-header { display: flex; padding: 10px 16px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); font-weight: 600;}
+    .set-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); gap: 10px; transition: background 0.2s;}
     .set-row:last-child { border-bottom: none; }
     .set-row.is-done { background: rgba(50, 215, 75, 0.05); }
 
     .set-label { width: 44px; font-size: 14px; font-weight: 600; color: var(--muted); text-align: center;}
 
     /* Input Box with Placeholder styled like ghost value */
-    .input-box { flex: 1; background: var(--surface-2); border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: space-between; border: 1px solid transparent; }
-    .input-box:focus-within { border-color: var(--accent-brand); }
-    .input-box input { background: transparent; border: none; color: #fff; font-size: 18px; font-weight: 700; width: 100%; text-align: right; outline: none; padding: 0; margin-right: 4px; }
+    .input-box { flex: 1; background: var(--surface-2); border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: space-between; border: 1px solid transparent;}
+    .input-box.focus-within { border-color: var(--accent-brand); }
+    .input-box input { background: transparent; border: none; color: #fff; font-size: 18px; font-weight: 700; width: 100%; text-align: right; outline: none; padding: 0; margin-right: 4px;}
     .input-box input::placeholder { color: rgba(255,255,255,0.25); font-weight: 500; } /* Thin/Ghost color for previous value */
     .input-box span { color: var(--muted); font-size: 12px; font-weight: 600; }
 
-    .rpe-box { width: 50px; background: var(--surface-2); border-radius: 8px; padding: 0 4px; display: flex; align-items: center; justify-content: center; }
-    .rpe-box select { background: transparent; border: none; color: #fff; font-size: 14px; width: 100%; height: 38px; outline: none; appearance: none; text-align: center; font-weight:600; }
+    .rpe-box { width: 50px; background: var(--surface-2); border-radius: 8px; padding: 0 4px; display: flex; align-items: center; justify-content: center;}
+    .rpe-box select { background: transparent; border: none; color: #fff; font-size: 14px; width: 100%; height: 38px; outline: none; appearance: none; text-align: center; font-weight:600;}
 
-    .check-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-3); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 16px; font-weight: bold; transition: 0.2s; }
+    .check-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-3); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 16px; font-weight: bold; transition: 0.2s;}
     .check-btn.checked { background: var(--accent-2); color: #000; }
 
-    .set-controls { display: flex; gap: 16px; padding: 12px 16px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; }
+    .set-controls { display: flex; gap: 16px; padding: 12px 16px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px;}
     .set-controls button { background: var(--surface-2); border: none; color: #fff; font-size: 18px; width: 100%; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px; font-weight: bold;}
 
-    .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer; }
+    .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer;}
+    
     .save-btn:active { transform: scale(0.98); }
-
-    .ai-copy-btn { width: 100%; padding: 14px; background: transparent; border: 1px solid var(--line); border-radius: 12px; color: #fff; font-size: 14px; font-weight: 600; margin-top: 12px; cursor: pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:0.2s; }
+    .ai-copy-btn { width: 100%; padding: 14px; background: transparent; border: 1px solid var(--line); border-radius: 12px; color: #fff; font-size: 14px; font-weight: 600; margin-top: 12px; cursor: pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:0.2s;}
     .ai-copy-btn:active { background: var(--surface-3); }
+
 
     /* Ex Selection Bottom Sheet */
     .sheet-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; z-index: 100; backdrop-filter: blur(2px); transition: opacity 0.2s; opacity: 0; }
     .sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-radius: 20px 20px 0 0; padding: 0; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 101; display: flex; flex-direction: column; max-height: 90vh; }
     .sheet-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); }
     .sheet-header h3 { margin: 0; font-size: 16px; }
-    .sheet-header button { width: auto; min-height: 30px; padding: 0 12px; font-size: 14px; background: transparent; color: var(--muted); border: none; cursor: pointer; }
+    .sheet-header button { width: auto; min-height: 30px; padding: 0 12px; font-size: 14px; background: transparent; color: var(--muted); border: none; cursor: pointer;}
     .cat-tabs { display: flex; overflow-x: auto; padding: 12px 16px; gap: 8px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
     .cat-tabs::-webkit-scrollbar { display: none; }
     .cat-tab { padding: 8px 16px; border-radius: 20px; background: var(--surface-2); color: var(--muted); font-size: 14px; font-weight: 500; white-space: nowrap; border: 1px solid transparent; cursor: pointer;}
@@ -195,14 +171,13 @@
 .template-row input:focus {
   border-color: var(--accent-brand);
 }
-
 .today-template-card {
   background: rgba(208, 253, 62, 0.05);
   border: 1px solid rgba(208, 253, 62, 0.2);
   border-radius: var(--radius);
   padding: 12px 16px;
   margin-bottom: 16px;
-  display: none;
+  display: none; /* 予定がない場合は隠す */
 }
 .today-template-card .title {
   font-size: 12px;
@@ -217,16 +192,16 @@
   white-space: pre-wrap;
 }
 
-/* iOS特有のバウンススクロール対応 */
-#settingsSheet { }
+/* iOSキーボード被り対策: settingsSheetのスクロール領域調整 */
 #settingsSheetScroll {
-  padding: 24px 16px; 
-  overflow-y: auto; 
+  padding: 24px 16px;
+  overflow-y: auto;
   max-height: calc(100vh - 120px);
-  -webkit-overflow-scrolling: touch; 
-  padding-bottom: 300px; /* キーボード領域確保 */
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 300px; /* キーボードが出たとき用の余白を強制的に確保 */
 }
-  </style>
+
+</style>
 
   <link rel="icon" href="./icon.png" type="image/png">
   <link rel="apple-touch-icon" href="./icon.png">
@@ -236,11 +211,10 @@
 
   <!-- VIEW 1: Daily Home (Calendar & Logs) -->
   <div id="view-daily" class="app view active">
-    
     <div class="header">
       <div>
         <h1>Iron Log</h1>
-        <div class="sub" id="todayLabel"></div>
+        <div class="sub" id="todayLabel">今日</div>
       </div>
       <button onclick="openSettingsSheet()" style="background:var(--surface-2); border:1px solid var(--line); color:var(--text); width:36px; height:36px; border-radius:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px;">⚙️</button>
     </div>
@@ -270,7 +244,6 @@
         <button onclick="dismissBackupPrompt()" style="width:80px; background:var(--surface-3); color:var(--text); border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">あとで</button>
       </div>
     </div>
-
     <!-- Calendar -->
     <div class="card" style="padding: 12px 16px;">
       <div class="cal-header">
@@ -286,17 +259,1615 @@
       <h2 id="logTitle">記録</h2>
       <button id="reorderBtn" onclick="openReorderSheet()" style="display:none; background:transparent; border:none; color:var(--accent-brand); font-size:14px; font-weight:600; cursor:pointer;">並び替え</button>
     </div>
-
     <div id="dailyLogsContainer"></div>
 
     <div class="fab-container">
-      <button class="fab-btn" onclick="openExSheet()">
-        <span>＋</span> 種目を追加
-      </button>
+      <button class="fab-btn" onclick="openExSheet()">＋ 種目を追加</button>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Exercise Entry (Sets List) -->
+  <div id="view-exercise" class="app view">
+    <div class="nav-header">
+      <button class="back-btn" onclick="switchView('view-daily')">‹</button>
+      <h1 id="headerTitle">種目名</h1>
+      <button class="back-btn" style="font-size:13px; font-weight:700; background:var(--surface-3); color:var(--text);" onclick="openRmSheet()">RM</button>
+    </div>
+
+    <div class="set-list">
+      <div class="set-header">
+        <div style="width:44px; text-align:center">セット</div>
+        <div style="flex:1; text-align:center">kg</div>
+        <div style="flex:1; text-align:center">回</div>
+        <div style="width:50px; text-align:center">RPE</div>
+        <div style="width:36px; text-align:center">✓</div>
+      </div>
+      <div id="setListContainer">
+        <!-- Sets rendered here -->
+      </div>
+    </div>
+
+    <div class="set-controls">
+      <button onclick="removeSetRow()">− セット削除</button>
+      <button onclick="addSetRow()">＋ セット追加</button>
+    </div>
+
+    <div class="card" style="padding:12px; margin-bottom:16px; background:var(--surface-2); border:1px solid var(--line);">
+      <div style="display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div id="prevOrderBox" style="font-size:12px; color:var(--accent-brand); font-weight:600; display:none;"></div>
+        <div id="prevMemoBox" style="font-size:12px; color:var(--muted); display:none;"></div>
+      </div>
+      <input type="text" id="sessionMemo" placeholder="フォームの意識・メモを入力..." style="width:100%; background:transparent; border:none; color:#fff; font-size:14px; outline:none;">
+    </div>
+
+    <div id="adviceBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.1); border:1px solid rgba(208, 253, 62, 0.2); color:var(--accent-brand); font-size:13px; line-height:1.5;"></div>
+
+    
+    <button class="save-btn" onclick="saveWorkout()">チェックしたセットを保存</button>
+    <button class="ai-copy-btn" onclick="openAiSheet()">
+      <span style="font-size:16px;">🤖</span> AIに相談する（状況をコピー）
+    </button>
+    <div style="text-align:center; font-size:12px; color:var(--muted); margin-top:12px;">
+
+      前回記録が自動で入力・チェックされています。<br>変更がある部分だけ上書きしてください。
+    </div>
+  </div>
+
+  <!-- Bottom Sheet: Exercise Selection -->
+  
+    <!-- Report View -->
+    <div id="view-report" class="app view" style="padding-left:16px; padding-right:16px;">
+      <div class="floating-nav">
+        <div id="nav-daily-report" class="floating-nav-btn" onclick="switchView('view-daily')">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" stroke-width="1.8"/><path d="M7.5 3.5V7" stroke-width="1.8" stroke-linecap="round"/><path d="M16.5 3.5V7" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 9.5H20.5" stroke-width="1.8" stroke-linecap="round"/><path d="M8 13h3" stroke-width="1.8" stroke-linecap="round"/><path d="M8 17h8" stroke-width="1.8" stroke-linecap="round"/></svg>記録
+        </div>
+        <div id="nav-report-report" class="floating-nav-btn active" onclick="switchView('view-report')">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19.5V10.5" stroke-width="1.8" stroke-linecap="round"/><path d="M12 19.5V5.5" stroke-width="1.8" stroke-linecap="round"/><path d="M19 19.5V13.5" stroke-width="1.8" stroke-linecap="round"/><path d="M3.5 19.5H20.5" stroke-width="1.8" stroke-linecap="round"/></svg>レポート
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px;">
+        <div>
+          <h2 style="font-size:24px; font-weight:800;">レポート</h2>
+          <div id="reportWeekLabel" style="font-size:13px; color:var(--muted); margin-top:4px;"></div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button onclick="changeReportWeek(-1)" style="background:var(--surface-2); border:none; color:var(--text); width:36px; height:36px; border-radius:18px; font-size:16px;">◀</button>
+          <button onclick="changeReportWeek(1)" style="background:var(--surface-2); border:none; color:var(--text); width:36px; height:36px; border-radius:18px; font-size:16px;">▶</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">今週のボリューム</h3>
+        <div id="reportVolumeList"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">今週のセット数</h3>
+        <div id="reportSetList"></div>
+      </div>
+    </div>
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeAllSheets()"></div>
+  <div class="sheet" id="exSheet">
+    <div class="sheet-header">
+      <button onclick="closeExSheet()">キャンセル</button>
+      <h3>種目を選択</h3>
+      <button id="editExBtn" onclick="toggleEditMode()" style="color:var(--accent-brand);">編集</button>
+    </div>
+    <div class="cat-tabs" id="catTabs"></div>
+    <div style="display:flex; justify-content:flex-end; align-items:center; padding:8px 16px; border-bottom:1px solid var(--line);">
+      <button id="sortModeBtn" onclick="toggleSortMode()" style="background:var(--surface-2); border:1px solid var(--line); color:var(--muted); font-size:12px; font-weight:600; padding:6px 12px; border-radius:16px; width:auto; min-height:auto; cursor:pointer;">並び: 頻度順</button>
+    </div>
+    <div class="ex-list" id="sheetExList"></div>
+    <div id="addExForm" style="display:none; padding:16px; border-top:1px solid var(--line); background:var(--surface);">
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="newExInput" placeholder="現在の部位に種目を追加" style="flex:1;">
+        <button onclick="addEx()" style="background:var(--surface-3); width:auto; padding:0 16px;">追加</button>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- RM Chart Sheet -->
+  <div class="sheet" id="rmSheet">
+    <div class="sheet-header">
+      <button onclick="closeRmSheet()" style="color:var(--muted); border:none; background:transparent;">閉じる</button>
+      <h3>RM換算表</h3>
+      <div style="width:60px"></div>
+    </div>
+    <div style="padding: 16px; overflow-y:auto; max-height: 70vh;">
+      <div style="display:flex; gap:12px; margin-bottom:12px;">
+        <div class="input-box" style="flex:1; background:var(--surface-2);">
+          <input type="number" inputmode="decimal" id="rmCalcWeight" placeholder="重量" onfocus="this.select()" oninput="renderRmTable()" style="text-align:right;">
+          <span>kg</span>
+        </div>
+        <div style="display:flex; align-items:center; color:var(--muted); font-size:16px;">×</div>
+        <div class="input-box" style="width:100px; background:var(--surface-2);">
+          <input type="number" inputmode="numeric" id="rmCalcReps" placeholder="回数" value="1" onfocus="this.select()" oninput="renderRmTable()" style="text-align:right;">
+          <span>回</span>
+        </div>
+      </div>
+      <div style="text-align:center; margin-bottom:16px; padding:12px; background:var(--surface-2); border-radius:8px;">
+        <span style="color:var(--muted); font-size:13px; font-weight:600; margin-right:8px;">推定 1RM</span>
+        <strong id="rmEst1RM" style="font-size:22px; color:var(--accent-brand);">--</strong> <span style="font-size:14px;">kg</span>
+      </div>
+      <div id="rmTableContainer"></div>
     </div>
   </div>
 
 
-  <!-- VIEW 2: Exercise
 
-情報源
+  <!-- Settings Sheet -->
+  <div class="sheet" id="settingsSheet">
+    <div class="sheet-header">
+      <button onclick="closeSettingsSheet()" style="color:var(--muted); border:none; background:transparent; font-size:14px; padding:0;">閉じる</button>
+      <h3>設定・データ管理</h3>
+      <div style="width:40px"></div>
+    </div>
+    <div id="settingsSheetScroll">
+      
+    <!-- ===== 追加: 曜日別テンプレート編集 ===== -->
+    <details class="template-details">
+      <summary>🗓️ 曜日ごとの予定テンプレート</summary>
+      <div class="template-body">
+        <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
+          曜日ごとによくやる部位やメモを入れておくと、ホーム画面に今日の予定として表示されます。
+        </div>
+        <div class="template-row"><label>月曜日</label><input type="text" id="tmpl-1" placeholder="例: 胸（ベンチ重め）✕ 脚 ＋ 肩" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        <div class="template-row"><label>火曜日</label><input type="text" id="tmpl-2" placeholder="例: 背中（厚み） ✕ もも裏 ✕ 腹筋" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        <div class="template-row"><label>水曜日</label><input type="text" id="tmpl-3" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        <div class="template-row"><label>木曜日</label><input type="text" id="tmpl-4" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        <div class="template-row"><label>金曜日</label><input type="text" id="tmpl-5" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        <div class="template-row"><label>土曜日</label><input type="text" id="tmpl-6" placeholder="完全休み" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        <div class="template-row"><label>日曜日</label><input type="text" id="tmpl-0" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+      </div>
+    </details>
+    <!-- =================================== -->
+
+      <div style="font-size:13px; color:var(--muted); margin-bottom:12px;">データのバックアップ・復元</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <button onclick="exportData()" style="background:var(--surface-3); border:1px solid var(--line); color:#fff; padding:16px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
+          <span>📤</span> バックアップを保存 (JSON)
+        </button>
+
+        <button onclick="document.getElementById('importInput').click()" style="background:transparent; border:1px solid var(--line); color:var(--text); padding:16px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
+          <span>📥</span> データを復元する
+        </button>
+        <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+      </div>
+      <div style="font-size:12px; color:var(--muted); margin-top:16px; line-height:1.5;">
+        ※現在のデータはブラウザ（SafariやChrome）内に保存されています。機種変更時や、ブラウザの履歴を削除するとデータが消えるため、定期的なバックアップをおすすめします。
+      </div>
+    </div>
+  </div>
+  <!-- Reorder Sheet -->
+  <div class="sheet" id="reorderSheet">
+    <div class="sheet-header">
+      <button onclick="closeReorderSheet()" style="color:var(--muted); border:none; background:transparent; font-size:14px; padding:0;">閉じる</button>
+      <h3>種目の順番</h3>
+      <div style="width:40px"></div>
+    </div>
+    <div id="reorderList" style="padding:16px; overflow-y:auto; max-height:70vh;"></div>
+  </div>
+  <!-- AI Settings Sheet -->
+  <div class="sheet" id="aiSheet">
+    <div class="sheet-header">
+      <button onclick="closeAiSheet()" style="color:var(--muted); border:none; background:transparent;">キャンセル</button>
+      <h3>AI相談の設定</h3>
+      <div style="width:60px"></div>
+    </div>
+    <div style="padding: 16px; overflow-y:auto; max-height: 80vh;">
+
+      <label style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">本日のテーマ・強度</label>
+      <select id="aiGoal" style="width:100%; padding:14px; margin-bottom:24px; background:var(--surface-2); border:1px solid var(--line); color:#fff; border-radius:8px; font-size:16px; outline:none;">
+        <option value="高強度（筋力UP・MAX更新）">高強度（筋力UP・MAX更新）</option>
+        <option value="中強度（筋肥大・ボリューム）">中強度（筋肥大・ボリューム）</option>
+        <option value="低強度（フォーム練習・スピード）">低強度（フォーム練習・スピード）</option>
+        <option value="ディロード（疲労抜き）">ディロード（疲労抜き）</option>
+      </select>
+
+      <label style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">相談内容（コンテキスト量）</label>
+      <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:32px;">
+        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
+          <input type="radio" name="aiType" value="nextSet" checked style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
+          <div>
+            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">次セットの重量・回数</div>
+            <div style="font-size:12px; color:var(--muted);">現在の種目の今日と前回のセットだけを送信</div>
+          </div>
+        </label>
+
+        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
+          <input type="radio" name="aiType" value="exercise" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
+          <div>
+            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">次の種目選び・メニュー</div>
+            <div style="font-size:12px; color:var(--muted);">現在の部位の今日のメニューのみを送信</div>
+          </div>
+        </label>
+
+        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
+          <input type="radio" name="aiType" value="volume" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
+          <div>
+            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">全体のボリューム・疲労度</div>
+            <div style="font-size:12px; color:var(--muted);">本日の全てのトレーニング記録を送信</div>
+          </div>
+        </label>
+      </div>
+
+      <button class="save-btn" onclick="generateAndCopyAI()" style="margin-top:0;">プロンプトをコピー</button>
+    </div>
+  </div>
+
+  <script>
+    // Data Storage
+    const STORE_LOGS = 'ironlog-data-v4'; 
+    let logs = JSON.parse(localStorage.getItem(STORE_LOGS) || '[]');
+
+    const defaultExercises = {
+      "胸": ["インクラインダンベルプレス", "インクラインベンチプレス", "ダンベルフライ", "ダンベルプレス", "ベンチプレス", "チェストプレス"],
+      "肩": ["オーバーヘッドプレス", "サイドレイズ", "リアレイズ", "フロントレイズ"],
+      "背中": ["デッドリフト", "バーベルロウ", "ラットプルダウン", "チンニング"],
+      "脚": ["スクワット", "レッグプレス", "レッグエクステンション"],
+      "腕": ["バーベルカール", "ダンベルカール", "プレスダウン"],
+      "腹": ["アブローラー", "クランチ"]
+    };
+    
+    const STORE_EX = 'ironlog-ex-v5';
+    let exercises = JSON.parse(localStorage.getItem(STORE_EX));
+    if (!exercises || Array.isArray(exercises)) exercises = defaultExercises;
+
+    // 種目リストの並び順モード: 'freq'(頻度順) または 'manual'(手動順)
+    const STORE_SORT = 'ironlog-ex-sort-mode';
+    let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
+
+
+    // State
+    const todayObj = new Date();
+    let currentDateStr = formatDate(todayObj);
+    let viewYear = todayObj.getFullYear();
+    let viewMonth = todayObj.getMonth();
+
+    let activeCategory = "胸";
+    let selectedExercise = "";
+
+    // Set UI state
+    let currentSets = [];
+
+    // Utils
+    function formatDate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
+    
+    function closeAllSheets() {
+      closeExSheet();
+      closeRmSheet();
+      closeAiSheet();
+      closeReorderSheet();
+      closeSettingsSheet();
+    }
+
+    function openRmSheet() {
+      document.getElementById('sheetOverlay').style.display = 'block';
+      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      document.getElementById('rmSheet').style.transform = 'translateY(0)';
+
+      if (window.lastValidSetData) {
+        document.getElementById('rmCalcWeight').value = window.lastValidSetData.w;
+        document.getElementById('rmCalcReps').value = window.lastValidSetData.r;
+      } else if (window.currentBest1RM > 0) {
+        document.getElementById('rmCalcWeight').value = (Math.round(window.currentBest1RM * 10) / 10).toFixed(1);
+        document.getElementById('rmCalcReps').value = 1;
+      }
+      renderRmTable();
+    }
+
+    function closeRmSheet() {
+      document.getElementById('sheetOverlay').style.opacity = '0';
+      document.getElementById('rmSheet').style.transform = 'translateY(100%)';
+      setTimeout(() => {
+        // Only hide overlay if no other sheets are open
+        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('exSheet').style.transform !== 'translateY(0px)') {
+          document.getElementById('sheetOverlay').style.display = 'none';
+        }
+      }, 300);
+    }
+
+    function renderRmTable() {
+      const w = parseFloat(document.getElementById('rmCalcWeight').value) || 0;
+      const r = parseInt(document.getElementById('rmCalcReps').value) || 1;
+      const container = document.getElementById('rmTableContainer');
+      const estDisplay = document.getElementById('rmEst1RM');
+
+      if(w <= 0 || r <= 0) {
+        estDisplay.textContent = '--';
+        container.innerHTML = '<div style="text-align:center; color:var(--muted); padding:20px;">重量と回数を入力してください</div>';
+        return;
+      }
+
+      // Epley Formula
+      const base = (r === 1) ? w : w * (1 + r / 30);
+      estDisplay.textContent = (Math.round(base * 10) / 10).toFixed(1);
+
+      let tableHtml = '<div style="background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden;">';
+
+      for(let i=1; i<=12; i++) {
+        const repWeight = (i === 1) ? base : base / (1 + i / 30);
+        const rounded = Math.round(repWeight * 10) / 10;
+        const pct = Math.round((repWeight / base) * 100);
+
+        tableHtml += `
+          <div style="display:flex; justify-content:space-between; padding:12px 16px; border-bottom:${i<12 ? '1px solid var(--line)' : 'none'};">
+            <div style="width:60px; font-weight:600; color:var(--muted);">${i} RM</div>
+            <div style="flex:1; text-align:right; font-weight:700; font-size:16px;">${rounded.toFixed(1)} kg</div>
+            <div style="width:50px; text-align:right; color:var(--muted); font-size:12px; display:flex; align-items:center; justify-content:flex-end;">${pct}%</div>
+          </div>
+        `;
+      }
+      tableHtml += '</div>';
+      container.innerHTML = tableHtml;
+    }
+
+    
+    function openReorderSheet() {
+      renderReorderList();
+      document.getElementById('sheetOverlay').style.display = 'block';
+      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      document.getElementById('reorderSheet').style.transform = 'translateY(0)';
+    }
+
+    function closeReorderSheet() {
+      document.getElementById('sheetOverlay').style.opacity = '0';
+      document.getElementById('reorderSheet').style.transform = 'translateY(100%)';
+      setTimeout(() => {
+        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('exSheet').style.transform !== 'translateY(0px)' &&
+           document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0px)' &&
+           document.getElementById('aiSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)' &&
+           document.getElementById('reorderSheet').style.transform !== 'translateY(0)' && document.getElementById('reorderSheet').style.transform !== 'translateY(0px)') {
+          document.getElementById('sheetOverlay').style.display = 'none';
+        }
+      }, 300);
+    }
+
+    function renderReorderList() {
+      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
+      const groups = [];
+      dayLogs.forEach(l => {
+        if(groups.length > 0 && groups[groups.length-1].exercise === l.exercise) {
+          // skip
+        } else {
+          groups.push(l.exercise);
+        }
+      });
+
+      const container = document.getElementById('reorderList');
+      if(groups.length <= 1) {
+        container.innerHTML = '<div style="color:var(--muted); text-align:center;">並び替える種目がありません</div>';
+        return;
+      }
+
+      container.innerHTML = groups.map((ex, idx) => {
+        const upDisabled = idx === 0 ? 'opacity:0.2; pointer-events:none;' : '';
+        const downDisabled = idx === groups.length-1 ? 'opacity:0.2; pointer-events:none;' : '';
+        return `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 0; border-bottom:1px solid var(--line);">
+          <div style="font-weight:600; font-size:15px;">${idx+1}. ${ex}</div>
+          <div style="display:flex; gap:12px;">
+            <button onclick="moveExercise(${idx}, -1)" style="background:var(--surface-3); border:none; color:#fff; width:44px; height:44px; border-radius:8px; font-size:18px; cursor:pointer; ${upDisabled}">↑</button>
+            <button onclick="moveExercise(${idx}, 1)" style="background:var(--surface-3); border:none; color:#fff; width:44px; height:44px; border-radius:8px; font-size:18px; cursor:pointer; ${downDisabled}">↓</button>
+          </div>
+        </div>
+        `;
+      }).join('');
+    }
+
+    function moveExercise(idx, direction) {
+      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
+      const otherLogs = logs.filter(l => l.date !== currentDateStr);
+
+      const groups = [];
+      dayLogs.forEach(l => {
+        if(groups.length > 0 && groups[groups.length-1].exercise === l.exercise) {
+          groups[groups.length-1].sets.push(l);
+        } else {
+          groups.push({ exercise: l.exercise, sets: [l] });
+        }
+      });
+
+      const newIdx = idx + direction;
+      if(newIdx < 0 || newIdx >= groups.length) return;
+
+      // Swap
+      const temp = groups[idx];
+      groups[idx] = groups[newIdx];
+      groups[newIdx] = temp;
+
+      // Re-assign IDs based on current timestamp to enforce new sorting
+      let baseId = Date.now() - 100000;
+      const newDayLogs = [];
+      groups.forEach((g, gIndex) => {
+        g.sets.forEach((s, sIndex) => {
+          s.id = baseId + (gIndex * 1000) + sIndex;
+          newDayLogs.push(s);
+        });
+      });
+
+      logs = [...otherLogs, ...newDayLogs];
+      localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+
+      renderReorderList();
+      renderDailyLogs();
+    }
+
+    
+    function openSettingsSheet() {
+      document.getElementById('sheetOverlay').style.display = 'block';
+      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      document.getElementById('settingsSheet').style.transform = 'translateY(0)';
+    }
+
+    function closeSettingsSheet() {
+      document.getElementById('sheetOverlay').style.opacity = '0';
+      document.getElementById('settingsSheet').style.transform = 'translateY(100%)';
+      setTimeout(() => {
+        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('exSheet').style.transform !== 'translateY(0px)' &&
+           document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0px)' &&
+           document.getElementById('aiSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)' &&
+           document.getElementById('reorderSheet').style.transform !== 'translateY(0)' && document.getElementById('reorderSheet').style.transform !== 'translateY(0px)' &&
+           document.getElementById('settingsSheet').style.transform !== 'translateY(0)' && document.getElementById('settingsSheet').style.transform !== 'translateY(0px)') {
+          document.getElementById('sheetOverlay').style.display = 'none';
+        }
+      }, 300);
+    }
+
+        function exportData() {
+      const data = {
+        logs: logs,
+        exercises: exercises,
+        exportDate: new Date().toISOString()
+      };
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const filename = `ironlog_backup_${currentDateStr}.json`;
+
+      // Mark prompt as dismissed
+      const d = new Date();
+      localStorage.setItem('ironlog-backup-prompt', `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+      const promptEl = document.getElementById('backupPrompt');
+      if (promptEl) promptEl.style.display = 'none';
+
+      // Use Web Share API if available (fixes iOS PWA black screen issue)
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: 'application/json' });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({
+            files: [file],
+            title: 'Iron Log Backup',
+          }).catch(err => {
+            if (err.name !== 'AbortError') fallbackDownload(blob, filename);
+          });
+          return;
+        }
+      }
+
+      fallbackDownload(blob, filename);
+    }
+
+    function fallbackDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.logs && Array.isArray(data.logs)) {
+            if (confirm('現在のデータは上書きされます。復元してもよろしいですか？')) {
+              localStorage.setItem(STORE_LOGS, JSON.stringify(data.logs));
+              if (data.exercises) {
+                localStorage.setItem(STORE_EX, JSON.stringify(data.exercises));
+              }
+              alert('データを復元しました。画面を再読み込みします。');
+              location.reload();
+            }
+          } else {
+            alert('正しいバックアップファイルではありません。');
+          }
+        } catch (err) {
+          alert('ファイルの読み込みに失敗しました。');
+          console.error(err);
+        }
+        // Reset input
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    
+    function checkBackupPrompt() {
+      const d = new Date();
+      const yyyyMm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const lastPrompt = localStorage.getItem('ironlog-backup-prompt');
+
+      // 毎月1日〜7日の間に、まだその月にバックアップや「あとで」を選択していない場合に表示
+      if (d.getDate() <= 7 && lastPrompt !== yyyyMm) {
+        document.getElementById('backupPrompt').style.display = 'block';
+      }
+    }
+
+    function dismissBackupPrompt() {
+      const d = new Date();
+      const yyyyMm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      localStorage.setItem('ironlog-backup-prompt', yyyyMm);
+      document.getElementById('backupPrompt').style.display = 'none';
+    }
+
+    function doPromptBackup() {
+      exportData();
+      dismissBackupPrompt();
+    }
+
+    // Init
+    
+/* --- iOSキーボード被り対策用のスクロール補助関数 --- */
+function scrollToInput(el) {
+  setTimeout(() => {
+    // スクロールコンテナを取得
+    const scrollContainer = document.getElementById('settingsSheetScroll');
+    if(scrollContainer) {
+      // 要素の位置までスムーズにスクロールさせる
+      const y = el.getBoundingClientRect().top + scrollContainer.scrollTop - 100;
+      scrollContainer.scrollTo({top: y, behavior: 'smooth'});
+    }
+  }, 300); // キーボードが出現するのを少し待つ
+}
+
+/* --- 曜日テンプレート用のJavaScript --- */
+const STORE_TMPL = 'ironlog-templates';
+const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+function loadTemplates() {
+  const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
+  for (let i = 0; i <= 6; i++) {
+    const input = document.getElementById(`tmpl-${i}`);
+    if (input && data[i]) {
+      input.value = data[i];
+    }
+  }
+  if (typeof currentDateStr !== 'undefined') {
+      updateTodayTemplate();
+  }
+}
+
+function saveTemplates() {
+  const data = {};
+  for (let i = 0; i <= 6; i++) {
+    const val = document.getElementById(`tmpl-${i}`).value.trim();
+    if (val) data[i] = val;
+  }
+  localStorage.setItem(STORE_TMPL, JSON.stringify(data));
+  updateTodayTemplate();
+}
+
+function updateTodayTemplate() {
+  if (typeof currentDateStr === 'undefined') return;
+  const d = new Date(currentDateStr);
+  const dayIndex = d.getDay(); // 0(日) 〜 6(土)
+  const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
+
+  const card = document.getElementById('todayTemplateCard');
+  const title = document.getElementById('todayTemplateTitle');
+  const content = document.getElementById('todayTemplateContent');
+
+  const todayTask = data[dayIndex];
+
+  if (todayTask) {
+    title.textContent = `🔥 今日の予定（${dayNames[dayIndex]}）`;
+    content.textContent = todayTask;
+    card.style.display = 'block';
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+function init() {
+      renderCalendar();
+      selectDate(currentDateStr);
+      checkBackupPrompt();
+  loadTemplates();
+    }
+
+    // --- View Navigation ---
+    function switchView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      const target = document.getElementById(viewId);
+      if (target) target.classList.add('active');
+
+      document.querySelectorAll('.floating-nav-btn').forEach(i => i.classList.remove('active'));
+      if (viewId === 'view-daily' || viewId === 'view-exercise') {
+        ['nav-daily', 'nav-daily-report'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('active');
+        });
+      } else if (viewId === 'view-report') {
+        ['nav-report', 'nav-report-report'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('active');
+        });
+      }
+
+      if (viewId === 'view-daily') {
+        const dObj = new Date(currentDateStr);
+        viewYear = dObj.getFullYear();
+        viewMonth = dObj.getMonth();
+        renderCalendar();
+        renderDailyLogs();
+        updateTodayTemplate();
+      } else if (viewId === 'view-report') {
+        reportDateObj = new Date();
+        renderReport();
+      }
+      window.scrollTo(0,0);
+    }
+
+    
+    // --- Report View ---
+    let reportDateObj = new Date();
+
+    function getStartOfWeek(d) {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = date.getDate() - day;
+      return new Date(date.setDate(diff));
+    }
+
+    function changeReportWeek(delta) {
+      reportDateObj.setDate(reportDateObj.getDate() + (delta * 7));
+      renderReport();
+    }
+
+    
+    function getLastTrainedDaysString(catName, referenceDateStr) {
+      // Find logs for this category BEFORE or ON the referenceDateStr
+      const refDate = new Date(referenceDateStr);
+      let lastDateStr = null;
+
+      const sortedLogs = logs.sort((a,b) => a.date > b.date ? -1 : 1); // newest first
+      for (const l of sortedLogs) {
+        if (l.date <= referenceDateStr && getCategoryForExercise(l.exercise) === catName) {
+          lastDateStr = l.date;
+          break;
+        }
+      }
+
+      if (!lastDateStr) return '未実施';
+      if (lastDateStr === referenceDateStr) return '今日';
+
+      const lastDateObj = new Date(lastDateStr);
+      const diffTime = Math.abs(refDate - lastDateObj);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) return '昨日';
+      return `${diffDays}日前`;
+    }
+
+    function getCategoryForExercise(exName) {
+      for (const [cat, exList] of Object.entries(exercises)) {
+        if (exList.includes(exName)) return cat;
+      }
+      return 'その他';
+    }
+
+        function toggleReportDetail(type, cat) {
+      const el = document.getElementById(`detail-${type}-${cat}`);
+      const arrow = document.getElementById(`arrow-${type}-${cat}`);
+      if (!el) return;
+      if (el.style.display === 'none') {
+        el.style.display = 'block';
+        if(arrow) arrow.style.transform = 'rotate(90deg)';
+      } else {
+        el.style.display = 'none';
+        if(arrow) arrow.style.transform = 'rotate(0deg)';
+      }
+    }
+
+    function renderReport() {
+      const startOfWeek = getStartOfWeek(reportDateObj);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+      const prevStartOfWeek = new Date(startOfWeek);
+      prevStartOfWeek.setDate(startOfWeek.getDate() - 7);
+      const prevEndOfWeek = new Date(prevStartOfWeek);
+      prevEndOfWeek.setDate(prevStartOfWeek.getDate() + 6);
+
+      const fStart = formatDate(startOfWeek);
+      const fEnd = formatDate(endOfWeek);
+      const fPrevStart = formatDate(prevStartOfWeek);
+      const fPrevEnd = formatDate(prevEndOfWeek);
+
+      document.getElementById('reportWeekLabel').textContent = `${fStart.replace(/-/g,'/')} 〜 ${fEnd.replace(/-/g,'/')}`;
+
+      const currentStats = { volume: {}, sets: {}, exVol: {}, exSets: {} };
+      const prevStats = { volume: {}, sets: {} };
+
+      const allCats = ['胸', '肩', '背中', '脚', '腕', '腹', 'その他'];
+      allCats.forEach(cat => {
+        currentStats.volume[cat] = 0; currentStats.sets[cat] = 0;
+        currentStats.exVol[cat] = {}; currentStats.exSets[cat] = {};
+        prevStats.volume[cat] = 0; prevStats.sets[cat] = 0;
+      });
+
+      logs.forEach(l => {
+        const cat = getCategoryForExercise(l.exercise);
+        const vol = (parseFloat(l.weight) || 0) * (parseInt(l.reps, 10) || 0);
+
+        if (l.date >= fStart && l.date <= fEnd) {
+          currentStats.volume[cat] += vol;
+          currentStats.sets[cat] += 1;
+
+          currentStats.exVol[cat][l.exercise] = (currentStats.exVol[cat][l.exercise] || 0) + vol;
+          currentStats.exSets[cat][l.exercise] = (currentStats.exSets[cat][l.exercise] || 0) + 1;
+        } else if (l.date >= fPrevStart && l.date <= fPrevEnd) {
+          prevStats.volume[cat] += vol;
+          prevStats.sets[cat] += 1;
+        }
+      });
+
+      const catColors = {
+        '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
+        '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
+      };
+
+      const volHtml = allCats.map(cat => {
+        if (cat === 'その他' && currentStats.volume[cat] === 0 && prevStats.volume[cat] === 0) return '';
+        const cur = currentStats.volume[cat];
+        const prev = prevStats.volume[cat];
+        const diff = cur - prev;
+        const diffStr = diff > 0 ? `+${diff.toLocaleString()}` : diff.toLocaleString();
+        const diffColor = diff > 0 ? 'var(--success)' : (diff < 0 ? 'var(--danger)' : 'var(--muted)');
+
+        const hasData = Object.keys(currentStats.exVol[cat]).length > 0;
+        const chevron = hasData ? `<div id="arrow-vol-${cat}" style="color:var(--muted); font-size:16px; margin-left:8px; transition:transform 0.2s;">›</div>` : `<div style="width:24px;"></div>`;
+
+        const exList = Object.keys(currentStats.exVol[cat]).sort((a,b) => currentStats.exVol[cat][b] - currentStats.exVol[cat][a]);
+        const detailsHtml = exList.map(ex => `
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px; border-bottom:1px dashed rgba(255,255,255,0.05); padding-bottom:6px;">
+            <div style="color:var(--muted); font-weight:500;">${ex}</div>
+            <div style="font-weight:600; color:var(--text);">${currentStats.exVol[cat][ex].toLocaleString()} kg <span style="font-size:11px; font-weight:normal; color:var(--muted); margin-left:4px;">(${currentStats.exSets[cat][ex]} sets)</span></div>
+          </div>
+        `).join('');
+
+        return `
+        <div style="border-bottom:1px solid var(--line);">
+          <div onclick="${hasData ? `toggleReportDetail('vol', '${cat}')` : ''}" style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; cursor:${hasData ? 'pointer' : 'default'};">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="width:4px; height:24px; background:${catColors[cat] || catColors['その他']}; border-radius:2px;"></div>
+              <div style="font-weight:600; font-size:16px;">
+                ${cat}
+                <span style="font-size:11px; color:var(--muted); font-weight:normal; margin-left:8px; background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px;">前回: ${getLastTrainedDaysString(cat, formatDate(new Date()))}</span>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center;">
+              <div style="text-align:right;">
+                <div style="font-size:18px; font-weight:700;">${cur.toLocaleString()} <span style="font-size:12px; font-weight:normal; color:var(--muted)">kg</span></div>
+                <div style="font-size:12px; color:${diffColor};">前週比: ${diffStr} kg</div>
+              </div>
+              ${chevron}
+            </div>
+          </div>
+          <div id="detail-vol-${cat}" style="display:none; padding: 8px 16px 12px 28px; background:rgba(255,255,255,0.01);">
+            ${detailsHtml}
+          </div>
+        </div>`;
+      }).join('');
+      document.getElementById('reportVolumeList').innerHTML = volHtml || '<div style="color:var(--muted); text-align:center; padding:12px;">記録なし</div>';
+
+      const setHtml = allCats.map(cat => {
+        if (cat === 'その他' && currentStats.sets[cat] === 0 && prevStats.sets[cat] === 0) return '';
+        const cur = currentStats.sets[cat];
+        const prev = prevStats.sets[cat];
+        const diff = cur - prev;
+        const diffStr = diff > 0 ? `+${diff}` : diff;
+        const diffColor = diff > 0 ? 'var(--success)' : (diff < 0 ? 'var(--danger)' : 'var(--muted)');
+
+        const hasData = Object.keys(currentStats.exSets[cat]).length > 0;
+        const chevron = hasData ? `<div id="arrow-set-${cat}" style="color:var(--muted); font-size:16px; margin-left:8px; transition:transform 0.2s;">›</div>` : `<div style="width:24px;"></div>`;
+
+        const exList = Object.keys(currentStats.exSets[cat]).sort((a,b) => currentStats.exSets[cat][b] - currentStats.exSets[cat][a]);
+        const detailsHtml = exList.map(ex => `
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px; border-bottom:1px dashed rgba(255,255,255,0.05); padding-bottom:6px;">
+            <div style="color:var(--muted); font-weight:500;">${ex}</div>
+            <div style="font-weight:600; color:var(--text);">${currentStats.exSets[cat][ex]} セット</div>
+          </div>
+        `).join('');
+
+        return `
+        <div style="border-bottom:1px solid var(--line);">
+          <div onclick="${hasData ? `toggleReportDetail('set', '${cat}')` : ''}" style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; cursor:${hasData ? 'pointer' : 'default'};">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="width:4px; height:24px; background:${catColors[cat] || catColors['その他']}; border-radius:2px;"></div>
+              <div style="font-weight:600; font-size:16px;">
+                ${cat}
+                <span style="font-size:11px; color:var(--muted); font-weight:normal; margin-left:8px; background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px;">前回: ${getLastTrainedDaysString(cat, formatDate(new Date()))}</span>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center;">
+              <div style="text-align:right;">
+                <div style="font-size:18px; font-weight:700;">${cur} <span style="font-size:12px; font-weight:normal; color:var(--muted)">セット</span></div>
+                <div style="font-size:12px; color:${diffColor};">前週比: ${diffStr} セット</div>
+              </div>
+              ${chevron}
+            </div>
+          </div>
+          <div id="detail-set-${cat}" style="display:none; padding: 8px 16px 12px 28px; background:rgba(255,255,255,0.01);">
+            ${detailsHtml}
+          </div>
+        </div>`;
+      }).join('');
+      document.getElementById('reportSetList').innerHTML = setHtml || '<div style="color:var(--muted); text-align:center; padding:12px;">記録なし</div>';
+    }
+// --- Daily Home View ---
+    function renderCalendar() {
+      document.getElementById('calMonth').textContent = `${viewYear}年${viewMonth+1}月`;
+      const grid = document.getElementById('calGrid');
+      grid.innerHTML = '';
+      const days = ['日','月','火','水','木','金','土'];
+      days.forEach(d => { grid.innerHTML += `<div class="cal-day-name">${d}</div>`; });
+
+      const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+      const lastDate = new Date(viewYear, viewMonth+1, 0).getDate();
+      const logsByDate = {};
+      logs.forEach(l => {
+        if (!logsByDate[l.date]) logsByDate[l.date] = new Set();
+        logsByDate[l.date].add(getCategoryForExercise(l.exercise));
+      });
+
+      const catColorMapCal = {
+        '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
+        '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
+      };
+
+      for(let i=0; i<firstDay; i++) grid.innerHTML += `<div class="cal-day empty"></div>`;
+      for(let i=1; i<=lastDate; i++) {
+        const dStr = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        const isActive = dStr === currentDateStr ? 'active' : '';
+
+        let dotsHtml = '';
+        if (logsByDate[dStr]) {
+          const cats = Array.from(logsByDate[dStr]);
+          const displayCats = cats.slice(0, 5);
+          dotsHtml = `<div class="cal-dots">` + displayCats.map(c => `<div class="cal-dot" style="background:${catColorMapCal[c] || catColorMapCal['その他']}"></div>`).join('') + `</div>`;
+        }
+
+        grid.innerHTML += `<div class="cal-day ${isActive}" onclick="selectDate('${dStr}')">
+          <div style="z-index:1">${i}</div>
+          ${dotsHtml}
+        </div>`;
+      }
+    }
+
+    function changeMonth(delta) {
+      viewMonth += delta;
+      if(viewMonth > 11) { viewMonth = 0; viewYear++; }
+      if(viewMonth < 0) { viewMonth = 11; viewYear--; }
+      renderCalendar();
+    }
+
+    function selectDate(dStr) {
+      currentDateStr = dStr;
+      const d = new Date(dStr);
+      const isToday = dStr === formatDate(new Date());
+      document.getElementById('todayLabel').textContent = isToday ? '今日' : `${d.getMonth()+1}月${d.getDate()}日`;
+      document.getElementById('logTitle').textContent = isToday ? '今日の記録' : `${d.getMonth()+1}月${d.getDate()}日の記録`;
+
+      // Do NOT force viewYear/viewMonth to change here, so user can browse other months while a date in another month is selected.
+      // Just re-render calendar to update the 'active' highlight if it's in the current view.
+      renderCalendar();
+      renderDailyLogs();
+    }
+
+    function renderDailyLogs() {
+      const container = document.getElementById('dailyLogsContainer');
+      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
+
+      if(dayLogs.length === 0) {
+        container.innerHTML = '<div class="empty-msg" style="padding-top:60px;">記録がありません</div>';
+        const reorderBtn = document.getElementById('reorderBtn');
+        if (reorderBtn) reorderBtn.style.display = 'none';
+        return;
+      }
+
+      // Group by exercise (maintaining order of entry)
+      const groups = [];
+      dayLogs.forEach(l => {
+        if(groups.length > 0 && groups[groups.length-1].exercise === l.exercise) {
+          groups[groups.length-1].sets.push(l);
+        } else {
+          groups.push({ exercise: l.exercise, sets: [l], id: groups.length });
+        }
+      });
+
+      const reorderBtn = document.getElementById('reorderBtn');
+      if (reorderBtn) reorderBtn.style.display = groups.length > 1 ? 'block' : 'none';
+
+      container.innerHTML = groups.map((g, gIdx) => {
+        let maxWeight = 0;
+        let totalVol = 0;
+        g.sets.forEach(s => {
+          if (s.weight > maxWeight) maxWeight = s.weight;
+          totalVol += (s.weight * s.reps);
+        });
+
+        const catColorMapLog = {
+          '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
+          '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
+        };
+        const cat = getCategoryForExercise(g.exercise);
+        const barColor = catColorMapLog[cat] || catColorMapLog['その他'];
+
+        // CSS for transition
+        return `
+        <div class="log-group" style="background:var(--bg); border:none; border-bottom:1px solid var(--line); border-radius:0; margin-bottom:0;">
+          <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+            <div style="width:4px; height:24px; background:${barColor}; border-radius:2px; margin-right:12px;"></div>
+            <div style="flex:1;">
+              <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
+              <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
+            </div>
+            <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
+          </div>
+          <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
+            <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
+              ${(() => {
+                const memoSet = g.sets.find(s => s.memo);
+                return memoSet && memoSet.memo ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoSet.memo}</div>` : '';
+              })()}
+              ${g.sets.map((s, idx) => {
+                const tag = (s.isWarmup || s.isForm) ? 'UP' : `RPE ${s.rpe}`;
+                return `
+                <div class="log-row" style="background:transparent;">
+                  <div style="width:30px; color:var(--muted)">${idx+1}</div>
+                  <div style="flex:1; font-weight:600;">${s.weight}kg × ${s.reps}回</div>
+                  <div class="tag">${tag}</div>
+                </div>`;
+              }).join('')}
+            </div>
+            <button onclick="editExercise('${g.exercise}')" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">この種目を編集 / セット追加</button>
+          </div>
+        </div>
+      `}).join('');
+    }
+
+    function toggleLogGroup(idx) {
+      const setsDiv = document.getElementById(`sets-${idx}`);
+      const arrow = document.getElementById(`arrow-${idx}`);
+      if (setsDiv.style.display === 'none') {
+        setsDiv.style.display = 'block';
+        arrow.style.transform = 'rotate(90deg)';
+      } else {
+        setsDiv.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+      }
+    }
+
+
+    // --- Sheet ---
+    function openExSheet() {
+      document.getElementById('sheetOverlay').style.display = 'block';
+      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      document.getElementById('exSheet').style.transform = 'translateY(0)';
+      isEditMode = false;
+      document.getElementById('editExBtn').textContent = '編集';
+      document.getElementById('addExForm').style.display = 'none';
+      updateSortModeBtn();
+      renderCatTabs();
+      renderSheetExList();
+    }
+    function closeExSheet() {
+      document.getElementById('sheetOverlay').style.opacity = '0';
+      document.getElementById('exSheet').style.transform = 'translateY(100%)';
+      setTimeout(() => document.getElementById('sheetOverlay').style.display = 'none', 300);
+    }
+    function renderCatTabs() {
+      const tabsDiv = document.getElementById('catTabs');
+      tabsDiv.innerHTML = Object.keys(exercises).map(cat => {
+        const lastTrained = getLastTrainedDaysString(cat, currentDateStr);
+        const lastTrainedHtml = lastTrained === '今日' ? `<div style="font-size:10px; color:var(--accent-brand); margin-top:2px;">今日</div>` : `<div style="font-size:10px; color:var(--muted); margin-top:2px;">${lastTrained}</div>`;
+        return `
+        <div class="cat-tab ${cat === activeCategory ? 'active' : ''}" onclick="selectCat('${cat}')" style="display:flex; flex-direction:column; align-items:center; line-height:1.2;">
+          <div>${cat}</div>
+          ${lastTrainedHtml}
+        </div>
+        `;
+      }).join('');
+    }
+    function selectCat(cat) {
+      activeCategory = cat;
+      renderCatTabs();
+      renderSheetExList();
+    }
+
+    let isEditMode = false;
+
+    function toggleEditMode() {
+      isEditMode = !isEditMode;
+      document.getElementById('editExBtn').textContent = isEditMode ? '完了' : '編集';
+      document.getElementById('addExForm').style.display = isEditMode ? 'block' : 'none';
+      renderSheetExList();
+    }
+
+    // 種目の実施頻度（その種目を行った日数）を返す
+    function getExerciseFrequency(exName) {
+      const days = new Set(logs.filter(l => l.exercise === exName).map(l => l.date));
+      return days.size;
+    }
+
+    function renderSheetExList() {
+      const listDiv = document.getElementById('sheetExList');
+      if (!exercises[activeCategory] || exercises[activeCategory].length === 0) {
+        listDiv.innerHTML = '<div style="padding:20px; text-align:center; color:var(--muted);">種目がありません</div>';
+        return;
+      }
+      const original = exercises[activeCategory];
+      // 編集モード中、または手動順モードは配列順（手動順）。それ以外は頻度順（同頻度は配列順を維持）。
+      let displayList;
+      if (isEditMode || exSortMode === 'manual') {
+        displayList = [...original];
+      } else {
+        displayList = [...original].sort((a, b) => {
+          const fb = getExerciseFrequency(b), fa = getExerciseFrequency(a);
+          if (fb !== fa) return fb - fa;
+          return original.indexOf(a) - original.indexOf(b);
+        });
+      }
+
+      const catColorMap = {
+        '胸': '#e74c3c',
+        '肩': '#e67e22',
+        '腕': '#f1c40f',
+        '背中': '#9b59b6',
+        '脚': '#2ecc71',
+        '腹': '#3498db',
+        'その他': '#95a5a6'
+      };
+      const catColor = catColorMap[activeCategory] || catColorMap['その他'];
+      const glow = catColor + '22';
+      const border = catColor + '55';
+      listDiv.innerHTML = displayList.map((e, i) => {
+        if (isEditMode) {
+          const upDis = i === 0 ? 'opacity:0.25; pointer-events:none;' : '';
+          const downDis = i === displayList.length - 1 ? 'opacity:0.25; pointer-events:none;' : '';
+          return `
+          <div class="ex-item" style="justify-content:space-between; background:linear-gradient(90deg, ${glow}, transparent); border-left:4px solid ${catColor}; padding-left:12px; border-radius:10px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; flex:1; gap:6px;">
+              <button onclick="moveEx('${e}',-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
+              <button onclick="moveEx('${e}',1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
+              <span style="margin-left:4px;">${e}</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button onclick="renameEx('${e}')" style="background:transparent; border:1px solid var(--line); color:var(--text); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">名前変更</button>
+              <button onclick="deleteEx('${e}')" style="background:transparent; border:1px solid var(--danger); color:var(--danger); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">削除</button>
+            </div>
+          </div>`;
+        } else {
+          const freq = getExerciseFrequency(e);
+          const freqBadge = freq > 0
+            ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
+            : '';
+          return `
+          <div class="ex-item" onclick="chooseEx('${e}')" style="justify-content:space-between; background:linear-gradient(90deg, ${glow}, transparent); border-left:4px solid ${catColor}; padding-left:12px; border-radius:10px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; flex:1;">
+              <span>${e}</span>${freqBadge}
+            </div>
+          </div>`;
+        }
+      }).join('');
+    }
+
+    // 並び順モードの切替
+    function toggleSortMode() {
+      exSortMode = (exSortMode === 'freq') ? 'manual' : 'freq';
+      localStorage.setItem(STORE_SORT, exSortMode);
+      updateSortModeBtn();
+      renderSheetExList();
+    }
+    function updateSortModeBtn() {
+      const btn = document.getElementById('sortModeBtn');
+      if (!btn) return;
+      btn.textContent = exSortMode === 'freq' ? '並び: 頻度順' : '並び: 手動順';
+    }
+
+    // 編集モードでの種目の並べ替え（手動順を保存）
+    function moveEx(eName, direction) {
+      const arr = exercises[activeCategory];
+      const idx = arr.indexOf(eName);
+      if (idx === -1) return;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= arr.length) return;
+      const tmp = arr[idx];
+      arr[idx] = arr[newIdx];
+      arr[newIdx] = tmp;
+      saveExercises();
+      renderSheetExList();
+    }
+
+    function addEx() {
+      const v = document.getElementById('newExInput').value.trim();
+      if (!v) return;
+      if (!exercises[activeCategory]) exercises[activeCategory] = [];
+      if (!exercises[activeCategory].includes(v)) {
+        exercises[activeCategory].push(v);
+        saveExercises();
+        document.getElementById('newExInput').value = '';
+        renderSheetExList();
+      }
+    }
+
+    function renameEx(oldName) {
+      const newName = prompt('新しい種目名を入力してください', oldName);
+      if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
+      const cleanName = newName.trim();
+      if (exercises[activeCategory].includes(cleanName)) return alert('その種目は既に存在します');
+
+      const idx = exercises[activeCategory].indexOf(oldName);
+      if (idx > -1) {
+        exercises[activeCategory][idx] = cleanName;
+        // 過去のログの種目名も更新するかどうか（今回はシンプルに名前だけ変える）
+        logs.forEach(l => { if (l.exercise === oldName) l.exercise = cleanName; });
+        localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+        saveExercises();
+        renderSheetExList();
+      }
+    }
+
+    function deleteEx(eName) {
+      if (!confirm(`「${eName}」を削除しますか？\n※過去の記録は消えません`)) return;
+      exercises[activeCategory] = exercises[activeCategory].filter(e => e !== eName);
+      saveExercises();
+      renderSheetExList();
+    }
+
+    function saveExercises() {
+      localStorage.setItem(STORE_EX, JSON.stringify(exercises));
+    }
+
+
+    // --- Exercise Entry Flow ---
+    
+    function editExercise(eName) {
+      selectedExercise = eName;
+      document.getElementById('headerTitle').textContent = eName;
+      loadPrevSets();
+      switchView('view-exercise');
+    }
+
+    function chooseEx(eName) {
+      selectedExercise = eName;
+      document.getElementById('headerTitle').textContent = eName;
+      closeExSheet();
+      loadPrevSets();
+      switchView('view-exercise');
+    }
+
+    // 指定日にその種目が何種目目だったか（1始まり、未実施は0）
+    function getExOrderOnDate(dateStr, exName) {
+      const dayLogs = logs.filter(l => l.date === dateStr).sort((a,b) => a.id - b.id);
+      const order = [];
+      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
+      return order.indexOf(exName) + 1;
+    }
+
+    // 今日この種目が何種目目になるか（既にあればその順、なければ次の番号）
+    function getTodayPlannedOrder(exName) {
+      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
+      const order = [];
+      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
+      const idx = order.indexOf(exName);
+      return idx !== -1 ? idx + 1 : order.length + 1;
+    }
+
+    function loadPrevSets() {
+      const exLogs = logs.filter(l => l.exercise === selectedExercise && l.date <= currentDateStr)
+                         .sort((a,b) => b.id - a.id);
+
+      let prevSets = [];
+      if (exLogs.length > 0) {
+        const lastDate = exLogs[0].date;
+        prevSets = exLogs.filter(l => l.date === lastDate).sort((a,b) => a.id - b.id);
+      }
+
+      currentSets = [];
+
+      const prevMemoBox = document.getElementById('prevMemoBox');
+      const prevMemoSet = prevSets.find(s => s.memo);
+      if (prevMemoSet && prevMemoSet.memo) {
+        prevMemoBox.textContent = `前回のメモ: ${prevMemoSet.memo}`;
+        prevMemoBox.style.display = 'block';
+      } else {
+        prevMemoBox.style.display = 'none';
+      }
+      document.getElementById('sessionMemo').value = '';
+
+      // 前回・今回が何種目目かを表示（疲労条件の差を可視化）
+      const prevOrderBox = document.getElementById('prevOrderBox');
+      if (prevSets.length > 0) {
+        const lastDate = prevSets[0].date;
+        if (lastDate !== currentDateStr) {
+          const prevPos = getExOrderOnDate(lastDate, selectedExercise);
+          const todayPos = getTodayPlannedOrder(selectedExercise);
+          const d = new Date(lastDate);
+          const dLabel = `${d.getMonth()+1}/${d.getDate()}`;
+          if (prevPos !== todayPos) {
+            prevOrderBox.innerHTML = `前回(${dLabel}) ${prevPos}種目目 → 今回 ${todayPos}種目目 <span style="color:var(--accent);">⚠条件差あり</span>`;
+            prevOrderBox.style.color = 'var(--accent)';
+          } else {
+            prevOrderBox.innerHTML = `前回(${dLabel}) ${prevPos}種目目 → 今回 ${todayPos}種目目（同条件）`;
+            prevOrderBox.style.color = 'var(--accent-brand)';
+          }
+          prevOrderBox.style.display = 'block';
+        } else {
+          const pos = getExOrderOnDate(currentDateStr, selectedExercise);
+          prevOrderBox.innerHTML = `本日 ${pos}種目目を編集中`;
+          prevOrderBox.style.color = 'var(--accent-brand)';
+          prevOrderBox.style.display = 'block';
+        }
+      } else {
+        prevOrderBox.style.display = 'none';
+      }
+
+      if (prevSets.length > 0) {
+        prevSets.forEach(s => {
+          let rStr = 8;
+          if (s.isWarmup || s.isForm) rStr = 'UP';
+          else if (s.rpe) rStr = s.rpe;
+
+          currentSets.push({ 
+            prevWeight: s.weight, prevReps: s.reps, prevRpe: rStr, 
+            weight: '', reps: '', rpe: rStr, 
+            done: false 
+          });
+        });
+      } else {
+        // Default 3 sets if no history
+        for(let i=0; i<3; i++) {
+          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, weight: '', reps: '', rpe: 8, done: false });
+        }
+      }
+
+      renderSetRows();
+      calcAdvice();
+    }
+
+    function renderSetRows() {
+      const container = document.getElementById('setListContainer');
+      container.innerHTML = currentSets.map((s, i) => {
+        const isDone = s.done ? 'is-done' : '';
+        const checkClass = s.done ? 'checked' : '';
+        const checkIcon = s.done ? '✔' : '';
+
+        // Visual placeholders
+        const pW = s.prevWeight || '-';
+        const pR = s.prevReps || '-';
+
+        return `
+        <div class="set-row ${isDone}" id="set-row-${i}">
+          <div class="set-label">${i+1}</div>
+          <div class="input-box">
+            <input type="number" inputmode="decimal" placeholder="${pW}" value="${s.weight}" onfocus="this.select()" oninput="updateSet(${i}, 'weight', this.value)">
+            <span>kg</span>
+          </div>
+          <div class="input-box">
+            <input type="number" inputmode="numeric" placeholder="${pR}" value="${s.reps}" onfocus="this.select()" oninput="updateSet(${i}, 'reps', this.value)">
+            <span>回</span>
+          </div>
+          <div class="rpe-box">
+            <select onchange="updateSet(${i}, 'rpe', this.value)">
+              <option value="10" ${s.rpe==10?'selected':''}>10</option>
+              <option value="9.5" ${s.rpe==9.5?'selected':''}>9.5</option>
+              <option value="9" ${s.rpe==9?'selected':''}>9</option>
+              <option value="8.5" ${s.rpe==8.5?'selected':''}>8.5</option>
+              <option value="8" ${s.rpe==8?'selected':''}>8</option>
+              <option value="7.5" ${s.rpe==7.5?'selected':''}>7.5</option>
+              <option value="7" ${s.rpe==7?'selected':''}>7</option>
+              <option value="UP" ${s.rpe=='UP'?'selected':''}>UP</option>
+              
+            </select>
+          </div>
+          <button class="check-btn ${checkClass}" onclick="toggleDone(${i})">${checkIcon}</button>
+        </div>
+      `}).join('');
+
+      // Auto focus fix workaround for inputs highlighting
+      document.querySelectorAll('.input-box input').forEach(el => {
+        el.addEventListener('focus', () => el.parentElement.classList.add('focus-within'));
+        el.addEventListener('blur', () => el.parentElement.classList.remove('focus-within'));
+      });
+    }
+
+    function addSetRow() {
+      if(currentSets.length > 0) {
+        const last = currentSets[currentSets.length-1];
+        const isReady = (last.weight !== '' && last.reps !== '');
+        currentSets.push({...last, done: isReady}); // Clone fully and keep checked if valid
+      } else {
+        currentSets.push({prevWeight: '', prevReps: '', prevRpe: 8, weight: '', reps: '', rpe: 8, done: false});
+      }
+      renderSetRows();
+      calcAdvice();
+    }
+
+    function removeSetRow() {
+      if(currentSets.length > 1) {
+        currentSets.pop();
+        renderSetRows();
+      }
+    }
+
+    function updateSet(idx, key, val) {
+      currentSets[idx][key] = val;
+      const s = currentSets[idx];
+
+      const row = document.getElementById(`set-row-${idx}`);
+      if (!row) return;
+      const btn = row.querySelector('.check-btn');
+
+      if (s.weight !== '' && s.reps !== '') {
+        s.done = true;
+        row.classList.add('is-done');
+        btn.classList.add('checked');
+        btn.textContent = '✔';
+      } else {
+        s.done = false;
+        row.classList.remove('is-done');
+        btn.classList.remove('checked');
+        btn.textContent = '';
+      }
+      calcAdvice();
+    }
+
+    function toggleDone(idx) {
+      const s = currentSets[idx];
+      s.done = !s.done;
+
+      // Auto-fill from placeholder if empty and marking as done
+      if (s.done) {
+        if (s.weight === '' && s.prevWeight) s.weight = s.prevWeight;
+        if (s.reps === '' && s.prevReps) s.reps = s.prevReps;
+      }
+
+      renderSetRows();
+      calcAdvice();
+    }
+
+
+    function calcAdvice() {
+      const advBox = document.getElementById('adviceBox');
+      if (!advBox) return;
+      let best1RM = 0;
+      window.currentBest1RM = 0;
+      let lastValidSet = null;
+
+      currentSets.forEach(s => {
+        const w = parseFloat(s.weight !== '' ? s.weight : (s.done ? s.prevWeight : NaN));
+        const r = parseInt(s.reps !== '' ? s.reps : (s.done ? s.prevReps : NaN));
+        const rpeVal = s.rpe;
+
+        if (s.done && !isNaN(w) && !isNaN(r) && rpeVal !== 'UP' && rpeVal !== 'FORM') {
+          const rpeNum = parseFloat(rpeVal);
+          const effectiveReps = r + (10 - rpeNum);
+          const est1RM = w * (1 + effectiveReps / 30);
+          if (est1RM > best1RM) best1RM = est1RM;
+          lastValidSet = { w, r, rpeNum, est1RM };
+        }
+      });
+
+      window.currentBest1RM = best1RM;
+      window.lastValidSetData = lastValidSet;
+
+      if (!lastValidSet) {
+        advBox.style.display = 'none';
+        return;
+      }
+
+      const targetRpe = Math.min(10, lastValidSet.rpeNum + 1);
+      const targetEffective = lastValidSet.r + (10 - targetRpe);
+      const nextWeight = lastValidSet.est1RM / (1 + targetEffective / 30);
+      const nextRounded = Math.round(nextWeight / 2.5) * 2.5;
+
+      advBox.style.display = 'block';
+      advBox.innerHTML = `<strong>最高推定1RM:</strong> ${(Math.round(best1RM*10)/10).toFixed(1)}kg<br>
+                          <span style="font-size:12px; opacity:0.8;">次セット目安 (同回数 / RPE${targetRpe}狙い): <strong>${nextRounded}kg</strong> 前後</span>`;
+    }
+
+    
+    
+    function openAiSheet() {
+      document.getElementById('sheetOverlay').style.display = 'block';
+      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      document.getElementById('aiSheet').style.transform = 'translateY(0)';
+    }
+
+    function closeAiSheet() {
+      document.getElementById('sheetOverlay').style.opacity = '0';
+      document.getElementById('aiSheet').style.transform = 'translateY(100%)';
+      setTimeout(() => {
+        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && 
+           document.getElementById('rmSheet').style.transform !== 'translateY(0)' &&
+           document.getElementById('aiSheet').style.transform !== 'translateY(0px)') {
+          document.getElementById('sheetOverlay').style.display = 'none';
+        }
+      }, 300);
+    }
+
+    function generateAndCopyAI() {
+      const goal = document.getElementById('aiGoal').value;
+      const type = document.querySelector('input[name="aiType"]:checked').value;
+
+      let text = `【目的】${goal}\n`;
+
+      // Merge today's saved logs with currently unsaved checked sets for context
+      let todaysLogs = logs.filter(l => l.date === currentDateStr);
+      let currentUnsaved = currentSets.filter(s => s.done && s.weight !== '' && s.reps !== '').map((s, idx) => ({
+        exercise: selectedExercise,
+        weight: parseFloat(s.weight), reps: parseInt(s.reps), 
+        rpe: s.rpe === 'UP' ? null : parseFloat(s.rpe), isWarmup: s.rpe === 'UP'
+      }));
+      let allToday = todaysLogs.filter(l => l.exercise !== selectedExercise).concat(currentUnsaved);
+      // Ensure we don't double count if user is revisiting
+      if(todaysLogs.some(l => l.exercise === selectedExercise) && currentUnsaved.length === 0) {
+        allToday = todaysLogs; // Fallback if they already saved and didn't add new ones
+      }
+
+      allToday.sort((a,b) => a.id - b.id);
+      const uniqueTodayEx = [...new Set(allToday.map(l => l.exercise))];
+      let currentOrder = uniqueTodayEx.indexOf(selectedExercise) + 1;
+      if (currentOrder === 0) currentOrder = uniqueTodayEx.length + 1; // if fully unsaved
+
+      if (type === 'nextSet') {
+        text += `【相談】次セットの重量・回数設定\n`;
+        text += `【種目】${selectedExercise} (本日の ${currentOrder} 種目目)\n\n`;
+
+        let doneSets = currentSets.filter(s => s.done);
+        text += `[今日完了したセット]\n`;
+        if (doneSets.length === 0) text += `(まだ完了していません)\n`;
+        doneSets.forEach((s, i) => {
+          const rpeText = (s.rpe === 'UP' || s.rpe === 'FORM') ? 'アップ' : `RPE ${s.rpe}`;
+          text += `${i+1}セット目: ${s.weight}kg × ${s.reps}回 (${rpeText})\n`;
+        });
+
+        const nextIdx = doneSets.length; 
+        const prevSet = currentSets[nextIdx];
+        if (prevSet && prevSet.prevWeight) {
+          text += `\n[前回の同セット目の結果 (参考)]\n`;
+          const pRpe = (prevSet.prevRpe === 'UP' || prevSet.prevRpe === 'FORM') ? 'アップ' : `RPE ${prevSet.prevRpe}`;
+          text += `${nextIdx+1}セット目: ${prevSet.prevWeight}kg × ${prevSet.prevReps}回 (${pRpe})\n`;
+        }
+
+        text += `\n質問: 上記の疲労度や前回の結果を踏まえて、次のセットの重量と回数はどう設定すべきですか？`;
+
+      } else if (type === 'exercise') {
+        let cat = "不明";
+        for (const [c, exList] of Object.entries(exercises)) {
+          if (exList.includes(selectedExercise)) cat = c;
+        }
+
+        text += `【相談】部位「${cat}」の種目選び・メニュー\n\n`;
+        text += `[今日完了した「${cat}」のメニュー]\n`;
+
+        let catLogs = allToday.filter(l => {
+          for (const [c, exList] of Object.entries(exercises)) {
+            if (exList.includes(l.exercise) && c === cat) return true;
+          }
+          return false;
+        });
+
+        if(catLogs.length === 0) text += `(まだありません)\n`;
+
+        let grouped = {};
+        catLogs.forEach(l => {
+          if(!grouped[l.exercise]) grouped[l.exercise] = [];
+          grouped[l.exercise].push(l);
+        });
+        for (const [ex, sets] of Object.entries(grouped)) {
+          text += `・${ex}: ${sets.length}セット (最高 ${Math.max(...sets.map(s=>s.weight))}kg)\n`;
+        }
+
+        text += `\n質問: これまで上記を行いました。次にどんな種目を追加・変更するのが効果的ですか？`;
+
+      } else if (type === 'volume') {
+        text += `【相談】本日のボリュームと疲労度\n\n`;
+        text += `[本日の全メニュー]\n`;
+
+        if(allToday.length === 0) text += `(まだありません)\n`;
+
+        let grouped = {};
+        const orderedExList = [];
+        allToday.forEach(l => {
+          if(!grouped[l.exercise]) {
+            grouped[l.exercise] = [];
+            orderedExList.push(l.exercise);
+          }
+          grouped[l.exercise].push(l);
+        });
+        orderedExList.forEach((ex, idx) => {
+          const sets = grouped[ex];
+          text += `・${idx+1}種目目: ${ex} (${sets.length}セット)\n`;
+          sets.forEach((s, i) => {
+            const rpeText = (s.isWarmup || s.isForm) ? 'アップ' : `RPE ${s.rpe}`;
+            text += `  ${i+1}セット: ${s.weight}kg × ${s.reps}回 (${rpeText})\n`;
+          });
+        });
+
+        text += `\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。`;
+      }
+
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert('AI相談用のプロンプトをコピーしました！\nChatGPT等に貼り付けてください。');
+        closeAiSheet();
+      } catch (err) {
+        alert('コピーに失敗しました。');
+      }
+      document.body.removeChild(textArea);
+    }
+function saveWorkout() {
+      // Find rows that are marked done and have values
+      const validSets = currentSets.filter(s => s.done && s.weight !== '' && s.reps !== '');
+
+      if(validSets.length === 0) {
+        alert('保存するセットがありません。\n入力するか、右の「✓」を押してください。');
+        return;
+      }
+
+      const memoText = document.getElementById('sessionMemo').value.trim();
+
+      // Maintain order: use the original first set's ID if this exercise was already started today
+      const todayLogsForEx = logs.filter(l => l.date === currentDateStr && l.exercise === selectedExercise);
+      const baseId = todayLogsForEx.length > 0 ? todayLogsForEx[0].id : Date.now();
+
+      // Delete old entries for this exercise on this day to overwrite with the edited ones
+      logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === selectedExercise));
+
+      validSets.forEach((s, idx) => {
+        logs.push({ 
+          id: baseId + idx,
+          date: currentDateStr,
+          exercise: selectedExercise,
+          weight: parseFloat(s.weight),
+          reps: parseInt(s.reps),
+          rpe: s.rpe === 'UP' ? null : parseFloat(s.rpe),
+          isWarmup: s.rpe === 'UP',
+          memo: memoText
+        });
+      });
+
+      localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+
+      // Go back to daily view
+      switchView('view-daily');
+      selectDate(currentDateStr); // refresh
+    }
+
+    init();
+  </script>
+
+
+</body>
+</html>
