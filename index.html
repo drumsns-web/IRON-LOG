@@ -290,7 +290,7 @@
     </div>
 
     <div class="card" style="padding:12px; margin-bottom:16px; background:var(--surface-2); border:1px solid var(--line);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <div style="display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <div id="prevOrderBox" style="font-size:12px; color:var(--accent-brand); font-weight:600; display:none;"></div>
         <div id="prevMemoBox" style="font-size:12px; color:var(--muted); display:none;"></div>
       </div>
@@ -1255,17 +1255,35 @@ function init() {
       renderSheetExList();
     }
 
+    // 種目の実施頻度（その種目を行った日数）を返す
+    function getExerciseFrequency(exName) {
+      const days = new Set(logs.filter(l => l.exercise === exName).map(l => l.date));
+      return days.size;
+    }
+
     function renderSheetExList() {
       const listDiv = document.getElementById('sheetExList');
       if (!exercises[activeCategory] || exercises[activeCategory].length === 0) {
         listDiv.innerHTML = '<div style="padding:20px; text-align:center; color:var(--muted);">種目がありません</div>';
         return;
       }
-      listDiv.innerHTML = exercises[activeCategory].map(e => `
+      // 頻度が高い種目を上に。同頻度なら元の登録順を維持。
+      const original = exercises[activeCategory];
+      const sortedList = [...original].sort((a, b) => {
+        const fb = getExerciseFrequency(b), fa = getExerciseFrequency(a);
+        if (fb !== fa) return fb - fa;
+        return original.indexOf(a) - original.indexOf(b);
+      });
+      listDiv.innerHTML = sortedList.map(e => {
+        const freq = getExerciseFrequency(e);
+        const freqBadge = (!isEditMode && freq > 0)
+          ? `<span style="font-size:11px; color:var(--muted); margin-left:8px; font-weight:normal;">${freq}回</span>`
+          : '';
+        return `
         <div class="ex-item" style="justify-content:space-between;">
           <div style="display:flex; align-items:center; flex:1;" onclick="${isEditMode ? '' : `chooseEx('${e}')`}">
             <div style="width:4px; height:16px; background:var(--accent-brand); border-radius:2px; margin-right:12px; display:${isEditMode ? 'none' : 'block'}"></div>
-            ${e}
+            ${e}${freqBadge}
           </div>
           ${isEditMode ? `
             <div style="display:flex; gap:8px;">
@@ -1274,7 +1292,8 @@ function init() {
             </div>
           ` : ''}
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function addEx() {
@@ -1335,6 +1354,23 @@ function init() {
       switchView('view-exercise');
     }
 
+    // 指定日にその種目が何種目目だったか（1始まり、未実施は0）
+    function getExOrderOnDate(dateStr, exName) {
+      const dayLogs = logs.filter(l => l.date === dateStr).sort((a,b) => a.id - b.id);
+      const order = [];
+      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
+      return order.indexOf(exName) + 1;
+    }
+
+    // 今日この種目が何種目目になるか（既にあればその順、なければ次の番号）
+    function getTodayPlannedOrder(exName) {
+      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
+      const order = [];
+      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
+      const idx = order.indexOf(exName);
+      return idx !== -1 ? idx + 1 : order.length + 1;
+    }
+
     function loadPrevSets() {
       const exLogs = logs.filter(l => l.exercise === selectedExercise && l.date <= currentDateStr)
                          .sort((a,b) => b.id - a.id);
@@ -1356,6 +1392,33 @@ function init() {
         prevMemoBox.style.display = 'none';
       }
       document.getElementById('sessionMemo').value = '';
+
+      // 前回・今回が何種目目かを表示（疲労条件の差を可視化）
+      const prevOrderBox = document.getElementById('prevOrderBox');
+      if (prevSets.length > 0) {
+        const lastDate = prevSets[0].date;
+        if (lastDate !== currentDateStr) {
+          const prevPos = getExOrderOnDate(lastDate, selectedExercise);
+          const todayPos = getTodayPlannedOrder(selectedExercise);
+          const d = new Date(lastDate);
+          const dLabel = `${d.getMonth()+1}/${d.getDate()}`;
+          if (prevPos !== todayPos) {
+            prevOrderBox.innerHTML = `前回(${dLabel}) ${prevPos}種目目 → 今回 ${todayPos}種目目 <span style="color:var(--accent);">⚠条件差あり</span>`;
+            prevOrderBox.style.color = 'var(--accent)';
+          } else {
+            prevOrderBox.innerHTML = `前回(${dLabel}) ${prevPos}種目目 → 今回 ${todayPos}種目目（同条件）`;
+            prevOrderBox.style.color = 'var(--accent-brand)';
+          }
+          prevOrderBox.style.display = 'block';
+        } else {
+          const pos = getExOrderOnDate(currentDateStr, selectedExercise);
+          prevOrderBox.innerHTML = `本日 ${pos}種目目を編集中`;
+          prevOrderBox.style.color = 'var(--accent-brand)';
+          prevOrderBox.style.display = 'block';
+        }
+      } else {
+        prevOrderBox.style.display = 'none';
+      }
 
       if (prevSets.length > 0) {
         prevSets.forEach(s => {
