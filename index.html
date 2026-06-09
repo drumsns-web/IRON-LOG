@@ -344,6 +344,10 @@
     </div>
     <div id="dailyLogsContainer"></div>
 
+    <button class="ai-copy-btn" onclick="openAiSheet('daily')" style="margin-bottom:16px;">
+      <span style="font-size:16px;">AI</span> AIに相談する
+    </button>
+
     <div class="fab-container">
       <button class="fab-btn" onclick="openExSheet()">＋ 種目を追加</button>
     </div>
@@ -566,6 +570,11 @@
         <option value="ディロード（疲労抜き）">ディロード（疲労抜き）</option>
       </select>
 
+      <div id="aiExercisePickerWrap" style="display:none; margin-bottom:24px;">
+        <label style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">相談する種目</label>
+        <select id="aiExercisePicker" style="width:100%; padding:14px; background:var(--surface-2); border:1px solid var(--line); color:#fff; border-radius:8px; font-size:16px; outline:none;"></select>
+      </div>
+
       <label style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">相談内容（コンテキスト量）</label>
       <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:32px;">
         <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
@@ -573,6 +582,22 @@
           <div>
             <div style="font-weight:600; font-size:15px; margin-bottom:4px;">次セットの重量・回数</div>
             <div style="font-size:12px; color:var(--muted);">現在の種目の今日と前回のセットだけを送信</div>
+          </div>
+        </label>
+
+        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
+          <input type="radio" name="aiType" value="lastSet" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
+          <div>
+            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">直前セットだけコピー</div>
+            <div style="font-size:12px; color:var(--muted);">選択した種目の最後のセットの重量・回数・RPEだけを送信</div>
+          </div>
+        </label>
+
+        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
+          <input type="radio" name="aiType" value="exerciseSets" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
+          <div>
+            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">その種目の全セットをコピー</div>
+            <div style="font-size:12px; color:var(--muted);">選択した種目の今日のセットをまとめて送信</div>
           </div>
         </label>
 
@@ -1988,137 +2013,30 @@ function init() {
 
     
     
-    function openAiSheet() {
-      document.getElementById('sheetOverlay').style.display = 'block';
-      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
-      document.getElementById('aiSheet').style.transform = 'translateY(0)';
-    }
-
-    function closeAiSheet() {
-      document.getElementById('sheetOverlay').style.opacity = '0';
-      document.getElementById('aiSheet').style.transform = 'translateY(100%)';
-      setTimeout(() => {
-        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && 
-           document.getElementById('rmSheet').style.transform !== 'translateY(0)' &&
-           document.getElementById('aiSheet').style.transform !== 'translateY(0px)') {
-          document.getElementById('sheetOverlay').style.display = 'none';
-        }
-      }, 300);
-    }
-
+    let aiSheetSource = 'exercise';
+    function getExerciseNamesForDate(dateStr) { const names = []; logs.filter(function(l){ return l.date === dateStr; }).sort(function(a,b){ return a.id - b.id; }).forEach(function(l){ if (!names.includes(l.exercise)) names.push(l.exercise); }); return names; }
+    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), rpe: s.rpe === 'UP' ? null : parseFloat(s.rpe), isWarmup: s.rpe === 'UP' }; }); }
+    function getAllTodayForAi() { const unsaved = getCurrentUnsavedAiSets(selectedExercise); const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); }); return saved.concat(unsaved).sort(function(a,b){ return a.id - b.id; }); }
+    function getAiExerciseName() { const picker = document.getElementById('aiExercisePicker'); if (picker && picker.value) return picker.value; return selectedExercise; }
+    function getAiExerciseSets(exName) { const unsaved = getCurrentUnsavedAiSets(exName); if (unsaved.length) return unsaved; return logs.filter(function(l){ return l.date === currentDateStr && l.exercise === exName; }).sort(function(a,b){ return a.id - b.id; }); }
+    function populateAiExercisePicker() { const wrap = document.getElementById('aiExercisePickerWrap'); const picker = document.getElementById('aiExercisePicker'); if (!wrap || !picker) return; const names = getExerciseNamesForDate(currentDateStr); if (selectedExercise && !names.includes(selectedExercise)) names.push(selectedExercise); if (names.length === 0) { wrap.style.display = 'none'; picker.innerHTML = ''; return; } const defaultName = selectedExercise && names.includes(selectedExercise) ? selectedExercise : names[names.length - 1]; picker.innerHTML = names.map(function(name){ return '<option value="' + escapeHtml(name) + '" ' + (name === defaultName ? 'selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join(''); wrap.style.display = 'block'; }
+    function formatAiSetLine(s, index) { const rpeText = (s.isWarmup || s.isForm || s.rpe == null) ? 'アップ' : 'RPE ' + s.rpe; return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + rpeText + ')'; }
+    function getAssistNote(exName) { if (!/アシスト|assist/i.test(exName || '')) return ''; return '\n[アシスト種目の見方]\nこの種目は名前に「アシスト」が含まれます。記録のkgがアシスト重量の場合は、体重 − アシスト重量 = 実際の負荷として考えてください。例: 体重70kg、アシスト20kgなら実負荷は50kgです。\n'; }
+    function openAiSheet(source) { aiSheetSource = source || 'exercise'; populateAiExercisePicker(); document.getElementById('sheetOverlay').style.display = 'block'; setTimeout(function(){ document.getElementById('sheetOverlay').style.opacity = '1'; }, 10); document.getElementById('aiSheet').style.transform = 'translateY(0)'; }
+    function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; setTimeout(function(){ if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)') document.getElementById('sheetOverlay').style.display = 'none'; }, 300); }
     function generateAndCopyAI() {
-      const goal = document.getElementById('aiGoal').value;
-      const type = document.querySelector('input[name="aiType"]:checked').value;
-
-      let text = `【目的】${goal}\n`;
-
-      // Merge today's saved logs with currently unsaved checked sets for context
-      let todaysLogs = logs.filter(l => l.date === currentDateStr);
-      let currentUnsaved = currentSets.filter(s => s.done && s.weight !== '' && s.reps !== '').map((s, idx) => ({
-        exercise: selectedExercise,
-        weight: parseFloat(s.weight), reps: parseInt(s.reps), 
-        rpe: s.rpe === 'UP' ? null : parseFloat(s.rpe), isWarmup: s.rpe === 'UP'
-      }));
-      let allToday = todaysLogs.filter(l => l.exercise !== selectedExercise).concat(currentUnsaved);
-      // Ensure we don't double count if user is revisiting
-      if(todaysLogs.some(l => l.exercise === selectedExercise) && currentUnsaved.length === 0) {
-        allToday = todaysLogs; // Fallback if they already saved and didn't add new ones
-      }
-
-      allToday.sort((a,b) => a.id - b.id);
-      const uniqueTodayEx = [...new Set(allToday.map(l => l.exercise))];
-      let currentOrder = uniqueTodayEx.indexOf(selectedExercise) + 1;
-      if (currentOrder === 0) currentOrder = uniqueTodayEx.length + 1; // if fully unsaved
-
-      if (type === 'nextSet') {
-        text += `【相談】次セットの重量・回数設定\n`;
-        text += `【種目】${selectedExercise} (本日の ${currentOrder} 種目目)\n\n`;
-
-        let doneSets = currentSets.filter(s => s.done);
-        text += `[今日完了したセット]\n`;
-        if (doneSets.length === 0) text += `(まだ完了していません)\n`;
-        doneSets.forEach((s, i) => {
-          const rpeText = (s.rpe === 'UP' || s.rpe === 'FORM') ? 'アップ' : `RPE ${s.rpe}`;
-          text += `${i+1}セット目: ${s.weight}kg × ${s.reps}回 (${rpeText})\n`;
-        });
-
-        const nextIdx = doneSets.length; 
-        const prevSet = currentSets[nextIdx];
-        if (prevSet && prevSet.prevWeight) {
-          text += `\n[前回の同セット目の結果 (参考)]\n`;
-          const pRpe = (prevSet.prevRpe === 'UP' || prevSet.prevRpe === 'FORM') ? 'アップ' : `RPE ${prevSet.prevRpe}`;
-          text += `${nextIdx+1}セット目: ${prevSet.prevWeight}kg × ${prevSet.prevReps}回 (${pRpe})\n`;
-        }
-
-        text += `\n質問: 上記の疲労度や前回の結果を踏まえて、次のセットの重量と回数はどう設定すべきですか？`;
-
-      } else if (type === 'exercise') {
-        let cat = "不明";
-        for (const [c, exList] of Object.entries(exercises)) {
-          if (exList.includes(selectedExercise)) cat = c;
-        }
-
-        text += `【相談】部位「${cat}」の種目選び・メニュー\n\n`;
-        text += `[今日完了した「${cat}」のメニュー]\n`;
-
-        let catLogs = allToday.filter(l => {
-          for (const [c, exList] of Object.entries(exercises)) {
-            if (exList.includes(l.exercise) && c === cat) return true;
-          }
-          return false;
-        });
-
-        if(catLogs.length === 0) text += `(まだありません)\n`;
-
-        let grouped = {};
-        catLogs.forEach(l => {
-          if(!grouped[l.exercise]) grouped[l.exercise] = [];
-          grouped[l.exercise].push(l);
-        });
-        for (const [ex, sets] of Object.entries(grouped)) {
-          text += `・${ex}: ${sets.length}セット (最高 ${Math.max(...sets.map(s=>s.weight))}kg)\n`;
-        }
-
-        text += `\n質問: これまで上記を行いました。次にどんな種目を追加・変更するのが効果的ですか？`;
-
-      } else if (type === 'volume') {
-        text += `【相談】本日のボリュームと疲労度\n\n`;
-        text += `[本日の全メニュー]\n`;
-
-        if(allToday.length === 0) text += `(まだありません)\n`;
-
-        let grouped = {};
-        const orderedExList = [];
-        allToday.forEach(l => {
-          if(!grouped[l.exercise]) {
-            grouped[l.exercise] = [];
-            orderedExList.push(l.exercise);
-          }
-          grouped[l.exercise].push(l);
-        });
-        orderedExList.forEach((ex, idx) => {
-          const sets = grouped[ex];
-          text += `・${idx+1}種目目: ${ex} (${sets.length}セット)\n`;
-          sets.forEach((s, i) => {
-            const rpeText = (s.isWarmup || s.isForm) ? 'アップ' : `RPE ${s.rpe}`;
-            text += `  ${i+1}セット: ${s.weight}kg × ${s.reps}回 (${rpeText})\n`;
-          });
-        });
-
-        text += `\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。`;
-      }
-
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        alert('AI相談用のプロンプトをコピーしました！\nChatGPT等に貼り付けてください。');
-        closeAiSheet();
-      } catch (err) {
-        alert('コピーに失敗しました。');
-      }
+      const goal = document.getElementById('aiGoal').value; const type = document.querySelector('input[name="aiType"]:checked').value; const aiExercise = getAiExerciseName();
+      const allToday = getAllTodayForAi(); const exerciseSets = aiExercise ? getAiExerciseSets(aiExercise) : []; const uniqueTodayEx = Array.from(new Set(allToday.map(function(l){ return l.exercise; })));
+      let currentOrder = uniqueTodayEx.indexOf(aiExercise) + 1; if (currentOrder === 0) currentOrder = uniqueTodayEx.length + 1;
+      let text = '【目的】' + goal + '\n';
+      if ((type === 'lastSet' || type === 'exerciseSets' || type === 'nextSet') && !aiExercise) { alert('相談する種目がありません。先に記録を保存するか、種目入力画面から開いてください。'); return; }
+      if (type === 'lastSet') { const last = exerciseSets[exerciseSets.length - 1]; if (!last) return alert('この種目のセット記録がありません。'); text += '【コピー内容】直前セットのみ\n【種目】' + aiExercise + '\n' + getAssistNote(aiExercise) + '\n[直前セット]\n' + formatAiSetLine(last, exerciseSets.length - 1) + '\n\n質問: この直前セットの重量・回数・RPEを踏まえて、次の判断をどうするべきですか？'; }
+      else if (type === 'exerciseSets') { if (exerciseSets.length === 0) return alert('この種目のセット記録がありません。'); text += '【コピー内容】その種目の全セット\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日のセット]\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: この種目の今日のセット内容を見て、重量設定・回数・RPE・次回への改善点を教えてください。'; }
+      else if (type === 'nextSet') { text += '【相談】次セットの重量・回数設定\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日完了したセット]\n'; if (!exerciseSets.length) text += '(まだ完了していません)\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: 上記の疲労度や前回の結果を踏まえて、次のセットの重量と回数はどう設定すべきですか？'; }
+      else if (type === 'exercise') { const cat = getCategoryForExercise(aiExercise); text += '【相談】部位「' + cat + '」の種目選び・メニュー\n\n[今日完了した「' + cat + '」のメニュー]\n'; const catLogs = allToday.filter(function(l){ return getCategoryForExercise(l.exercise) === cat; }); if(!catLogs.length) text += '(まだありません)\n'; const grouped = {}; catLogs.forEach(function(l){ if(!grouped[l.exercise]) grouped[l.exercise] = []; grouped[l.exercise].push(l); }); Object.entries(grouped).forEach(function(pair){ const ex = pair[0], sets = pair[1]; text += '・' + ex + ': ' + sets.length + 'セット (最高 ' + Math.max.apply(null, sets.map(function(s){ return s.weight; })) + 'kg)\n'; }); text += '\n質問: これまで上記を行いました。次にどんな種目を追加・変更するのが効果的ですか？'; }
+      else if (type === 'volume') { text += '【相談】本日のボリュームと疲労度\n\n[本日の全メニュー]\n'; if(!allToday.length) text += '(まだありません)\n'; const grouped = {}, orderedExList = []; allToday.forEach(function(l){ if(!grouped[l.exercise]) { grouped[l.exercise] = []; orderedExList.push(l.exercise); } grouped[l.exercise].push(l); }); orderedExList.forEach(function(ex,idx){ const sets = grouped[ex]; text += '・' + (idx+1) + '種目目: ' + ex + ' (' + sets.length + 'セット)\n'; if (/アシスト|assist/i.test(ex)) text += '  ※アシスト種目: 体重 − アシスト重量 = 実際の負荷として評価\n'; sets.forEach(function(s,i){ text += '  ' + formatAiSetLine(s,i) + '\n'; }); }); text += '\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。'; }
+      const textArea = document.createElement('textarea'); textArea.value = text; document.body.appendChild(textArea); textArea.select();
+      try { document.execCommand('copy'); alert('AI相談用のプロンプトをコピーしました！\nChatGPT等に貼り付けてください。'); closeAiSheet(); } catch (err) { alert('コピーに失敗しました。'); }
       document.body.removeChild(textArea);
     }
 function saveWorkout() {
