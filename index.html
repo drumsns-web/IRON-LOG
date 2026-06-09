@@ -361,6 +361,28 @@
       <button class="back-btn" style="font-size:13px; font-weight:700; background:var(--surface-3); color:var(--text);" onclick="openRmSheet()">RM</button>
     </div>
 
+    <div id="assistCalcBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.06); border:1px solid rgba(208, 253, 62, 0.22);">
+      <div style="font-size:13px; color:var(--accent-brand); font-weight:700; margin-bottom:10px;">アシスト負荷計算</div>
+      <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <div class="input-box" style="background:var(--surface-2);">
+          <input type="number" inputmode="decimal" id="assistBodyWeight" placeholder="体重" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
+          <span>kg</span>
+        </div>
+        <div class="input-box" style="background:var(--surface-2);">
+          <input type="number" inputmode="decimal" id="assistWeight" placeholder="アシスト" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
+          <span>kg</span>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
+        <div style="font-size:12px; color:var(--muted);">体重 − アシスト重量 = 実際の負荷</div>
+        <div id="assistLoadResult" style="font-size:18px; font-weight:800; color:var(--accent-brand); white-space:nowrap;">-- kg</div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button onclick="applyAssistLoadToNextSet()" style="flex:1; min-height:40px; border:none; border-radius:10px; background:var(--accent-brand); color:#000; font-weight:700;">次の重量欄へ</button>
+        <button onclick="applyAssistLoadToAllSets()" style="flex:1; min-height:40px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); color:var(--text); font-weight:700;">全セットへ</button>
+      </div>
+    </div>
+
     <div class="set-list">
       <div class="set-header">
         <div style="width:44px; text-align:center">セット</div>
@@ -1798,6 +1820,63 @@ function init() {
       return idx !== -1 ? idx + 1 : order.length + 1;
     }
 
+
+    function isAssistExercise(exName = selectedExercise) {
+      return /アシスト|assist/i.test(exName || '');
+    }
+
+    function updateAssistCalcVisibility() {
+      const box = document.getElementById('assistCalcBox');
+      if (!box) return;
+      if (!isAssistExercise()) {
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = 'block';
+      const bodyInput = document.getElementById('assistBodyWeight');
+      if (bodyInput && !bodyInput.value) {
+        bodyInput.value = localStorage.getItem('ironlog-body-weight') || '';
+      }
+      updateAssistLoadPreview();
+    }
+
+    function getAssistLoadValue() {
+      const body = parseFloat(document.getElementById('assistBodyWeight')?.value || '');
+      const assist = parseFloat(document.getElementById('assistWeight')?.value || '');
+      if (isNaN(body) || isNaN(assist)) return null;
+      return Math.max(0, Math.round((body - assist) * 10) / 10);
+    }
+
+    function updateAssistLoadPreview() {
+      const bodyInput = document.getElementById('assistBodyWeight');
+      const result = document.getElementById('assistLoadResult');
+      if (bodyInput && bodyInput.value) localStorage.setItem('ironlog-body-weight', bodyInput.value);
+      const load = getAssistLoadValue();
+      if (result) result.textContent = load === null ? '-- kg' : load + ' kg';
+      return load;
+    }
+
+    function applyAssistLoadToNextSet() {
+      const load = updateAssistLoadPreview();
+      if (load === null) return alert('体重とアシスト重量を入力してください。');
+      let idx = currentSets.findIndex(s => !s.done || s.weight === '');
+      if (idx === -1) idx = currentSets.length - 1;
+      if (idx < 0) return;
+      currentSets[idx].weight = String(load);
+      renderSetRows();
+      updateAssistCalcVisibility();
+      calcAdvice();
+    }
+
+    function applyAssistLoadToAllSets() {
+      const load = updateAssistLoadPreview();
+      if (load === null) return alert('体重とアシスト重量を入力してください。');
+      currentSets.forEach(s => { s.weight = String(load); });
+      renderSetRows();
+      updateAssistCalcVisibility();
+      calcAdvice();
+    }
+
     function loadPrevSets() {
       const exLogs = logs.filter(l => l.exercise === selectedExercise && l.date <= currentDateStr)
                          .sort((a,b) => b.id - a.id);
@@ -1819,6 +1898,7 @@ function init() {
         prevMemoBox.style.display = 'none';
       }
       document.getElementById('sessionMemo').value = '';
+      updateAssistCalcVisibility();
 
       // 前回・今回が何種目目かを表示（疲労条件の差を可視化）
       const prevOrderBox = document.getElementById('prevOrderBox');
@@ -1867,6 +1947,7 @@ function init() {
       }
 
       renderSetRows();
+      updateAssistCalcVisibility();
       calcAdvice();
     }
 
@@ -2021,7 +2102,7 @@ function init() {
     function getAiExerciseSets(exName) { const unsaved = getCurrentUnsavedAiSets(exName); if (unsaved.length) return unsaved; return logs.filter(function(l){ return l.date === currentDateStr && l.exercise === exName; }).sort(function(a,b){ return a.id - b.id; }); }
     function populateAiExercisePicker() { const wrap = document.getElementById('aiExercisePickerWrap'); const picker = document.getElementById('aiExercisePicker'); if (!wrap || !picker) return; const names = getExerciseNamesForDate(currentDateStr); if (selectedExercise && !names.includes(selectedExercise)) names.push(selectedExercise); if (names.length === 0) { wrap.style.display = 'none'; picker.innerHTML = ''; return; } const defaultName = selectedExercise && names.includes(selectedExercise) ? selectedExercise : names[names.length - 1]; picker.innerHTML = names.map(function(name){ return '<option value="' + escapeHtml(name) + '" ' + (name === defaultName ? 'selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join(''); wrap.style.display = 'block'; }
     function formatAiSetLine(s, index) { const rpeText = (s.isWarmup || s.isForm || s.rpe == null) ? 'アップ' : 'RPE ' + s.rpe; return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + rpeText + ')'; }
-    function getAssistNote(exName) { if (!/アシスト|assist/i.test(exName || '')) return ''; return '\n[アシスト種目の見方]\nこの種目は名前に「アシスト」が含まれます。記録のkgがアシスト重量の場合は、体重 − アシスト重量 = 実際の負荷として考えてください。例: 体重70kg、アシスト20kgなら実負荷は50kgです。\n'; }
+    function getAssistNote(exName) { if (!/アシスト|assist/i.test(exName || '')) return ''; return '\n[アシスト種目の見方]\nこの種目はアシスト負荷計算を使える種目です。記録のkgは、体重 − アシスト重量で算出した実際の負荷として扱ってください。\n'; }
     function openAiSheet(source) { aiSheetSource = source || 'exercise'; populateAiExercisePicker(); document.getElementById('sheetOverlay').style.display = 'block'; setTimeout(function(){ document.getElementById('sheetOverlay').style.opacity = '1'; }, 10); document.getElementById('aiSheet').style.transform = 'translateY(0)'; }
     function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; setTimeout(function(){ if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)') document.getElementById('sheetOverlay').style.display = 'none'; }, 300); }
     function generateAndCopyAI() {
@@ -2034,7 +2115,7 @@ function init() {
       else if (type === 'exerciseSets') { if (exerciseSets.length === 0) return alert('この種目のセット記録がありません。'); text += '【コピー内容】その種目の全セット\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日のセット]\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: この種目の今日のセット内容を見て、重量設定・回数・RPE・次回への改善点を教えてください。'; }
       else if (type === 'nextSet') { text += '【相談】次セットの重量・回数設定\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日完了したセット]\n'; if (!exerciseSets.length) text += '(まだ完了していません)\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: 上記の疲労度や前回の結果を踏まえて、次のセットの重量と回数はどう設定すべきですか？'; }
       else if (type === 'exercise') { const cat = getCategoryForExercise(aiExercise); text += '【相談】部位「' + cat + '」の種目選び・メニュー\n\n[今日完了した「' + cat + '」のメニュー]\n'; const catLogs = allToday.filter(function(l){ return getCategoryForExercise(l.exercise) === cat; }); if(!catLogs.length) text += '(まだありません)\n'; const grouped = {}; catLogs.forEach(function(l){ if(!grouped[l.exercise]) grouped[l.exercise] = []; grouped[l.exercise].push(l); }); Object.entries(grouped).forEach(function(pair){ const ex = pair[0], sets = pair[1]; text += '・' + ex + ': ' + sets.length + 'セット (最高 ' + Math.max.apply(null, sets.map(function(s){ return s.weight; })) + 'kg)\n'; }); text += '\n質問: これまで上記を行いました。次にどんな種目を追加・変更するのが効果的ですか？'; }
-      else if (type === 'volume') { text += '【相談】本日のボリュームと疲労度\n\n[本日の全メニュー]\n'; if(!allToday.length) text += '(まだありません)\n'; const grouped = {}, orderedExList = []; allToday.forEach(function(l){ if(!grouped[l.exercise]) { grouped[l.exercise] = []; orderedExList.push(l.exercise); } grouped[l.exercise].push(l); }); orderedExList.forEach(function(ex,idx){ const sets = grouped[ex]; text += '・' + (idx+1) + '種目目: ' + ex + ' (' + sets.length + 'セット)\n'; if (/アシスト|assist/i.test(ex)) text += '  ※アシスト種目: 体重 − アシスト重量 = 実際の負荷として評価\n'; sets.forEach(function(s,i){ text += '  ' + formatAiSetLine(s,i) + '\n'; }); }); text += '\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。'; }
+      else if (type === 'volume') { text += '【相談】本日のボリュームと疲労度\n\n[本日の全メニュー]\n'; if(!allToday.length) text += '(まだありません)\n'; const grouped = {}, orderedExList = []; allToday.forEach(function(l){ if(!grouped[l.exercise]) { grouped[l.exercise] = []; orderedExList.push(l.exercise); } grouped[l.exercise].push(l); }); orderedExList.forEach(function(ex,idx){ const sets = grouped[ex]; text += '・' + (idx+1) + '種目目: ' + ex + ' (' + sets.length + 'セット)\n'; if (/アシスト|assist/i.test(ex)) text += '  ※アシスト種目: 記録kgは実際の負荷として評価\n'; sets.forEach(function(s,i){ text += '  ' + formatAiSetLine(s,i) + '\n'; }); }); text += '\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。'; }
       const textArea = document.createElement('textarea'); textArea.value = text; document.body.appendChild(textArea); textArea.select();
       try { document.execCommand('copy'); alert('AI相談用のプロンプトをコピーしました！\nChatGPT等に貼り付けてください。'); closeAiSheet(); } catch (err) { alert('コピーに失敗しました。'); }
       document.body.removeChild(textArea);
