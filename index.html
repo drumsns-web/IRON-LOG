@@ -90,8 +90,10 @@
     .check-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-3); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 16px; font-weight: bold; transition: 0.2s;}
     .check-btn.checked { background: var(--accent-2); color: #000; }
 
-    .set-controls { display: flex; gap: 16px; padding: 12px 16px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px;}
-    .set-controls button { background: var(--surface-2); border: none; color: #fff; font-size: 18px; width: 100%; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px; font-weight: bold;}
+    .set-controls { display: flex; gap: 12px; padding: 12px 16px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px;}
+    .set-controls button { height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px; font-weight: bold;}
+    .set-add-btn { flex: 1; background: var(--surface-2); border: none; color: #fff; font-size: 18px; }
+    .set-remove-btn { flex: 0 0 96px; background: transparent; border: 1px solid rgba(255, 107, 107, 0.5); color: #ff8b8b; font-size: 13px; }
 
     .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer;}
     
@@ -397,8 +399,8 @@
     </div>
 
     <div class="set-controls">
-      <button onclick="removeSetRow()">− セット削除</button>
-      <button onclick="addSetRow()">＋ セット追加</button>
+      <button class="set-add-btn" onclick="addSetRow()">＋ セット追加</button>
+      <button class="set-remove-btn" onclick="removeSetRow()">− 削除</button>
     </div>
 
     <div class="card" style="padding:12px; margin-bottom:16px; background:var(--surface-2); border:1px solid var(--line);">
@@ -406,7 +408,7 @@
         <div id="prevOrderBox" style="font-size:12px; color:var(--accent-brand); font-weight:600; display:none;"></div>
         <div id="prevMemoBox" style="font-size:12px; color:var(--muted); display:none;"></div>
       </div>
-      <input type="text" id="sessionMemo" placeholder="フォームの意識・メモを入力..." style="width:100%; background:transparent; border:none; color:#fff; font-size:14px; outline:none;">
+      <input type="text" id="sessionMemo" placeholder="フォームの意識・メモを入力..." oninput="saveCurrentDraft()" style="width:100%; background:transparent; border:none; color:#fff; font-size:14px; outline:none;">
     </div>
 
     <div id="adviceBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.1); border:1px solid rgba(208, 253, 62, 0.2); color:var(--accent-brand); font-size:13px; line-height:1.5;"></div>
@@ -664,6 +666,7 @@
 
     // 種目リストの並び順モード: 'freq'(頻度順) または 'manual'(手動順)
     const STORE_SORT = 'ironlog-ex-sort-mode';
+    const STORE_DRAFTS = 'ironlog-set-drafts-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1821,6 +1824,46 @@ function init() {
     }
 
 
+
+    function getDraftKey(dateStr = currentDateStr, exName = selectedExercise) {
+      return dateStr + '::' + exName;
+    }
+
+    function getSetDrafts() {
+      try { return JSON.parse(localStorage.getItem(STORE_DRAFTS) || '{}'); }
+      catch (e) { return {}; }
+    }
+
+    function setSetDrafts(drafts) {
+      localStorage.setItem(STORE_DRAFTS, JSON.stringify(drafts));
+    }
+
+    function saveCurrentDraft() {
+      if (!selectedExercise || !Array.isArray(currentSets) || currentSets.length === 0) return;
+      const memoEl = document.getElementById('sessionMemo');
+      const drafts = getSetDrafts();
+      drafts[getDraftKey()] = {
+        date: currentDateStr,
+        exercise: selectedExercise,
+        sets: currentSets,
+        memo: memoEl ? memoEl.value : '',
+        updatedAt: Date.now()
+      };
+      setSetDrafts(drafts);
+    }
+
+    function loadCurrentDraft() {
+      const drafts = getSetDrafts();
+      return drafts[getDraftKey()] || null;
+    }
+
+    function clearCurrentDraft() {
+      if (!selectedExercise) return;
+      const drafts = getSetDrafts();
+      delete drafts[getDraftKey()];
+      setSetDrafts(drafts);
+    }
+
     function isAssistExercise(exName = selectedExercise) {
       return /アシスト|assist/i.test(exName || '');
     }
@@ -1866,6 +1909,7 @@ function init() {
       renderSetRows();
       updateAssistCalcVisibility();
       calcAdvice();
+      saveCurrentDraft();
     }
 
     function applyAssistLoadToAllSets() {
@@ -1875,6 +1919,7 @@ function init() {
       renderSetRows();
       updateAssistCalcVisibility();
       calcAdvice();
+      saveCurrentDraft();
     }
 
     function loadPrevSets() {
@@ -1946,6 +1991,13 @@ function init() {
         }
       }
 
+      const draft = loadCurrentDraft();
+      if (draft && Array.isArray(draft.sets)) {
+        currentSets = draft.sets;
+        const memoEl = document.getElementById('sessionMemo');
+        if (memoEl) memoEl.value = draft.memo || '';
+      }
+
       renderSetRows();
       updateAssistCalcVisibility();
       calcAdvice();
@@ -2007,12 +2059,16 @@ function init() {
       }
       renderSetRows();
       calcAdvice();
+      saveCurrentDraft();
     }
 
     function removeSetRow() {
       if(currentSets.length > 1) {
+        if (!confirm('最後のセットを削除しますか？')) return;
         currentSets.pop();
         renderSetRows();
+        calcAdvice();
+        saveCurrentDraft();
       }
     }
 
@@ -2036,6 +2092,7 @@ function init() {
         btn.textContent = '';
       }
       calcAdvice();
+      saveCurrentDraft();
     }
 
     function toggleDone(idx) {
@@ -2050,6 +2107,7 @@ function init() {
 
       renderSetRows();
       calcAdvice();
+      saveCurrentDraft();
     }
 
 
@@ -2152,6 +2210,7 @@ function saveWorkout() {
       });
 
       localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+      clearCurrentDraft();
 
       // Go back to daily view
       switchView('view-daily');
