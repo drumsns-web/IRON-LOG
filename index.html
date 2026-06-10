@@ -1389,13 +1389,7 @@ function init() {
     function renderDailyLogs() {
       const container = document.getElementById('dailyLogsContainer');
       const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
-
-      if(dayLogs.length === 0) {
-        container.innerHTML = '<div class="empty-msg" style="padding-top:60px;">記録がありません</div>';
-        const reorderBtn = document.getElementById('reorderBtn');
-        if (reorderBtn) reorderBtn.style.display = 'none';
-        return;
-      }
+      const drafts = getDraftGroupsForDate(currentDateStr);
 
       // Group by exercise (maintaining order of entry)
       const groups = [];
@@ -1403,52 +1397,82 @@ function init() {
         if(groups.length > 0 && groups[groups.length-1].exercise === l.exercise) {
           groups[groups.length-1].sets.push(l);
         } else {
-          groups.push({ exercise: l.exercise, sets: [l], id: groups.length });
+          groups.push({ exercise: l.exercise, sets: [l], id: groups.length, draft: false });
         }
       });
 
+      drafts.forEach(d => {
+        const existing = groups.find(g => g.exercise === d.exercise);
+        if (existing) {
+          existing.draft = true;
+          existing.draftSets = d.sets;
+          existing.draftMemo = d.memo || '';
+          existing.updatedAt = d.updatedAt || 0;
+        } else {
+          groups.push({ exercise: d.exercise, sets: d.sets, id: groups.length, draft: true, draftSets: d.sets, draftMemo: d.memo || '', updatedAt: d.updatedAt || 0 });
+        }
+      });
+
+      if(groups.length === 0) {
+        container.innerHTML = '<div class="empty-msg" style="padding-top:60px;">記録がありません</div>';
+        const reorderBtn = document.getElementById('reorderBtn');
+        if (reorderBtn) reorderBtn.style.display = 'none';
+        return;
+      }
+
       const reorderBtn = document.getElementById('reorderBtn');
-      if (reorderBtn) reorderBtn.style.display = groups.length > 1 ? 'block' : 'none';
+      if (reorderBtn) reorderBtn.style.display = groups.filter(g => !g.draft).length > 1 ? 'block' : 'none';
 
       container.innerHTML = groups.map((g, gIdx) => {
+        const displaySets = g.draft ? (g.draftSets || []) : g.sets;
+        const completedDraftSets = displaySets.filter(s => s.done && s.weight !== '' && s.reps !== '');
         let maxWeight = 0;
         let totalVol = 0;
-        g.sets.forEach(s => {
-          if (s.weight > maxWeight) maxWeight = s.weight;
-          totalVol += (s.weight * s.reps);
+        displaySets.forEach(s => {
+          const weight = parseFloat(s.weight || 0);
+          const reps = parseInt(s.reps || 0);
+          if (weight > maxWeight) maxWeight = weight;
+          if (!isNaN(weight) && !isNaN(reps)) totalVol += (weight * reps);
         });
+        const summaryText = g.draft
+          ? '入力途中' + (completedDraftSets.length ? `・${completedDraftSets.length}セット入力済み` : '')
+          : `${displaySets.length}セット (${totalVol.toLocaleString()} kg)`;
+        const deleteText = g.draft ? '下書き削除' : '削除';
+        const safeExercise = String(g.exercise).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
         // CSS for transition
         return `
         <div class="swipe-row" style="background:var(--bg); border-bottom:1px solid var(--line);">
-          <button class="swipe-delete" onclick="deleteLogGroupByExercise('${g.exercise.replace(/'/g, "\'")}')">削除</button>
+          <button class="swipe-delete" onclick="deleteLogGroupByExercise('${safeExercise}')">${deleteText}</button>
           <div class="swipe-main" id="swipe-${gIdx}" ontouchstart="swipeStart(event, ${gIdx})" ontouchmove="swipeMove(event, ${gIdx})" ontouchend="swipeEnd(event, ${gIdx})">
             <div class="log-group" style="background:var(--bg); border:none; border-radius:0; margin-bottom:0;">
-              <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+              <div class="log-group-header" onclick="${g.draft ? `editExercise('${safeExercise}')` : `toggleLogGroup(${gIdx})`}" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
                 <div style="width:4px; height:24px; background:${catColors[getCategoryForExercise(g.exercise)] || catColors['その他']}; border-radius:2px; margin-right:12px;"></div>
                 <div style="flex:1;">
                   <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
-                  <div style="font-size:12px; color:var(--muted); font-weight:normal;">${g.sets.length}セット (${totalVol.toLocaleString()} kg)</div>
+                  <div style="font-size:12px; color:${g.draft ? 'var(--accent-brand)' : 'var(--muted)'}; font-weight:normal;">${summaryText}</div>
                 </div>
                 <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
               </div>
               <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
                 <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
               ${(() => {
-                const memoSet = g.sets.find(s => s.memo);
-                return memoSet && memoSet.memo ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoSet.memo}</div>` : '';
+                const memoText = g.draft ? g.draftMemo : ((g.sets.find(s => s.memo) || {}).memo || '');
+                return memoText ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoText}</div>` : '';
               })()}
-              ${g.sets.map((s, idx) => {
-                const tag = (s.isWarmup || s.isForm) ? 'UP' : `RPE ${s.rpe}`;
+              ${displaySets.map((s, idx) => {
+                const tag = (s.isWarmup || s.isForm || s.rpe === 'UP') ? 'UP' : `RPE ${s.rpe}`;
+                const weightText = s.weight !== '' && s.weight != null ? s.weight : '-';
+                const repsText = s.reps !== '' && s.reps != null ? s.reps : '-';
                 return `
                 <div class="log-row" style="background:transparent;">
                   <div style="width:30px; color:var(--muted)">${idx+1}</div>
-                  <div style="flex:1; font-weight:600;">${s.weight}kg × ${s.reps}回</div>
+                  <div style="flex:1; font-weight:600;">${weightText}kg × ${repsText}回</div>
                   <div class="tag">${tag}</div>
                 </div>`;
               }).join('')}
             </div>
-            <button onclick="editExercise('${g.exercise}')" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">この種目を編集 / セット追加</button>
+            <button onclick="editExercise('${safeExercise}')" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">${g.draft ? '入力を続ける' : 'この種目を編集 / セット追加'}</button>
           </div>
         </div>
           </div>
@@ -1510,9 +1534,20 @@ function init() {
 
     // 表示中の日付の、指定種目の記録をまとめて削除
     function deleteLogGroupByExercise(exercise) {
-      if (!confirm('「' + exercise + '」の記録を削除しますか？')) return;
-      logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === exercise));
-      localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+      const drafts = getSetDrafts();
+      const draftKey = getDraftKey(currentDateStr, exercise);
+      const hasDraft = !!drafts[draftKey];
+      const hasSaved = logs.some(l => l.date === currentDateStr && l.exercise === exercise);
+      const label = hasSaved && hasDraft ? '記録と入力途中データ' : (hasDraft ? '入力途中データ' : '記録');
+      if (!confirm('「' + exercise + '」の' + label + 'を削除しますか？')) return;
+      if (hasSaved) {
+        logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === exercise));
+        localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+      }
+      if (hasDraft) {
+        delete drafts[draftKey];
+        setSetDrafts(drafts);
+      }
       swipeOpenEl = null;
       renderDailyLogs();
     }
@@ -1803,22 +1838,26 @@ function init() {
       document.getElementById('headerTitle').textContent = eName;
       closeExSheet();
       loadPrevSets();
+      saveCurrentDraft();
       switchView('view-exercise');
+    }
+
+    function getExerciseOrderForDate(dateStr) {
+      const dayLogs = logs.filter(l => l.date === dateStr).sort((a,b) => a.id - b.id);
+      const order = [];
+      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
+      getDraftGroupsForDate(dateStr).forEach(d => { if (!order.includes(d.exercise)) order.push(d.exercise); });
+      return order;
     }
 
     // 指定日にその種目が何種目目だったか（1始まり、未実施は0）
     function getExOrderOnDate(dateStr, exName) {
-      const dayLogs = logs.filter(l => l.date === dateStr).sort((a,b) => a.id - b.id);
-      const order = [];
-      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
-      return order.indexOf(exName) + 1;
+      return getExerciseOrderForDate(dateStr).indexOf(exName) + 1;
     }
 
     // 今日この種目が何種目目になるか（既にあればその順、なければ次の番号）
     function getTodayPlannedOrder(exName) {
-      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
-      const order = [];
-      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
+      const order = getExerciseOrderForDate(currentDateStr);
       const idx = order.indexOf(exName);
       return idx !== -1 ? idx + 1 : order.length + 1;
     }
@@ -1832,6 +1871,12 @@ function init() {
     function getSetDrafts() {
       try { return JSON.parse(localStorage.getItem(STORE_DRAFTS) || '{}'); }
       catch (e) { return {}; }
+    }
+
+    function getDraftGroupsForDate(dateStr) {
+      return Object.values(getSetDrafts())
+        .filter(d => d && d.date === dateStr && d.exercise && Array.isArray(d.sets))
+        .sort((a,b) => (a.updatedAt || 0) - (b.updatedAt || 0));
     }
 
     function setSetDrafts(drafts) {
