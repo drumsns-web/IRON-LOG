@@ -113,11 +113,15 @@
     .cat-tab { padding: 8px 16px; border-radius: 20px; background: var(--surface-2); color: var(--muted); font-size: 14px; font-weight: 500; white-space: nowrap; border: 1px solid transparent; cursor: pointer;}
     .cat-tab.active { background: var(--surface-3); color: var(--text); border-color: var(--line); }
     .cat-tab-color { width: 18px; height: 3px; border-radius: 999px; margin-bottom: 5px; }
-    .ex-list { flex: 1; overflow-y: auto; padding: 0 16px; }
+    .ex-list { flex: 1; overflow-y: auto; padding: 0 16px max(88px, calc(env(safe-area-inset-bottom) + 56px)); scroll-padding-bottom: 96px; }
     .ex-item { display: flex; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; font-weight:500;}
     .ex-swipe-row { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
     .ex-swipe-delete { position: absolute; top: 0; right: 0; bottom: 0; width: 88px; border: none; background: var(--danger); color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1; }
     .ex-swipe-main { position: relative; z-index: 2; background: var(--surface); transition: transform 0.18s ease; touch-action: pan-y; }
+    .ai-option-row { display:flex; gap:12px; padding:14px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:center; }
+    .ai-option-copy { flex:0 0 auto; min-width:72px; min-height:38px; border:none; border-radius:8px; background:var(--accent-brand); color:#000; font-size:13px; font-weight:800; cursor:pointer; }
+    .copy-toast { position:fixed; left:50%; bottom:max(28px, calc(env(safe-area-inset-bottom) + 16px)); transform:translate(-50%, 20px); z-index:300; background:#f4f4f4; color:#111; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+    .copy-toast.show { opacity:1; transform:translate(-50%, 0); }
     .ex-swipe-main .ex-item { border-bottom: none; }
     .ex-swipe-row.open .ex-swipe-main { transform: translateX(-88px); }
     .ex-add-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 220; backdrop-filter: blur(4px); }
@@ -555,6 +559,9 @@
           <div class="template-row"><label>日曜日</label><input type="text" id="tmpl-0" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
         </div>
         <div id="cycleTemplateInputs" style="display:none;">
+          <div style="font-size:12px; color:var(--muted); margin-top:12px; line-height:1.5;">
+            記録を保存したプランは、翌日以降に次の文字へ自動で進みます。休んで記録がなければ同じ文字のままです。ホームの矢印や選択欄からいつでも変更できます。
+          </div>
           <div class="template-row"><label>A</label><input type="text" id="cycle-A" placeholder="例: 胸・三頭" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
           <div class="template-row"><label>B</label><input type="text" id="cycle-B" placeholder="例: 背中・二頭" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
           <div class="template-row"><label>C</label><input type="text" id="cycle-C" placeholder="例: 脚" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
@@ -610,10 +617,10 @@
       <h3>AI相談の設定</h3>
       <div style="width:60px"></div>
     </div>
-    <div style="padding: 16px; overflow-y:auto; max-height: 80vh;">
+    <div style="padding:16px 16px max(32px, env(safe-area-inset-bottom)); overflow-y:auto; max-height:80vh;">
 
-      <label style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">本日のテーマ・強度</label>
-      <select id="aiGoal" style="width:100%; padding:14px; margin-bottom:24px; background:var(--surface-2); border:1px solid var(--line); color:#fff; border-radius:8px; font-size:16px; outline:none;">
+      <label id="aiGoalLabel" style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">本日のテーマ</label>
+      <select id="aiGoal" style="width:100%; padding:12px; margin-bottom:18px; background:var(--surface-2); border:1px solid var(--line); color:#fff; border-radius:8px; font-size:14px; outline:none;">
         <option value="高強度（筋力UP・MAX更新）">高強度（筋力UP・MAX更新）</option>
         <option value="中強度（筋肥大・ボリューム）">中強度（筋肥大・ボリューム）</option>
         <option value="低強度（フォーム練習・スピード）">低強度（フォーム練習・スピード）</option>
@@ -625,52 +632,47 @@
         <select id="aiExercisePicker" style="width:100%; padding:14px; background:var(--surface-2); border:1px solid var(--line); color:#fff; border-radius:8px; font-size:16px; outline:none;"></select>
       </div>
 
-      <label style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">相談内容（コンテキスト量）</label>
-      <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:32px;">
-        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
-          <input type="radio" name="aiType" value="nextSet" checked style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
-          <div>
-            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">次セットの重量・回数</div>
-            <div style="font-size:12px; color:var(--muted);">現在の種目の今日と前回のセットだけを送信</div>
+      <label style="display:block; margin-bottom:8px; font-weight:600; font-size:14px; color:var(--muted)">コピーする内容</label>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">次セット相談用</div>
+            <div style="font-size:11px; color:var(--muted);">今日のセットを短い形式でコピー</div>
           </div>
-        </label>
-
-        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
-          <input type="radio" name="aiType" value="lastSet" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
-          <div>
-            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">直前セットだけコピー</div>
-            <div style="font-size:12px; color:var(--muted);">選択した種目の最後のセットの重量・回数・RPEだけを送信</div>
+          <button class="ai-option-copy" onclick="copyAiOption('nextSet')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">直前セットだけ</div>
+            <div style="font-size:11px; color:var(--muted);">100kg 8回 RPE9 の形式</div>
           </div>
-        </label>
-
-        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
-          <input type="radio" name="aiType" value="exerciseSets" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
-          <div>
-            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">その種目の全セットをコピー</div>
-            <div style="font-size:12px; color:var(--muted);">選択した種目の今日のセットをまとめて送信</div>
+          <button class="ai-option-copy" onclick="copyAiOption('lastSet')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">その種目の全セット</div>
+            <div style="font-size:11px; color:var(--muted);">重量・回数・RPEだけを改行してコピー</div>
           </div>
-        </label>
-
-        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
-          <input type="radio" name="aiType" value="exercise" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
-          <div>
-            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">次の種目選び・メニュー</div>
-            <div style="font-size:12px; color:var(--muted);">現在の部位の今日のメニューのみを送信</div>
+          <button class="ai-option-copy" onclick="copyAiOption('exerciseSets')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">次の種目選び</div>
+            <div style="font-size:11px; color:var(--muted);">今日行った種目とセット数をコピー</div>
           </div>
-        </label>
-
-        <label style="display:flex; gap:12px; padding:16px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; align-items:flex-start; cursor:pointer;">
-          <input type="radio" name="aiType" value="volume" style="margin-top:2px; accent-color:var(--accent-brand); transform:scale(1.2);">
-          <div>
-            <div style="font-weight:600; font-size:15px; margin-bottom:4px;">全体のボリューム・疲労度</div>
-            <div style="font-size:12px; color:var(--muted);">本日の全てのトレーニング記録を送信</div>
+          <button class="ai-option-copy" onclick="copyAiOption('exercise')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">全体のボリューム</div>
+            <div style="font-size:11px; color:var(--muted);">本日の全記録を簡潔にコピー</div>
           </div>
-        </label>
+          <button class="ai-option-copy" onclick="copyAiOption('volume')">コピー</button>
+        </div>
       </div>
-
-      <button class="save-btn" onclick="generateAndCopyAI()" style="margin-top:0;">プロンプトをコピー</button>
     </div>
   </div>
+  <div id="copyToast" class="copy-toast">コピーしました</div>
 
   <script>
     // Data Storage
@@ -908,6 +910,9 @@
         templateMode: localStorage.getItem(STORE_TMPL_MODE) || 'weekday',
         cycleTemplates: JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}'),
         cycleSlot: getCurrentCycleSlot(),
+        cycleCompletedDate: localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '',
+        cycleCompletedSlot: localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '',
+        cycleAdvancedDate: localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '',
         setDrafts: getSetDrafts(),
         exportDate: new Date().toISOString()
       };
@@ -978,6 +983,15 @@
               if (data.cycleSlot) {
                 localStorage.setItem(STORE_CYCLE_SLOT, data.cycleSlot);
               }
+              if (data.cycleCompletedDate) {
+                localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, data.cycleCompletedDate);
+              }
+              if (data.cycleCompletedSlot) {
+                localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, data.cycleCompletedSlot);
+              }
+              if (data.cycleAdvancedDate) {
+                localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, data.cycleAdvancedDate);
+              }
               if (data.setDrafts) {
                 localStorage.setItem(STORE_DRAFTS, JSON.stringify(data.setDrafts));
               }
@@ -1041,6 +1055,9 @@ const STORE_TMPL = 'ironlog-templates';
 const STORE_TMPL_MODE = 'ironlog-template-mode-v1';
 const STORE_CYCLE_TMPL = 'ironlog-cycle-templates-v1';
 const STORE_CYCLE_SLOT = 'ironlog-cycle-current-slot-v1';
+const STORE_CYCLE_COMPLETED_DATE = 'ironlog-cycle-completed-date-v1';
+const STORE_CYCLE_COMPLETED_SLOT = 'ironlog-cycle-completed-slot-v1';
+const STORE_CYCLE_ADVANCED_DATE = 'ironlog-cycle-advanced-date-v1';
 const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 const cycleNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
@@ -1120,6 +1137,33 @@ function changeCycleSlot(delta) {
   setCycleSlot(next);
 }
 
+function markCyclePlanCompleted(dateStr) {
+  if ((localStorage.getItem(STORE_TMPL_MODE) || 'weekday') !== 'cycle') return;
+  const completedDate = localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '';
+  if (completedDate === dateStr) return;
+  if (completedDate && completedDate > dateStr) return;
+  localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, dateStr);
+  localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, getCurrentCycleSlot());
+}
+
+function syncCycleSlotForToday() {
+  if ((localStorage.getItem(STORE_TMPL_MODE) || 'weekday') !== 'cycle') return;
+  if (typeof currentDateStr === 'undefined') return;
+  const todayStr = formatDate(new Date());
+  if (currentDateStr !== todayStr) return;
+
+  const completedDate = localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '';
+  const completedSlot = localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '';
+  const advancedDate = localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '';
+  if (!completedDate || completedDate >= todayStr || advancedDate === completedDate) return;
+  if (!cycleNames.includes(completedSlot)) return;
+
+  const idx = cycleNames.indexOf(completedSlot);
+  const next = cycleNames[(idx + 1) % cycleNames.length];
+  localStorage.setItem(STORE_CYCLE_SLOT, next);
+  localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, completedDate);
+}
+
 function updateTodayTemplate() {
   if (typeof currentDateStr === 'undefined') return;
   const d = new Date(currentDateStr);
@@ -1133,6 +1177,7 @@ function updateTodayTemplate() {
 
   let todayTask = '';
   if (mode === 'cycle') {
+    syncCycleSlotForToday();
     const slot = getCurrentCycleSlot();
     const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
     todayTask = data[slot] || '';
@@ -1504,6 +1549,7 @@ function init() {
       // Just re-render calendar to update the 'active' highlight if it's in the current view.
       renderCalendar();
       renderDailyLogs();
+      updateTodayTemplate();
     }
 
     function renderDailyLogs() {
@@ -2358,22 +2404,134 @@ function init() {
       }
       return '';
     }
-    function openAiSheet(source) { aiSheetSource = source || 'exercise'; populateAiExercisePicker(); document.getElementById('sheetOverlay').style.display = 'block'; setTimeout(function(){ document.getElementById('sheetOverlay').style.opacity = '1'; }, 10); document.getElementById('aiSheet').style.transform = 'translateY(0)'; }
+    function getActivePlanInfo() {
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      if (mode === 'cycle') {
+        const slot = getCurrentCycleSlot();
+        const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
+        return { label: `プラン${slot}`, text: data[slot] || '' };
+      }
+      const d = new Date(currentDateStr);
+      const dayIndex = d.getDay();
+      const data = JSON.parse(localStorage.getItem(STORE_TMPL) || '{}');
+      return { label: `${dayNames[dayIndex]}曜日`, text: data[dayIndex] || '' };
+    }
+
+    function populateAiGoalFromPlan() {
+      const select = document.getElementById('aiGoal');
+      const label = document.getElementById('aiGoalLabel');
+      if (!select) return;
+      const oldAuto = select.querySelector('option[data-plan-option="1"]');
+      if (oldAuto) oldAuto.remove();
+      const plan = getActivePlanInfo();
+      if (plan.text) {
+        const option = document.createElement('option');
+        option.dataset.planOption = '1';
+        option.value = `${plan.label}: ${plan.text}`;
+        option.textContent = `${plan.label}: ${plan.text}`;
+        select.insertBefore(option, select.firstChild);
+        select.value = option.value;
+        if (label) label.textContent = '本日のテーマ（予定から自動選択）';
+      } else if (label) {
+        label.textContent = '本日のテーマ・強度';
+      }
+    }
+
+    function openAiSheet(source) {
+      aiSheetSource = source || 'exercise';
+      populateAiExercisePicker();
+      populateAiGoalFromPlan();
+      document.getElementById('sheetOverlay').style.display = 'block';
+      setTimeout(function(){ document.getElementById('sheetOverlay').style.opacity = '1'; }, 10);
+      document.getElementById('aiSheet').style.transform = 'translateY(0)';
+    }
     function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; setTimeout(function(){ if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)') document.getElementById('sheetOverlay').style.display = 'none'; }, 300); }
-    function generateAndCopyAI() {
-      const goal = document.getElementById('aiGoal').value; const type = document.querySelector('input[name="aiType"]:checked').value; const aiExercise = getAiExerciseName();
-      const allToday = getAllTodayForAi(); const exerciseSets = aiExercise ? getAiExerciseSets(aiExercise) : []; const uniqueTodayEx = Array.from(new Set(allToday.map(function(l){ return l.exercise; })));
-      let currentOrder = uniqueTodayEx.indexOf(aiExercise) + 1; if (currentOrder === 0) currentOrder = uniqueTodayEx.length + 1;
-      let text = '【目的】' + goal + '\n';
-      if ((type === 'lastSet' || type === 'exerciseSets' || type === 'nextSet') && !aiExercise) { alert('相談する種目がありません。先に記録を保存するか、種目入力画面から開いてください。'); return; }
-      if (type === 'lastSet') { const last = exerciseSets[exerciseSets.length - 1]; if (!last) return alert('この種目のセット記録がありません。'); text += '【コピー内容】直前セットのみ\n【種目】' + aiExercise + '\n' + getAssistNote(aiExercise) + '\n[直前セット]\n' + formatAiSetLine(last, exerciseSets.length - 1) + '\n\n質問: この直前セットの重量・回数・RPEを踏まえて、次の判断をどうするべきですか？'; }
-      else if (type === 'exerciseSets') { if (exerciseSets.length === 0) return alert('この種目のセット記録がありません。'); text += '【コピー内容】その種目の全セット\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日のセット]\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: この種目の今日のセット内容を見て、重量設定・回数・RPE・次回への改善点を教えてください。'; }
-      else if (type === 'nextSet') { text += '【相談】次セットの重量・回数設定\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日完了したセット]\n'; if (!exerciseSets.length) text += '(まだ完了していません)\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: 上記の疲労度や前回の結果を踏まえて、次のセットの重量と回数はどう設定すべきですか？'; }
-      else if (type === 'exercise') { const cat = getCategoryForExercise(aiExercise); text += '【相談】部位「' + cat + '」の種目選び・メニュー\n\n[今日完了した「' + cat + '」のメニュー]\n'; const catLogs = allToday.filter(function(l){ return getCategoryForExercise(l.exercise) === cat; }); if(!catLogs.length) text += '(まだありません)\n'; const grouped = {}; catLogs.forEach(function(l){ if(!grouped[l.exercise]) grouped[l.exercise] = []; grouped[l.exercise].push(l); }); Object.entries(grouped).forEach(function(pair){ const ex = pair[0], sets = pair[1]; text += '・' + ex + ': ' + sets.length + 'セット (最高 ' + Math.max.apply(null, sets.map(function(s){ return s.weight; })) + 'kg)\n'; }); text += '\n質問: これまで上記を行いました。次にどんな種目を追加・変更するのが効果的ですか？'; }
-      else if (type === 'volume') { text += '【相談】本日のボリュームと疲労度\n\n[本日の全メニュー]\n'; if(!allToday.length) text += '(まだありません)\n'; const grouped = {}, orderedExList = []; allToday.forEach(function(l){ if(!grouped[l.exercise]) { grouped[l.exercise] = []; orderedExList.push(l.exercise); } grouped[l.exercise].push(l); }); orderedExList.forEach(function(ex,idx){ const sets = grouped[ex]; text += '・' + (idx+1) + '種目目: ' + ex + ' (' + sets.length + 'セット)\n'; if (/アシスト|assist/i.test(ex)) text += '  ※アシスト種目: 記録kgは体重－アシスト重量の実負荷\n'; else if (/チンニング|懸垂|ディップス|chin[\s-]*up|pull[\s-]*up|dips?/i.test(ex)) text += '  ※加重自重種目: 記録kgは体重＋追加重量の実負荷\n'; sets.forEach(function(s,i){ text += '  ' + formatAiSetLine(s,i) + '\n'; }); }); text += '\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。'; }
-      const textArea = document.createElement('textarea'); textArea.value = text; document.body.appendChild(textArea); textArea.select();
-      try { document.execCommand('copy'); alert('AI相談用のプロンプトをコピーしました！\nChatGPT等に貼り付けてください。'); closeAiSheet(); } catch (err) { alert('コピーに失敗しました。'); }
-      document.body.removeChild(textArea);
+
+    function formatSimpleAiSet(s) {
+      const rpe = (s.isWarmup || s.isForm || s.rpe == null) ? 'UP' : `RPE${s.rpe}`;
+      return `${s.weight}kg ${s.reps}回 ${rpe}`;
+    }
+
+    function showCopyToast(message) {
+      const toast = document.getElementById('copyToast');
+      if (!toast) return;
+      toast.textContent = message || 'コピーしました';
+      toast.classList.add('show');
+      clearTimeout(window.copyToastTimer);
+      window.copyToastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+    }
+
+    async function copyTextQuietly(text) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const textArea = document.createElement('textarea');
+          try {
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            if (!document.execCommand('copy')) throw new Error('copy failed');
+          } finally {
+            if (textArea.parentNode) textArea.parentNode.removeChild(textArea);
+          }
+        }
+        closeAiSheet();
+        showCopyToast('コピーしました');
+      } catch (err) {
+        showCopyToast('コピーできませんでした');
+      }
+    }
+
+    function copyAiOption(type) {
+      const goal = document.getElementById('aiGoal').value;
+      const aiExercise = getAiExerciseName();
+      const allToday = getAllTodayForAi();
+      const exerciseSets = aiExercise ? getAiExerciseSets(aiExercise) : [];
+      const planLine = goal ? `今日: ${goal}` : '';
+      let text = '';
+
+      if (type === 'lastSet') {
+        const last = exerciseSets[exerciseSets.length - 1];
+        if (!last) return showCopyToast('セット記録がありません');
+        text = formatSimpleAiSet(last);
+      } else if (type === 'exerciseSets') {
+        if (!exerciseSets.length) return showCopyToast('セット記録がありません');
+        text = exerciseSets.map(formatSimpleAiSet).join('\n');
+      } else if (type === 'nextSet') {
+        if (!aiExercise) return showCopyToast('種目を選択してください');
+        const lines = [planLine, aiExercise].filter(Boolean);
+        if (exerciseSets.length) lines.push(...exerciseSets.map(formatSimpleAiSet));
+        text = lines.join('\n');
+      } else if (type === 'exercise') {
+        if (!allToday.length) return showCopyToast('本日の記録がありません');
+        const grouped = {};
+        allToday.forEach(s => {
+          if (!grouped[s.exercise]) grouped[s.exercise] = [];
+          grouped[s.exercise].push(s);
+        });
+        text = [planLine, ...Object.entries(grouped).map(([name, sets]) => `${name} ${sets.length}セット`)].filter(Boolean).join('\n');
+      } else if (type === 'volume') {
+        if (!allToday.length) return showCopyToast('本日の記録がありません');
+        const grouped = {};
+        const order = [];
+        allToday.forEach(s => {
+          if (!grouped[s.exercise]) {
+            grouped[s.exercise] = [];
+            order.push(s.exercise);
+          }
+          grouped[s.exercise].push(s);
+        });
+        const lines = [planLine].filter(Boolean);
+        order.forEach(name => {
+          lines.push(name);
+          lines.push(...grouped[name].map(formatSimpleAiSet));
+        });
+        text = lines.join('\n');
+      }
+      if (text) copyTextQuietly(text);
     }
 function saveWorkout() {
       // Find rows that are marked done and have values
@@ -2407,6 +2565,7 @@ function saveWorkout() {
       });
 
       localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+      markCyclePlanCompleted(currentDateStr);
       clearCurrentDraft();
 
       // Go back to daily view
