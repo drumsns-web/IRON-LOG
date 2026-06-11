@@ -317,6 +317,14 @@
     <div id="todayTemplateCard" class="today-template-card">
       <div class="title" id="todayTemplateTitle">🔥 今日の予定（月）</div>
       <div class="content" id="todayTemplateContent"></div>
+      <div id="cycleTemplateControls" style="display:none; gap:8px; margin-top:12px;">
+        <button onclick="changeCycleSlot(-1)" aria-label="前の予定" style="width:44px; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; font-weight:700;">‹</button>
+        <select id="cycleSlotSelect" onchange="setCycleSlot(this.value)" style="flex:1; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:0 12px; font-weight:700; text-align:center;">
+          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+          <option value="E">E</option><option value="F">F</option><option value="G">G</option>
+        </select>
+        <button onclick="changeCycleSlot(1)" aria-label="次の予定" style="width:44px; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; font-weight:700;">›</button>
+      </div>
     </div>
     <!-- ================================ -->
 
@@ -364,19 +372,19 @@
     </div>
 
     <div id="assistCalcBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.06); border:1px solid rgba(208, 253, 62, 0.22);">
-      <div style="font-size:13px; color:var(--accent-brand); font-weight:700; margin-bottom:10px;">アシスト負荷計算</div>
+      <div id="bodyweightCalcTitle" style="font-size:13px; color:var(--accent-brand); font-weight:700; margin-bottom:10px;">自重種目の負荷計算</div>
       <div style="display:flex; gap:10px; margin-bottom:10px;">
         <div class="input-box" style="background:var(--surface-2);">
           <input type="number" inputmode="decimal" id="assistBodyWeight" placeholder="体重" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
           <span>kg</span>
         </div>
         <div class="input-box" style="background:var(--surface-2);">
-          <input type="number" inputmode="decimal" id="assistWeight" placeholder="アシスト" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
+          <input type="number" inputmode="decimal" id="assistWeight" placeholder="追加重量" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
           <span>kg</span>
         </div>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
-        <div style="font-size:12px; color:var(--muted);">体重 − アシスト重量 = 実際の負荷</div>
+        <div id="bodyweightCalcFormula" style="font-size:12px; color:var(--muted);">体重 ＋ 追加重量 = 実際の負荷</div>
         <div id="assistLoadResult" style="font-size:18px; font-weight:800; color:var(--accent-brand); white-space:nowrap;">-- kg</div>
       </div>
       <div style="display:flex; gap:10px;">
@@ -525,18 +533,36 @@
       
     <!-- ===== 追加: 曜日別テンプレート編集 ===== -->
     <details class="template-details">
-      <summary>🗓️ 曜日ごとの予定テンプレート</summary>
+      <summary>🗓️ トレーニング予定テンプレート</summary>
       <div class="template-body">
         <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
-          曜日ごとによくやる部位やメモを入れておくと、ホーム画面に今日の予定として表示されます。
+          曜日固定、または休んでもずれないA〜Gローテーションを選べます。
         </div>
-        <div class="template-row"><label>月曜日</label><input type="text" id="tmpl-1" placeholder="例: 胸（ベンチ重め）✕ 脚 ＋ 肩" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
-        <div class="template-row"><label>火曜日</label><input type="text" id="tmpl-2" placeholder="例: 背中（厚み） ✕ もも裏 ✕ 腹筋" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
-        <div class="template-row"><label>水曜日</label><input type="text" id="tmpl-3" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
-        <div class="template-row"><label>木曜日</label><input type="text" id="tmpl-4" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
-        <div class="template-row"><label>金曜日</label><input type="text" id="tmpl-5" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
-        <div class="template-row"><label>土曜日</label><input type="text" id="tmpl-6" placeholder="完全休み" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
-        <div class="template-row"><label>日曜日</label><input type="text" id="tmpl-0" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        <div class="template-row">
+          <label>予定の方式</label>
+          <select id="templateMode" onchange="saveTemplateMode()" style="width:100%; background:var(--surface-3); border:1px solid var(--line); color:#fff; border-radius:8px; padding:11px 12px; font-size:14px; outline:none;">
+            <option value="weekday">曜日固定（月〜日）</option>
+            <option value="cycle">A〜Gローテーション</option>
+          </select>
+        </div>
+        <div id="weekdayTemplateInputs">
+          <div class="template-row"><label>月曜日</label><input type="text" id="tmpl-1" placeholder="例: 胸（ベンチ重め）✕ 脚 ＋ 肩" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>火曜日</label><input type="text" id="tmpl-2" placeholder="例: 背中（厚み） ✕ もも裏 ✕ 腹筋" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>水曜日</label><input type="text" id="tmpl-3" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>木曜日</label><input type="text" id="tmpl-4" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>金曜日</label><input type="text" id="tmpl-5" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>土曜日</label><input type="text" id="tmpl-6" placeholder="完全休み" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>日曜日</label><input type="text" id="tmpl-0" placeholder="" onchange="saveTemplates()" onfocus="scrollToInput(this)"></div>
+        </div>
+        <div id="cycleTemplateInputs" style="display:none;">
+          <div class="template-row"><label>A</label><input type="text" id="cycle-A" placeholder="例: 胸・三頭" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>B</label><input type="text" id="cycle-B" placeholder="例: 背中・二頭" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>C</label><input type="text" id="cycle-C" placeholder="例: 脚" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>D</label><input type="text" id="cycle-D" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>E</label><input type="text" id="cycle-E" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>F</label><input type="text" id="cycle-F" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row"><label>G</label><input type="text" id="cycle-G" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+        </div>
       </div>
     </details>
     <!-- =================================== -->
@@ -878,6 +904,11 @@
         logs: logs,
         exercises: exercises,
         catColors: catColors,
+        weekdayTemplates: JSON.parse(localStorage.getItem(STORE_TMPL) || '{}'),
+        templateMode: localStorage.getItem(STORE_TMPL_MODE) || 'weekday',
+        cycleTemplates: JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}'),
+        cycleSlot: getCurrentCycleSlot(),
+        setDrafts: getSetDrafts(),
         exportDate: new Date().toISOString()
       };
       const jsonStr = JSON.stringify(data, null, 2);
@@ -934,6 +965,21 @@
               }
               if (data.catColors) {
                 localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(data.catColors));
+              }
+              if (data.weekdayTemplates) {
+                localStorage.setItem(STORE_TMPL, JSON.stringify(data.weekdayTemplates));
+              }
+              if (data.templateMode) {
+                localStorage.setItem(STORE_TMPL_MODE, data.templateMode);
+              }
+              if (data.cycleTemplates) {
+                localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(data.cycleTemplates));
+              }
+              if (data.cycleSlot) {
+                localStorage.setItem(STORE_CYCLE_SLOT, data.cycleSlot);
+              }
+              if (data.setDrafts) {
+                localStorage.setItem(STORE_DRAFTS, JSON.stringify(data.setDrafts));
               }
               alert('データを復元しました。画面を再読み込みします。');
               location.reload();
@@ -992,7 +1038,11 @@ function scrollToInput(el) {
 
 /* --- 曜日テンプレート用のJavaScript --- */
 const STORE_TMPL = 'ironlog-templates';
+const STORE_TMPL_MODE = 'ironlog-template-mode-v1';
+const STORE_CYCLE_TMPL = 'ironlog-cycle-templates-v1';
+const STORE_CYCLE_SLOT = 'ironlog-cycle-current-slot-v1';
 const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+const cycleNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 function loadTemplates() {
   const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
@@ -1002,6 +1052,15 @@ function loadTemplates() {
       input.value = data[i];
     }
   }
+  const cycleData = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
+  cycleNames.forEach(name => {
+    const input = document.getElementById(`cycle-${name}`);
+    if (input) input.value = cycleData[name] || '';
+  });
+  const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+  const modeSelect = document.getElementById('templateMode');
+  if (modeSelect) modeSelect.value = mode;
+  updateTemplateModeUi();
   if (typeof currentDateStr !== 'undefined') {
       updateTodayTemplate();
   }
@@ -1017,21 +1076,82 @@ function saveTemplates() {
   updateTodayTemplate();
 }
 
+function saveCycleTemplates() {
+  const data = {};
+  cycleNames.forEach(name => {
+    const input = document.getElementById(`cycle-${name}`);
+    const val = input ? input.value.trim() : '';
+    if (val) data[name] = val;
+  });
+  localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(data));
+  updateTodayTemplate();
+}
+
+function saveTemplateMode() {
+  const select = document.getElementById('templateMode');
+  localStorage.setItem(STORE_TMPL_MODE, select ? select.value : 'weekday');
+  updateTemplateModeUi();
+  updateTodayTemplate();
+}
+
+function updateTemplateModeUi() {
+  const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+  const weekdayInputs = document.getElementById('weekdayTemplateInputs');
+  const cycleInputs = document.getElementById('cycleTemplateInputs');
+  if (weekdayInputs) weekdayInputs.style.display = mode === 'weekday' ? 'block' : 'none';
+  if (cycleInputs) cycleInputs.style.display = mode === 'cycle' ? 'block' : 'none';
+}
+
+function getCurrentCycleSlot() {
+  const saved = localStorage.getItem(STORE_CYCLE_SLOT) || 'A';
+  return cycleNames.includes(saved) ? saved : 'A';
+}
+
+function setCycleSlot(slot) {
+  if (!cycleNames.includes(slot)) return;
+  localStorage.setItem(STORE_CYCLE_SLOT, slot);
+  updateTodayTemplate();
+}
+
+function changeCycleSlot(delta) {
+  const current = getCurrentCycleSlot();
+  const idx = cycleNames.indexOf(current);
+  const next = cycleNames[(idx + delta + cycleNames.length) % cycleNames.length];
+  setCycleSlot(next);
+}
+
 function updateTodayTemplate() {
   if (typeof currentDateStr === 'undefined') return;
   const d = new Date(currentDateStr);
   const dayIndex = d.getDay(); // 0(日) 〜 6(土)
-  const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
+  const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
 
   const card = document.getElementById('todayTemplateCard');
   const title = document.getElementById('todayTemplateTitle');
   const content = document.getElementById('todayTemplateContent');
+  const cycleControls = document.getElementById('cycleTemplateControls');
 
-  const todayTask = data[dayIndex];
+  let todayTask = '';
+  if (mode === 'cycle') {
+    const slot = getCurrentCycleSlot();
+    const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
+    todayTask = data[slot] || '';
+    title.textContent = `🔥 現在の予定（${slot}）`;
+    const slotSelect = document.getElementById('cycleSlotSelect');
+    if (slotSelect) slotSelect.value = slot;
+    if (cycleControls) cycleControls.style.display = 'flex';
+  } else {
+    const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
+    todayTask = data[dayIndex] || '';
+    title.textContent = `🔥 今日の予定（${dayNames[dayIndex]}）`;
+    if (cycleControls) cycleControls.style.display = 'none';
+  }
 
   if (todayTask) {
-    title.textContent = `🔥 今日の予定（${dayNames[dayIndex]}）`;
     content.textContent = todayTask;
+    card.style.display = 'block';
+  } else if (mode === 'cycle') {
+    content.textContent = 'この枠の予定は未入力です。設定から内容を登録できます。';
     card.style.display = 'block';
   } else {
     card.style.display = 'none';
@@ -1913,15 +2033,38 @@ function init() {
       return /アシスト|assist/i.test(exName || '');
     }
 
+    function isWeightedBodyweightExercise(exName = selectedExercise) {
+      return !isAssistExercise(exName) && /チンニング|懸垂|ディップス|chin[\s-]*up|pull[\s-]*up|dips?/i.test(exName || '');
+    }
+
+    function isBodyweightLoadExercise(exName = selectedExercise) {
+      return isAssistExercise(exName) || isWeightedBodyweightExercise(exName);
+    }
+
+    let lastBodyweightCalcExercise = '';
+
     function updateAssistCalcVisibility() {
       const box = document.getElementById('assistCalcBox');
       if (!box) return;
-      if (!isAssistExercise()) {
+      if (!isBodyweightLoadExercise()) {
         box.style.display = 'none';
         return;
       }
       box.style.display = 'block';
       const bodyInput = document.getElementById('assistBodyWeight');
+      const loadInput = document.getElementById('assistWeight');
+      const title = document.getElementById('bodyweightCalcTitle');
+      const formula = document.getElementById('bodyweightCalcFormula');
+      const assistMode = isAssistExercise();
+      if (lastBodyweightCalcExercise !== selectedExercise) {
+        if (loadInput) loadInput.value = '';
+        lastBodyweightCalcExercise = selectedExercise;
+      }
+      if (title) title.textContent = assistMode ? 'アシスト負荷計算' : '加重を含む実負荷計算';
+      if (loadInput) loadInput.placeholder = assistMode ? 'アシスト' : '追加重量';
+      if (formula) formula.textContent = assistMode
+        ? '体重 − アシスト重量 = 実際の負荷'
+        : '体重 ＋ 追加重量 = 実際の負荷';
       if (bodyInput && !bodyInput.value) {
         bodyInput.value = localStorage.getItem('ironlog-body-weight') || '';
       }
@@ -1932,7 +2075,8 @@ function init() {
       const body = parseFloat(document.getElementById('assistBodyWeight')?.value || '');
       const assist = parseFloat(document.getElementById('assistWeight')?.value || '');
       if (isNaN(body) || isNaN(assist)) return null;
-      return Math.max(0, Math.round((body - assist) * 10) / 10);
+      const load = isAssistExercise() ? body - assist : body + assist;
+      return Math.max(0, Math.round(load * 10) / 10);
     }
 
     function updateAssistLoadPreview() {
@@ -1946,7 +2090,7 @@ function init() {
 
     function applyAssistLoadToNextSet() {
       const load = updateAssistLoadPreview();
-      if (load === null) return alert('体重とアシスト重量を入力してください。');
+      if (load === null) return alert(isAssistExercise() ? '体重とアシスト重量を入力してください。' : '体重と追加重量を入力してください。');
       let idx = currentSets.findIndex(s => !s.done || s.weight === '');
       if (idx === -1) idx = currentSets.length - 1;
       if (idx < 0) return;
@@ -1959,7 +2103,7 @@ function init() {
 
     function applyAssistLoadToAllSets() {
       const load = updateAssistLoadPreview();
-      if (load === null) return alert('体重とアシスト重量を入力してください。');
+      if (load === null) return alert(isAssistExercise() ? '体重とアシスト重量を入力してください。' : '体重と追加重量を入力してください。');
       currentSets.forEach(s => { s.weight = String(load); });
       renderSetRows();
       updateAssistCalcVisibility();
@@ -2000,10 +2144,10 @@ function init() {
           const d = new Date(lastDate);
           const dLabel = `${d.getMonth()+1}/${d.getDate()}`;
           if (prevPos !== todayPos) {
-            prevOrderBox.innerHTML = `前回(${dLabel}) ${prevPos}種目目 → 今回 ${todayPos}種目目 <span style="color:var(--accent);">⚠条件差あり</span>`;
+            prevOrderBox.innerHTML = `前回(${dLabel})は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回は${todayPos}種目目 <span style="color:var(--accent);">⚠ 順番が違うため扱える重量が変わる可能性があります</span>`;
             prevOrderBox.style.color = 'var(--accent)';
           } else {
-            prevOrderBox.innerHTML = `前回(${dLabel}) ${prevPos}種目目 → 今回 ${todayPos}種目目（同条件）`;
+            prevOrderBox.innerHTML = `前回(${dLabel})は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回も${todayPos}種目目（同じ順番）`;
             prevOrderBox.style.color = 'var(--accent-brand)';
           }
           prevOrderBox.style.display = 'block';
@@ -2205,7 +2349,15 @@ function init() {
     function getAiExerciseSets(exName) { const unsaved = getCurrentUnsavedAiSets(exName); if (unsaved.length) return unsaved; return logs.filter(function(l){ return l.date === currentDateStr && l.exercise === exName; }).sort(function(a,b){ return a.id - b.id; }); }
     function populateAiExercisePicker() { const wrap = document.getElementById('aiExercisePickerWrap'); const picker = document.getElementById('aiExercisePicker'); if (!wrap || !picker) return; const names = getExerciseNamesForDate(currentDateStr); if (selectedExercise && !names.includes(selectedExercise)) names.push(selectedExercise); if (names.length === 0) { wrap.style.display = 'none'; picker.innerHTML = ''; return; } const defaultName = selectedExercise && names.includes(selectedExercise) ? selectedExercise : names[names.length - 1]; picker.innerHTML = names.map(function(name){ return '<option value="' + escapeHtml(name) + '" ' + (name === defaultName ? 'selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join(''); wrap.style.display = 'block'; }
     function formatAiSetLine(s, index) { const rpeText = (s.isWarmup || s.isForm || s.rpe == null) ? 'アップ' : 'RPE ' + s.rpe; return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + rpeText + ')'; }
-    function getAssistNote(exName) { if (!/アシスト|assist/i.test(exName || '')) return ''; return '\n[アシスト種目の見方]\nこの種目はアシスト負荷計算を使える種目です。記録のkgは、体重 − アシスト重量で算出した実際の負荷として扱ってください。\n'; }
+    function getAssistNote(exName) {
+      if (/アシスト|assist/i.test(exName || '')) {
+        return '\n[アシスト種目の見方]\n記録のkgは、体重 − アシスト重量で算出した実際の負荷として扱ってください。\n';
+      }
+      if (/チンニング|懸垂|ディップス|chin[\s-]*up|pull[\s-]*up|dips?/i.test(exName || '')) {
+        return '\n[加重自重種目の見方]\n記録のkgは、体重 ＋ 追加重量で算出した実際の負荷として扱ってください。\n';
+      }
+      return '';
+    }
     function openAiSheet(source) { aiSheetSource = source || 'exercise'; populateAiExercisePicker(); document.getElementById('sheetOverlay').style.display = 'block'; setTimeout(function(){ document.getElementById('sheetOverlay').style.opacity = '1'; }, 10); document.getElementById('aiSheet').style.transform = 'translateY(0)'; }
     function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; setTimeout(function(){ if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)') document.getElementById('sheetOverlay').style.display = 'none'; }, 300); }
     function generateAndCopyAI() {
@@ -2218,7 +2370,7 @@ function init() {
       else if (type === 'exerciseSets') { if (exerciseSets.length === 0) return alert('この種目のセット記録がありません。'); text += '【コピー内容】その種目の全セット\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日のセット]\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: この種目の今日のセット内容を見て、重量設定・回数・RPE・次回への改善点を教えてください。'; }
       else if (type === 'nextSet') { text += '【相談】次セットの重量・回数設定\n【種目】' + aiExercise + ' (本日の ' + currentOrder + ' 種目目)\n' + getAssistNote(aiExercise) + '\n[今日完了したセット]\n'; if (!exerciseSets.length) text += '(まだ完了していません)\n'; exerciseSets.forEach(function(s,i){ text += formatAiSetLine(s,i) + '\n'; }); text += '\n質問: 上記の疲労度や前回の結果を踏まえて、次のセットの重量と回数はどう設定すべきですか？'; }
       else if (type === 'exercise') { const cat = getCategoryForExercise(aiExercise); text += '【相談】部位「' + cat + '」の種目選び・メニュー\n\n[今日完了した「' + cat + '」のメニュー]\n'; const catLogs = allToday.filter(function(l){ return getCategoryForExercise(l.exercise) === cat; }); if(!catLogs.length) text += '(まだありません)\n'; const grouped = {}; catLogs.forEach(function(l){ if(!grouped[l.exercise]) grouped[l.exercise] = []; grouped[l.exercise].push(l); }); Object.entries(grouped).forEach(function(pair){ const ex = pair[0], sets = pair[1]; text += '・' + ex + ': ' + sets.length + 'セット (最高 ' + Math.max.apply(null, sets.map(function(s){ return s.weight; })) + 'kg)\n'; }); text += '\n質問: これまで上記を行いました。次にどんな種目を追加・変更するのが効果的ですか？'; }
-      else if (type === 'volume') { text += '【相談】本日のボリュームと疲労度\n\n[本日の全メニュー]\n'; if(!allToday.length) text += '(まだありません)\n'; const grouped = {}, orderedExList = []; allToday.forEach(function(l){ if(!grouped[l.exercise]) { grouped[l.exercise] = []; orderedExList.push(l.exercise); } grouped[l.exercise].push(l); }); orderedExList.forEach(function(ex,idx){ const sets = grouped[ex]; text += '・' + (idx+1) + '種目目: ' + ex + ' (' + sets.length + 'セット)\n'; if (/アシスト|assist/i.test(ex)) text += '  ※アシスト種目: 記録kgは実際の負荷として評価\n'; sets.forEach(function(s,i){ text += '  ' + formatAiSetLine(s,i) + '\n'; }); }); text += '\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。'; }
+      else if (type === 'volume') { text += '【相談】本日のボリュームと疲労度\n\n[本日の全メニュー]\n'; if(!allToday.length) text += '(まだありません)\n'; const grouped = {}, orderedExList = []; allToday.forEach(function(l){ if(!grouped[l.exercise]) { grouped[l.exercise] = []; orderedExList.push(l.exercise); } grouped[l.exercise].push(l); }); orderedExList.forEach(function(ex,idx){ const sets = grouped[ex]; text += '・' + (idx+1) + '種目目: ' + ex + ' (' + sets.length + 'セット)\n'; if (/アシスト|assist/i.test(ex)) text += '  ※アシスト種目: 記録kgは体重－アシスト重量の実負荷\n'; else if (/チンニング|懸垂|ディップス|chin[\s-]*up|pull[\s-]*up|dips?/i.test(ex)) text += '  ※加重自重種目: 記録kgは体重＋追加重量の実負荷\n'; sets.forEach(function(s,i){ text += '  ' + formatAiSetLine(s,i) + '\n'; }); }); text += '\n質問: 本日のこれまでの全トレーニング内容です。ボリュームは適切ですか？ここで終了すべきか、あと何をすべきかアドバイスをください。'; }
       const textArea = document.createElement('textarea'); textArea.value = text; document.body.appendChild(textArea); textArea.select();
       try { document.execCommand('copy'); alert('AI相談用のプロンプトをコピーしました！\nChatGPT等に貼り付けてください。'); closeAiSheet(); } catch (err) { alert('コピーに失敗しました。'); }
       document.body.removeChild(textArea);
