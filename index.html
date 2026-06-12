@@ -320,6 +320,22 @@
   color: var(--accent-brand);
   font-weight: 700;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.today-template-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.today-template-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12);
 }
 .today-template-card .content {
   font-size: 14px;
@@ -378,7 +394,7 @@
     
     <!-- ===== 追加: 今日の曜日予定枠 ===== -->
     <div id="todayTemplateCard" class="today-template-card">
-      <div class="title" id="todayTemplateTitle">▣ 今日の予定（月）</div>
+      <div class="title" id="todayTemplateTitle">今日の予定（月）</div>
       <div class="content" id="todayTemplateContent"></div>
       <div id="cycleTemplateControls" style="display:none; gap:8px; margin-top:12px;">
         <button onclick="changeCycleSlot(-1)" aria-label="前の予定" style="width:44px; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; font-weight:700;">‹</button>
@@ -1498,6 +1514,27 @@ function syncCycleSlotForToday() {
   localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, completedDate);
 }
 
+function getPlanCategories(planText) {
+  const text = String(planText || '').trim();
+  if (!text) return [];
+  return Object.entries(exercises)
+    .filter(([category, exerciseList]) => {
+      if (text.includes(category)) return true;
+      return exerciseList.some(exercise => exercise && text.includes(exercise));
+    })
+    .map(([category]) => category);
+}
+
+function renderTodayTemplateTitle(label, planText) {
+  const title = document.getElementById('todayTemplateTitle');
+  if (!title) return;
+  const categories = getPlanCategories(planText);
+  const dots = categories.map(category =>
+    `<span class="today-template-dot" style="background:${catColors[category] || catColors['その他']};" title="${category}" aria-label="${category}"></span>`
+  ).join('');
+  title.innerHTML = `${dots ? `<span class="today-template-dots">${dots}</span>` : ''}<span>${label}</span>`;
+}
+
 function updateTodayTemplate() {
   if (typeof currentDateStr === 'undefined') return;
   const d = new Date(currentDateStr);
@@ -1515,14 +1552,14 @@ function updateTodayTemplate() {
     const slot = getCurrentCycleSlot();
     const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
     todayTask = data[slot] || '';
-    title.textContent = `▣ 現在の予定（${slot}）`;
+    renderTodayTemplateTitle(`現在の予定（${slot}）`, todayTask);
     const slotSelect = document.getElementById('cycleSlotSelect');
     if (slotSelect) slotSelect.value = slot;
     if (cycleControls) cycleControls.style.display = 'flex';
   } else {
     const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
     todayTask = data[dayIndex] || '';
-    title.textContent = `▣ 今日の予定（${dayNames[dayIndex]}）`;
+    renderTodayTemplateTitle(`今日の予定（${dayNames[dayIndex]}）`, todayTask);
     if (cycleControls) cycleControls.style.display = 'none';
   }
 
@@ -1684,6 +1721,7 @@ function init() {
       renderDailyLogs();
       renderCatTabs();
       renderSheetExList();
+      updateTodayTemplate();
       const reportView = document.getElementById('view-report');
       if (reportView && reportView.classList.contains('active')) renderReport();
     }
