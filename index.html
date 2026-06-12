@@ -163,6 +163,15 @@
     .save-btn:active { transform: scale(0.98); }
     .ai-copy-btn { width: 100%; padding: 14px; background: transparent; border: 1px solid var(--line); border-radius: 12px; color: #fff; font-size: 14px; font-weight: 600; margin-top: 12px; cursor: pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:0.2s;}
     .ai-copy-btn:active { background: var(--surface-3); }
+    .ai-button-icon { width:24px; height:24px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; border-radius:6px; overflow:hidden; background:var(--surface-3); color:var(--accent-brand); font-size:10px; font-weight:900; }
+    .ai-button-icon img { width:100%; height:100%; display:block; object-fit:cover; }
+    .ai-icon-setting { display:flex; align-items:center; gap:12px; }
+    .ai-icon-preview { width:56px; height:56px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--line); border-radius:10px; background:var(--surface-3); color:var(--accent-brand); font-size:14px; font-weight:900; }
+    .ai-icon-preview img { width:100%; height:100%; display:block; object-fit:cover; }
+    .ai-icon-setting-actions { flex:1; display:grid; grid-template-columns:1fr auto; gap:8px; }
+    .ai-icon-setting-actions button { min-height:40px; padding:0 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
+    .ai-icon-select-btn { border:none; background:var(--accent-brand); color:#000; }
+    .ai-icon-clear-btn { border:1px solid var(--line); background:transparent; color:var(--muted); }
 
 
     /* Ex Selection Bottom Sheet */
@@ -481,7 +490,7 @@
     <div id="dailyLogsContainer"></div>
 
     <button class="ai-copy-btn" onclick="openAiSheet('daily')" style="margin-bottom:16px;">
-      <span style="font-size:16px;">AI</span> AIに相談する
+      <span class="ai-button-icon" data-ai-icon>AI</span> AIに相談する
     </button>
 
     <div class="fab-container">
@@ -582,7 +591,7 @@
     
     <button class="save-btn" onclick="saveWorkout()">チェックしたセットを保存</button>
     <button class="ai-copy-btn" onclick="openAiSheet()">
-      <span style="font-size:16px;">🤖</span> AIに相談する（状況をコピー）
+      <span class="ai-button-icon" data-ai-icon>AI</span> AIに相談する（状況をコピー）
     </button>
     <div style="text-align:center; font-size:12px; color:var(--muted); margin-top:12px;">
 
@@ -838,6 +847,23 @@
       </div>
     </details>
 
+    <details class="template-details">
+      <summary>AI相談ボタンのアイコン</summary>
+      <div class="template-body">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.5;">
+          写真やイラストを選ぶと、AI相談ボタンのアイコンとして表示します。画像は端末内に保存され、正方形へ自動調整されます。
+        </div>
+        <div class="ai-icon-setting">
+          <div id="aiIconPreview" class="ai-icon-preview">AI</div>
+          <div class="ai-icon-setting-actions">
+            <button class="ai-icon-select-btn" onclick="document.getElementById('aiIconInput').click()">画像を選択</button>
+            <button class="ai-icon-clear-btn" onclick="clearAiButtonIcon()">解除</button>
+          </div>
+        </div>
+        <input type="file" id="aiIconInput" accept="image/*" style="display:none" onchange="setAiButtonIcon(event)">
+      </div>
+    </details>
+
       <div style="font-size:13px; color:var(--muted); margin-bottom:12px;">データのバックアップ・復元</div>
       <div style="display:flex; flex-direction:column; gap:12px;">
         <button onclick="exportData()" style="background:var(--surface-3); border:1px solid var(--line); color:#fff; padding:16px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
@@ -956,6 +982,7 @@
     const STORE_DRAFTS = 'ironlog-set-drafts-v1';
     const STORE_REFERENCE_VIDEOS = 'ironlog-reference-videos-v1';
     const STORE_METRIC_PREFS = 'ironlog-exercise-metric-prefs-v1';
+    const STORE_AI_ICON = 'ironlog-ai-button-icon-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1308,6 +1335,65 @@
       setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
       document.getElementById('settingsSheet').style.transform = 'translateY(0)';
       renderCatColorSettings();
+      renderAiButtonIcon();
+    }
+
+    function renderAiButtonIcon() {
+      const iconData = localStorage.getItem(STORE_AI_ICON) || '';
+      document.querySelectorAll('[data-ai-icon]').forEach(container => {
+        container.innerHTML = iconData ? `<img src="${iconData}" alt="">` : 'AI';
+      });
+      const preview = document.getElementById('aiIconPreview');
+      if (preview) preview.innerHTML = iconData ? `<img src="${iconData}" alt="設定中のAIアイコン">` : 'AI';
+    }
+
+    function setAiButtonIcon(event) {
+      const input = event.target;
+      const file = input.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showCopyToast('画像ファイルを選択してください');
+        input.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          const size = 128;
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const context = canvas.getContext('2d');
+          const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+          const sourceX = (image.naturalWidth - sourceSize) / 2;
+          const sourceY = (image.naturalHeight - sourceSize) / 2;
+          context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+          const dataUrl = canvas.toDataURL('image/png');
+          try {
+            localStorage.setItem(STORE_AI_ICON, dataUrl);
+            renderAiButtonIcon();
+            showCopyToast('AIアイコンを変更しました');
+          } catch (e) {
+            showCopyToast('画像を保存できませんでした');
+          }
+          input.value = '';
+        };
+        image.onerror = () => {
+          showCopyToast('画像を読み込めませんでした');
+          input.value = '';
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearAiButtonIcon() {
+      if (!localStorage.getItem(STORE_AI_ICON)) return;
+      if (!confirm('AI相談ボタンの画像を解除しますか？')) return;
+      localStorage.removeItem(STORE_AI_ICON);
+      renderAiButtonIcon();
+      showCopyToast('標準アイコンに戻しました');
     }
 
     function closeSettingsSheet() {
@@ -1338,6 +1424,7 @@
         cycleAdvancedDate: localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '',
         intervalMinutes: localStorage.getItem('ironlog-interval-minutes') || '2',
         metricPreferences: getMetricPreferences(),
+        aiButtonIcon: localStorage.getItem(STORE_AI_ICON) || '',
         referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
         exportDate: new Date().toISOString()
@@ -1423,6 +1510,10 @@
               }
               if (data.metricPreferences) {
                 localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(data.metricPreferences));
+              }
+              if (typeof data.aiButtonIcon === 'string') {
+                if (data.aiButtonIcon) localStorage.setItem(STORE_AI_ICON, data.aiButtonIcon);
+                else localStorage.removeItem(STORE_AI_ICON);
               }
               if (data.referenceVideos) {
                 localStorage.setItem(STORE_REFERENCE_VIDEOS, JSON.stringify(data.referenceVideos));
@@ -1855,6 +1946,7 @@ function init() {
       checkBackupPrompt();
       loadTemplates();
       initIntervalTimer();
+      renderAiButtonIcon();
     }
 
     // --- View Navigation ---
