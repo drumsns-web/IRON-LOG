@@ -1002,17 +1002,50 @@
       return timerAlarmAudio;
     }
 
+    async function releaseTimerAudioSession() {
+      if (timerAlarmAudio) {
+        try {
+          timerAlarmAudio.pause();
+          timerAlarmAudio.removeAttribute('src');
+          timerAlarmAudio.load();
+        } catch (e) {}
+        timerAlarmAudio = null;
+      }
+      if (timerAlarmAudioUrl) {
+        URL.revokeObjectURL(timerAlarmAudioUrl);
+        timerAlarmAudioUrl = '';
+      }
+      if (timerAudioContext) {
+        try { await timerAudioContext.close(); } catch (e) {}
+        timerAudioContext = null;
+      }
+    }
+
+    async function primeTimerAlarmAudio() {
+      if (!timerAlarmEnabled) return;
+      try {
+        const audio = createTimerAlarmAudio();
+        audio.muted = true;
+        audio.currentTime = 0;
+        await audio.play();
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = false;
+      } catch (e) {}
+    }
+
     async function playTimerMediaAlarm(isTest = false) {
       try {
         const audio = createTimerAlarmAudio();
+        audio.muted = false;
         audio.pause();
         audio.currentTime = 0;
         audio.volume = 1;
+        audio.onended = () => releaseTimerAudioSession();
         await audio.play();
         if (isTest) {
           setTimeout(() => {
-            audio.pause();
-            audio.currentTime = 0;
+            releaseTimerAudioSession();
           }, 210);
         }
         return true;
@@ -1030,9 +1063,8 @@
         if (!played) await playTimerWebAudioAlarm(true);
         const vibrationNote = typeof navigator.vibrate === 'function' ? '' : '（この端末はWeb振動非対応）';
         showCopyToast(played ? `テスト音を再生しました${vibrationNote}` : `テスト音を確認してください${vibrationNote}`);
-      } else if (timerAlarmAudio) {
-        timerAlarmAudio.pause();
-        timerAlarmAudio.currentTime = 0;
+      } else {
+        releaseTimerAudioSession();
       }
     }
 
@@ -1057,6 +1089,9 @@
         osc.start(now + tone.offset);
         osc.stop(now + tone.offset + 0.21);
       });
+      setTimeout(() => {
+        if (timerAudioContext === audioContext) releaseTimerAudioSession();
+      }, isTest ? 350 : 1050);
       return true;
     }
 
@@ -1116,8 +1151,7 @@
         intervalTimerRemaining = intervalTimerTotal;
       }
       intervalTimerEnd = Date.now() + intervalTimerRemaining * 1000;
-      ensureTimerAudio();
-      if (timerAlarmEnabled) createTimerAlarmAudio().load();
+      primeTimerAlarmAudio();
       if (btn) btn.textContent = '停止';
       intervalTimerId = setInterval(tickIntervalTimer, 250);
       tickIntervalTimer();
