@@ -585,11 +585,11 @@
           <input id="referenceVideoUrl" class="video-url-input" type="url" inputmode="url" autocapitalize="none" autocomplete="off" placeholder="YouTubeのURLを貼り付け">
           <div class="video-time-row">
             <label class="video-time-field">
-              <input id="referenceVideoMinutes" type="number" inputmode="numeric" min="0" max="999" value="0">
+              <input id="referenceVideoMinutes" type="number" inputmode="numeric" min="0" max="999" value="0" onfocus="this.select()">
               <span>分</span>
             </label>
             <label class="video-time-field">
-              <input id="referenceVideoSeconds" type="number" inputmode="numeric" min="0" max="59" value="0">
+              <input id="referenceVideoSeconds" type="number" inputmode="numeric" min="0" max="59" value="0" onfocus="this.select()">
               <span>秒から</span>
             </label>
           </div>
@@ -2344,7 +2344,7 @@ function init() {
       }
     }
 
-    function buildReferenceVideoUrl(rawUrl, startSeconds) {
+    function buildReferenceVideoUrl(rawUrl, startSeconds, forceReplay = false) {
       const trimmed = String(rawUrl || '').trim();
       if (!trimmed) return '';
       try {
@@ -2354,6 +2354,7 @@ function init() {
           url.searchParams.delete('start');
           url.searchParams.delete('t');
           if (startSeconds > 0) url.searchParams.set('t', `${startSeconds}s`);
+          if (forceReplay) url.searchParams.set('ironlog_replay', Date.now().toString());
         }
         return url.toString();
       } catch (e) {
@@ -2497,7 +2498,7 @@ function init() {
     function openReferenceVideo(index) {
       const data = getSelectedExerciseVideos()[index];
       if (!data) return;
-      const url = buildReferenceVideoUrl(data.url, data.startSeconds);
+      const url = buildReferenceVideoUrl(data.url, data.startSeconds, true);
       if (!url) {
         showCopyToast('YouTubeのURLを入力してください');
         return;
