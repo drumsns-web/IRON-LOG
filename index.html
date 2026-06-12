@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="color-scheme" content="dark">
   <title>Iron Log - 統合版</title>
   <style>
     :root {
+      color-scheme: dark;
       --bg: #000000; --surface: #121212; --surface-2: #1c1c1e; --surface-3: #2c2c2e;
       --text: #f3f5f7; --muted: #8e8e93; --line: #2c2c2e;
       --accent: #ff453a; --accent-brand: #d0fd3e; --accent-2: #32d74b;
@@ -13,7 +15,8 @@
       --radius: 12px;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh;}
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; color-scheme:dark;}
+    input, select, textarea { color-scheme: dark; }
 
     .app { max-width: 600px; margin: 0 auto; padding: 16px; padding-bottom: 100px; }
 
@@ -94,6 +97,51 @@
     .set-controls button { height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px; font-weight: bold;}
     .set-add-btn { flex: 1; background: var(--surface-2); border: none; color: #fff; font-size: 18px; }
     .set-remove-btn { flex: 0 0 96px; background: transparent; border: 1px solid rgba(255, 107, 107, 0.5); color: #ff8b8b; font-size: 13px; }
+    .interval-timer { display:flex; align-items:center; gap:12px; padding:12px; margin-bottom:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
+    .timer-ring { --timer-progress:0deg; width:58px; height:58px; border-radius:50%; flex:0 0 auto; background:conic-gradient(var(--accent-brand) var(--timer-progress), var(--surface-3) 0); display:grid; place-items:center; }
+    .timer-ring::after { content:''; width:48px; height:48px; border-radius:50%; background:var(--surface); }
+    .timer-time { position:absolute; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; z-index:1; }
+    .timer-ring-wrap { position:relative; display:grid; place-items:center; }
+    .timer-controls { flex:1; min-width:0; display:grid; grid-template-columns:minmax(78px, 1fr) minmax(86px, 1fr); gap:8px; }
+    .timer-controls select, .timer-controls button { min-height:40px; border-radius:8px; font-size:13px; font-weight:700; }
+    .timer-controls select { background:var(--surface-2); border:1px solid var(--line); color:var(--text); padding:0 8px; }
+    .timer-controls button { border:none; background:var(--accent-brand); color:#000; cursor:pointer; }
+    .timer-alarm-btn { grid-column:1 / -1; min-height:32px !important; background:var(--surface-3) !important; color:var(--muted) !important; border:1px solid var(--line) !important; }
+    .timer-alarm-btn.on { color:var(--accent-brand) !important; border-color:rgba(208,253,62,.45) !important; }
+    .partial-box { width:50px; background:var(--surface-2); border-radius:8px; padding:2px 3px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:1px; }
+    .partial-box input { width:100%; height:22px; border:none; outline:none; background:transparent; color:#fff; text-align:center; font-size:14px; font-weight:700; padding:0; }
+    .partial-box input::placeholder { color:rgba(255,255,255,.25); font-weight:500; }
+    .partial-up-btn { height:14px; border:none; border-radius:4px; background:transparent; color:var(--muted); font-size:9px; line-height:14px; font-weight:800; padding:0; cursor:pointer; }
+    .partial-up-btn.active { background:var(--accent-brand); color:#000; }
+    .partial-up-btn.previous { color:rgba(255,255,255,.38); }
+    .set-metric-help { padding:7px 12px 9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.45; }
+    .reference-video-trigger { width:100%; min-height:46px; padding:0 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); color:var(--text); font-size:13px; font-weight:700; cursor:pointer; }
+    .reference-video-trigger span:last-child { color:var(--accent-brand); font-size:12px; }
+    .video-modal { position:fixed; inset:0; z-index:230; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.72); backdrop-filter:blur(4px); }
+    .video-dialog { width:min(600px, 100%); max-height:min(88vh, 88dvh); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:18px 18px 0 0; overflow:hidden; }
+    .video-dialog-header { min-height:58px; padding:0 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .video-dialog-header h3 { margin:0; font-size:16px; }
+    .video-dialog-header button { min-height:36px; border:none; background:transparent; color:var(--muted); font-size:14px; cursor:pointer; }
+    .video-dialog-body { padding:14px 16px max(28px, env(safe-area-inset-bottom)); overflow-y:auto; }
+    .video-form { padding:12px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; margin-bottom:14px; }
+    .video-title-input, .video-url-input { width:100%; min-height:42px; padding:0 11px; background:var(--surface-3); border:1px solid var(--line); border-radius:8px; color:var(--text); font-size:13px; outline:none; }
+    .video-url-input { margin-top:8px; }
+    .video-time-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+    .video-time-field { display:flex; align-items:center; gap:5px; padding:0 9px; min-height:40px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; }
+    .video-time-field input { width:100%; border:none; outline:none; background:transparent; color:var(--text); text-align:right; font-size:15px; }
+    .video-time-field span { color:var(--muted); font-size:12px; }
+    .video-actions { display:flex; gap:8px; margin-top:10px; }
+    .video-actions button { flex:1; min-height:40px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; }
+    .video-save-btn { border:1px solid var(--line); background:var(--surface-3); color:var(--text); }
+    .video-open-btn { border:none; background:var(--accent-brand); color:#000; }
+    .video-list { display:flex; flex-direction:column; gap:8px; }
+    .video-list-item { padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+    .video-list-title { font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .video-list-meta { margin-top:4px; color:var(--muted); font-size:11px; }
+    .video-list-actions { display:flex; gap:7px; margin-top:10px; }
+    .video-list-actions button { flex:1; min-height:36px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; }
+    .video-edit-btn { background:var(--surface-3); border:1px solid var(--line); color:var(--text); }
+    .video-delete-btn { background:transparent; border:1px solid rgba(255,69,58,.6); color:#ff746c; }
 
     .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer;}
     
@@ -334,7 +382,7 @@
 
     <!-- Backup Prompt -->
     <div id="backupPrompt" class="card" style="display:none; background:rgba(208, 253, 62, 0.1); border:1px solid rgba(208, 253, 62, 0.3); padding:16px; margin-bottom:16px;">
-      <div style="font-size:14px; font-weight:600; color:var(--accent-brand); margin-bottom:8px;">💡 月初のバックアップのおすすめ</div>
+      <div style="font-size:14px; font-weight:600; color:var(--accent-brand); margin-bottom:8px;">月初のバックアップのおすすめ</div>
       <div style="font-size:13px; color:var(--text); margin-bottom:12px; line-height:1.4;">新しい月になりました。大切な記録を守るため、データの保存（JSON出力）をおすすめします。</div>
       <div style="display:flex; gap:12px;">
         <button onclick="doPromptBackup()" style="flex:1; background:var(--accent-brand); color:#000; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">💾 保存する</button>
@@ -375,6 +423,32 @@
       <button class="back-btn" style="font-size:13px; font-weight:700; background:var(--surface-3); color:var(--text);" onclick="openRmSheet()">RM</button>
     </div>
 
+    <div class="interval-timer">
+      <div class="timer-ring-wrap">
+        <div id="timerRing" class="timer-ring"></div>
+        <div id="timerDisplay" class="timer-time">02:00</div>
+      </div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:7px;">インターバルタイマー</div>
+        <div class="timer-controls">
+          <select id="timerMinutes" onchange="changeTimerDuration()">
+            <option value="1">1分</option>
+            <option value="2" selected>2分</option>
+            <option value="3">3分</option>
+            <option value="4">4分</option>
+            <option value="5">5分</option>
+          </select>
+          <button id="timerStartBtn" onclick="toggleIntervalTimer()">スタート</button>
+          <button id="timerAlarmBtn" class="timer-alarm-btn" onclick="toggleTimerAlarm()">アラーム OFF</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="reference-video-trigger" onclick="openReferenceVideoModal()">
+      <span>参考動画</span>
+      <span id="referenceVideoCount">未登録</span>
+    </button>
+
     <div id="assistCalcBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.06); border:1px solid rgba(208, 253, 62, 0.22);">
       <div id="bodyweightCalcTitle" style="font-size:13px; color:var(--accent-brand); font-weight:700; margin-bottom:10px;">自重種目の負荷計算</div>
       <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -402,9 +476,10 @@
         <div style="width:44px; text-align:center">セット</div>
         <div style="flex:1; text-align:center">kg</div>
         <div style="flex:1; text-align:center">回</div>
-        <div style="width:50px; text-align:center">RPE</div>
+        <div id="setMetricHeader" style="width:50px; text-align:center">RPE</div>
         <div style="width:36px; text-align:center">✓</div>
       </div>
+      <div id="setMetricHelp" class="set-metric-help">RPE＝あと何回できる余力があるかを表す運動強度です。</div>
       <div id="setListContainer">
         <!-- Sets rendered here -->
       </div>
@@ -496,6 +571,39 @@
     </div>
   </div>
 
+  <div class="video-modal" id="referenceVideoModal" onclick="closeReferenceVideoModal(event)">
+    <div class="video-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button onclick="closeReferenceVideoModal()">閉じる</button>
+        <h3>参考動画</h3>
+        <div style="width:48px"></div>
+      </div>
+      <div class="video-dialog-body">
+        <div id="referenceVideoLimit" style="font-size:12px; color:var(--muted); margin-bottom:9px;">0 / 10本</div>
+        <div id="referenceVideoForm" class="video-form">
+          <input id="referenceVideoTitleInput" class="video-title-input" type="text" placeholder="動画タイトル（例：フォーム解説）">
+          <input id="referenceVideoUrl" class="video-url-input" type="url" inputmode="url" autocapitalize="none" autocomplete="off" placeholder="YouTubeのURLを貼り付け">
+          <div class="video-time-row">
+            <label class="video-time-field">
+              <input id="referenceVideoMinutes" type="number" inputmode="numeric" min="0" max="999" value="0">
+              <span>分</span>
+            </label>
+            <label class="video-time-field">
+              <input id="referenceVideoSeconds" type="number" inputmode="numeric" min="0" max="59" value="0">
+              <span>秒から</span>
+            </label>
+          </div>
+          <div style="font-size:10px; color:var(--muted); margin-top:7px; line-height:1.4;">例：2分53秒から見たい場合は「2分」「53秒」と入力します。</div>
+          <div class="video-actions">
+            <button id="referenceVideoCancelEditBtn" class="video-save-btn" onclick="resetReferenceVideoForm()" style="display:none;">編集を解除</button>
+            <button id="referenceVideoSaveBtn" class="video-open-btn" onclick="saveReferenceVideo()">動画を追加</button>
+          </div>
+        </div>
+        <div id="referenceVideoList" class="video-list"></div>
+      </div>
+    </div>
+  </div>
+
   
   <!-- RM Chart Sheet -->
   <div class="sheet" id="rmSheet">
@@ -537,7 +645,7 @@
       
     <!-- ===== 追加: 曜日別テンプレート編集 ===== -->
     <details class="template-details">
-      <summary>🗓️ トレーニング予定テンプレート</summary>
+      <summary>トレーニング予定テンプレート</summary>
       <div class="template-body">
         <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
           曜日固定、または休んでもずれないA〜Gローテーションを選べます。
@@ -575,7 +683,22 @@
     <!-- =================================== -->
 
     <details class="template-details">
-      <summary>🎨 部位カラー</summary>
+      <summary>入力欄・略語の説明</summary>
+      <div class="template-body" style="font-size:12px; color:var(--muted); line-height:1.65;">
+        <div style="margin-top:12px; color:var(--text); font-weight:700;">種目名によって変わる入力</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">「アシスト」「assist」</strong>を含む種目：体重 − アシスト重量で実際の負荷を計算します。</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">「チンニング」「懸垂」「ディップス」</strong>を含む種目：体重 ＋ 追加重量で実際の負荷を計算します。</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">「レイズ」「raise」</strong>を含む種目：RPE欄がPR（パーシャルレップ回数）欄に変わります。UPも選択できます。</div>
+
+        <div style="margin-top:14px; color:var(--text); font-weight:700;">略語</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">RPE</strong>＝Rating of Perceived Exertion。セット終了時にあと何回できたかを表します。目安はRPE10＝余力0回、9＝あと1回、8＝あと2回、7＝あと3回です。</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">PR</strong>＝Partial Reps（パーシャルレップ）。通常の可動域で行った回数の後に、狭い可動域で追加した回数を入力します。例：20回中、最後の5回がパーシャルならPRは5。</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">UP</strong>＝ウォームアップセット。通常種目・レイズ系のどちらでも選択でき、RPEやPRを付けない準備セットとして記録します。</div>
+      </div>
+    </details>
+
+    <details class="template-details">
+      <summary>部位カラー</summary>
       <div class="template-body">
         <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
           ここで変更した色は、カレンダー・レポート・記録一覧・種目追加に反映されます。
@@ -588,11 +711,11 @@
       <div style="font-size:13px; color:var(--muted); margin-bottom:12px;">データのバックアップ・復元</div>
       <div style="display:flex; flex-direction:column; gap:12px;">
         <button onclick="exportData()" style="background:var(--surface-3); border:1px solid var(--line); color:#fff; padding:16px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
-          <span>📤</span> バックアップを保存 (JSON)
+          バックアップを保存 (JSON)
         </button>
 
         <button onclick="document.getElementById('importInput').click()" style="background:transparent; border:1px solid var(--line); color:var(--text); padding:16px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
-          <span>📥</span> データを復元する
+          データを復元する
         </button>
         <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
       </div>
@@ -669,6 +792,13 @@
           </div>
           <button class="ai-option-copy" onclick="copyAiOption('volume')">コピー</button>
         </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">1週間／1ループまとめ</div>
+            <div style="font-size:11px; color:var(--muted);">日別の種目・セット・ボリュームをコピー</div>
+          </div>
+          <button class="ai-option-copy" onclick="copyAiOption('periodSummary')">コピー</button>
+        </div>
       </div>
     </div>
   </div>
@@ -695,6 +825,7 @@
     // 種目リストの並び順モード: 'freq'(頻度順) または 'manual'(手動順)
     const STORE_SORT = 'ironlog-ex-sort-mode';
     const STORE_DRAFTS = 'ironlog-set-drafts-v1';
+    const STORE_REFERENCE_VIDEOS = 'ironlog-reference-videos-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -716,6 +847,126 @@
       const m = String(d.getMonth()+1).padStart(2,'0');
       const day = String(d.getDate()).padStart(2,'0');
       return `${y}-${m}-${day}`;
+    }
+
+    let intervalTimerId = null;
+    let intervalTimerEnd = 0;
+    let intervalTimerRemaining = 120;
+    let intervalTimerTotal = 120;
+    let timerAlarmEnabled = false;
+    let timerAudioContext = null;
+
+    function getTimerSelectedSeconds() {
+      const select = document.getElementById('timerMinutes');
+      return Math.max(60, Math.min(300, parseInt(select?.value || '2', 10) * 60));
+    }
+
+    function renderIntervalTimer() {
+      const display = document.getElementById('timerDisplay');
+      const ring = document.getElementById('timerRing');
+      const minutes = Math.floor(intervalTimerRemaining / 60);
+      const seconds = intervalTimerRemaining % 60;
+      if (display) display.textContent = `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+      const remainingRatio = intervalTimerTotal > 0 ? intervalTimerRemaining / intervalTimerTotal : 0;
+      if (ring) ring.style.setProperty('--timer-progress', `${Math.max(0, Math.min(1, remainingRatio)) * 360}deg`);
+    }
+
+    function resetIntervalTimer() {
+      clearInterval(intervalTimerId);
+      intervalTimerId = null;
+      intervalTimerTotal = getTimerSelectedSeconds();
+      intervalTimerRemaining = intervalTimerTotal;
+      const btn = document.getElementById('timerStartBtn');
+      if (btn) btn.textContent = 'スタート';
+      renderIntervalTimer();
+    }
+
+    function changeTimerDuration() {
+      localStorage.setItem('ironlog-interval-minutes', document.getElementById('timerMinutes')?.value || '2');
+      resetIntervalTimer();
+    }
+
+    function updateTimerAlarmButton() {
+      const btn = document.getElementById('timerAlarmBtn');
+      if (!btn) return;
+      btn.textContent = timerAlarmEnabled ? 'アラーム ON' : 'アラーム OFF';
+      btn.classList.toggle('on', timerAlarmEnabled);
+    }
+
+    function ensureTimerAudio() {
+      if (!timerAlarmEnabled) return;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!timerAudioContext) timerAudioContext = new AudioCtx();
+      if (timerAudioContext.state === 'suspended') timerAudioContext.resume().catch(() => {});
+    }
+
+    function toggleTimerAlarm() {
+      timerAlarmEnabled = !timerAlarmEnabled;
+      localStorage.setItem('ironlog-timer-alarm', timerAlarmEnabled ? '1' : '0');
+      updateTimerAlarmButton();
+      ensureTimerAudio();
+    }
+
+    function playTimerAlarm() {
+      if (!timerAlarmEnabled) return;
+      ensureTimerAudio();
+      if (!timerAudioContext) return;
+      const now = timerAudioContext.currentTime;
+      [0, 0.22].forEach(offset => {
+        const osc = timerAudioContext.createOscillator();
+        const gain = timerAudioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now + offset);
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.22, now + offset + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.16);
+        osc.connect(gain);
+        gain.connect(timerAudioContext.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.18);
+      });
+    }
+
+    function tickIntervalTimer() {
+      intervalTimerRemaining = Math.max(0, Math.ceil((intervalTimerEnd - Date.now()) / 1000));
+      renderIntervalTimer();
+      if (intervalTimerRemaining <= 0) {
+        clearInterval(intervalTimerId);
+        intervalTimerId = null;
+        playTimerAlarm();
+        const btn = document.getElementById('timerStartBtn');
+        if (btn) btn.textContent = 'スタート';
+        setTimeout(resetIntervalTimer, 700);
+      }
+    }
+
+    function toggleIntervalTimer() {
+      const btn = document.getElementById('timerStartBtn');
+      if (intervalTimerId) {
+        clearInterval(intervalTimerId);
+        intervalTimerId = null;
+        if (btn) btn.textContent = '再開';
+        return;
+      }
+      if (intervalTimerRemaining <= 0 || intervalTimerRemaining > getTimerSelectedSeconds()) {
+        intervalTimerTotal = getTimerSelectedSeconds();
+        intervalTimerRemaining = intervalTimerTotal;
+      }
+      intervalTimerEnd = Date.now() + intervalTimerRemaining * 1000;
+      ensureTimerAudio();
+      if (btn) btn.textContent = '停止';
+      intervalTimerId = setInterval(tickIntervalTimer, 250);
+      tickIntervalTimer();
+    }
+
+    function initIntervalTimer() {
+      const select = document.getElementById('timerMinutes');
+      const saved = localStorage.getItem('ironlog-interval-minutes') || '2';
+      if (select && ['1','2','3','4','5'].includes(saved)) select.value = saved;
+      timerAlarmEnabled = localStorage.getItem('ironlog-timer-alarm') === '1';
+      updateTimerAlarmButton();
+      resetIntervalTimer();
     }
 
     
@@ -913,6 +1164,9 @@
         cycleCompletedDate: localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '',
         cycleCompletedSlot: localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '',
         cycleAdvancedDate: localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '',
+        intervalMinutes: localStorage.getItem('ironlog-interval-minutes') || '2',
+        timerAlarm: localStorage.getItem('ironlog-timer-alarm') || '0',
+        referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
         exportDate: new Date().toISOString()
       };
@@ -991,6 +1245,15 @@
               }
               if (data.cycleAdvancedDate) {
                 localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, data.cycleAdvancedDate);
+              }
+              if (data.intervalMinutes) {
+                localStorage.setItem('ironlog-interval-minutes', data.intervalMinutes);
+              }
+              if (data.timerAlarm != null) {
+                localStorage.setItem('ironlog-timer-alarm', data.timerAlarm);
+              }
+              if (data.referenceVideos) {
+                localStorage.setItem(STORE_REFERENCE_VIDEOS, JSON.stringify(data.referenceVideos));
               }
               if (data.setDrafts) {
                 localStorage.setItem(STORE_DRAFTS, JSON.stringify(data.setDrafts));
@@ -1207,7 +1470,8 @@ function init() {
       renderCalendar();
       selectDate(currentDateStr);
       checkBackupPrompt();
-  loadTemplates();
+      loadTemplates();
+      initIntervalTimer();
     }
 
     // --- View Navigation ---
@@ -1627,7 +1891,9 @@ function init() {
                 return memoText ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoText}</div>` : '';
               })()}
               ${displaySets.map((s, idx) => {
-                const tag = (s.isWarmup || s.isForm || s.rpe === 'UP') ? 'UP' : `RPE ${s.rpe}`;
+                const tag = s.partialReps != null
+                  ? `PR ${s.partialReps}`
+                  : ((s.isWarmup || s.isForm || s.rpe === 'UP' || s.rpe == null) ? 'UP' : `RPE ${s.rpe}`);
                 const weightText = s.weight !== '' && s.weight != null ? s.weight : '-';
                 const repsText = s.reps !== '' && s.reps != null ? s.reps : '-';
                 return `
@@ -1973,6 +2239,12 @@ function init() {
         // 過去のログの種目名も更新するかどうか（今回はシンプルに名前だけ変える）
         logs.forEach(l => { if (l.exercise === oldName) l.exercise = cleanName; });
         localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+        const videos = getReferenceVideos();
+        if (videos[oldName]) {
+          videos[cleanName] = videos[oldName];
+          delete videos[oldName];
+          setReferenceVideos(videos);
+        }
         saveExercises();
         renderSheetExList();
       }
@@ -1996,6 +2268,7 @@ function init() {
       selectedExercise = eName;
       document.getElementById('headerTitle').textContent = eName;
       loadPrevSets();
+      loadReferenceVideo();
       switchView('view-exercise');
     }
 
@@ -2004,6 +2277,7 @@ function init() {
       document.getElementById('headerTitle').textContent = eName;
       closeExSheet();
       loadPrevSets();
+      loadReferenceVideo();
       saveCurrentDraft();
       switchView('view-exercise');
     }
@@ -2032,6 +2306,203 @@ function init() {
 
     function getDraftKey(dateStr = currentDateStr, exName = selectedExercise) {
       return dateStr + '::' + exName;
+    }
+
+    let editingReferenceVideoIndex = -1;
+
+    function getReferenceVideos() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORE_REFERENCE_VIDEOS) || '{}');
+        Object.keys(stored).forEach(exName => {
+          if (!Array.isArray(stored[exName])) {
+            const legacy = stored[exName];
+            stored[exName] = legacy && legacy.url ? [{ title: '参考動画 1', url: legacy.url, startSeconds: Number(legacy.startSeconds || 0) }] : [];
+          }
+          stored[exName] = stored[exName].slice(0, 10);
+        });
+        return stored;
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function setReferenceVideos(videos) {
+      localStorage.setItem(STORE_REFERENCE_VIDEOS, JSON.stringify(videos));
+    }
+
+    function parseYouTubeStartSeconds(rawUrl) {
+      try {
+        const url = new URL(rawUrl);
+        const value = url.searchParams.get('t') || url.searchParams.get('start') || '';
+        if (/^\d+$/.test(value)) return parseInt(value, 10);
+        const hours = parseInt((value.match(/(\d+)h/) || [])[1] || '0', 10);
+        const minutes = parseInt((value.match(/(\d+)m/) || [])[1] || '0', 10);
+        const seconds = parseInt((value.match(/(\d+)s/) || [])[1] || '0', 10);
+        return hours * 3600 + minutes * 60 + seconds;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    function buildReferenceVideoUrl(rawUrl, startSeconds) {
+      const trimmed = String(rawUrl || '').trim();
+      if (!trimmed) return '';
+      try {
+        const url = new URL(trimmed);
+        const isYouTube = /(^|\.)youtube\.com$|(^|\.)youtu\.be$/i.test(url.hostname);
+        if (isYouTube) {
+          url.searchParams.delete('start');
+          url.searchParams.delete('t');
+          if (startSeconds > 0) url.searchParams.set('t', `${startSeconds}s`);
+        }
+        return url.toString();
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function getSelectedExerciseVideos() {
+      return getReferenceVideos()[selectedExercise] || [];
+    }
+
+    function getReferenceVideoFormData() {
+      const title = document.getElementById('referenceVideoTitleInput')?.value.trim() || '';
+      const url = document.getElementById('referenceVideoUrl')?.value.trim() || '';
+      const minutes = Math.max(0, parseInt(document.getElementById('referenceVideoMinutes')?.value || '0', 10) || 0);
+      const seconds = Math.max(0, Math.min(59, parseInt(document.getElementById('referenceVideoSeconds')?.value || '0', 10) || 0));
+      const enteredSeconds = minutes * 60 + seconds;
+      return { title, url, startSeconds: enteredSeconds || parseYouTubeStartSeconds(url) };
+    }
+
+    function resetReferenceVideoForm() {
+      editingReferenceVideoIndex = -1;
+      const title = document.getElementById('referenceVideoTitleInput');
+      const url = document.getElementById('referenceVideoUrl');
+      const minutes = document.getElementById('referenceVideoMinutes');
+      const seconds = document.getElementById('referenceVideoSeconds');
+      const saveBtn = document.getElementById('referenceVideoSaveBtn');
+      const cancelBtn = document.getElementById('referenceVideoCancelEditBtn');
+      if (title) title.value = '';
+      if (url) url.value = '';
+      if (minutes) minutes.value = '0';
+      if (seconds) seconds.value = '0';
+      if (saveBtn) saveBtn.textContent = '動画を追加';
+      if (cancelBtn) cancelBtn.style.display = 'none';
+    }
+
+    function loadReferenceVideo() {
+      const list = getSelectedExerciseVideos();
+      const count = document.getElementById('referenceVideoCount');
+      if (count) count.textContent = list.length ? `${list.length}本登録` : '未登録';
+    }
+
+    function renderReferenceVideoList() {
+      const list = getSelectedExerciseVideos();
+      const container = document.getElementById('referenceVideoList');
+      const limit = document.getElementById('referenceVideoLimit');
+      const form = document.getElementById('referenceVideoForm');
+      if (limit) limit.textContent = `${list.length} / 10本`;
+      if (form) form.style.display = list.length >= 10 && editingReferenceVideoIndex < 0 ? 'none' : 'block';
+      if (!container) return;
+      if (!list.length) {
+        container.innerHTML = '<div style="padding:20px 0; text-align:center; color:var(--muted); font-size:13px;">参考動画はまだ登録されていません</div>';
+        return;
+      }
+      container.innerHTML = list.map((video, index) => {
+        const start = Number(video.startSeconds || 0);
+        const timeText = start > 0 ? `${Math.floor(start / 60)}分${start % 60}秒から` : '最初から';
+        return `
+          <div class="video-list-item">
+            <div class="video-list-title">${escapeHtml(video.title || `参考動画 ${index + 1}`)}</div>
+            <div class="video-list-meta">${timeText}</div>
+            <div class="video-list-actions">
+              <button class="video-open-btn" onclick="openReferenceVideo(${index})">開く</button>
+              <button class="video-edit-btn" onclick="editReferenceVideo(${index})">編集</button>
+              <button class="video-delete-btn" onclick="deleteReferenceVideo(${index})">削除</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function openReferenceVideoModal() {
+      resetReferenceVideoForm();
+      renderReferenceVideoList();
+      const modal = document.getElementById('referenceVideoModal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeReferenceVideoModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const modal = document.getElementById('referenceVideoModal');
+      if (modal) modal.style.display = 'none';
+      resetReferenceVideoForm();
+    }
+
+    function saveReferenceVideo() {
+      if (!selectedExercise) return;
+      const data = getReferenceVideoFormData();
+      if (!data.url) {
+        showCopyToast('YouTubeのURLを入力してください');
+        return;
+      }
+      if (!buildReferenceVideoUrl(data.url, data.startSeconds)) {
+        showCopyToast('URLを確認してください');
+        return;
+      }
+      const videos = getReferenceVideos();
+      const list = videos[selectedExercise] || [];
+      if (editingReferenceVideoIndex < 0 && list.length >= 10) {
+        showCopyToast('登録できる動画は10本までです');
+        return;
+      }
+      if (!data.title) data.title = `参考動画 ${editingReferenceVideoIndex >= 0 ? editingReferenceVideoIndex + 1 : list.length + 1}`;
+      if (editingReferenceVideoIndex >= 0) list[editingReferenceVideoIndex] = data;
+      else list.push(data);
+      videos[selectedExercise] = list.slice(0, 10);
+      setReferenceVideos(videos);
+      resetReferenceVideoForm();
+      renderReferenceVideoList();
+      loadReferenceVideo();
+      showCopyToast('参考動画を保存しました');
+    }
+
+    function editReferenceVideo(index) {
+      const data = getSelectedExerciseVideos()[index];
+      if (!data) return;
+      editingReferenceVideoIndex = index;
+      const start = Number(data.startSeconds || parseYouTubeStartSeconds(data.url) || 0);
+      document.getElementById('referenceVideoTitleInput').value = data.title || '';
+      document.getElementById('referenceVideoUrl').value = data.url || '';
+      document.getElementById('referenceVideoMinutes').value = Math.floor(start / 60);
+      document.getElementById('referenceVideoSeconds').value = start % 60;
+      document.getElementById('referenceVideoSaveBtn').textContent = '変更を保存';
+      document.getElementById('referenceVideoCancelEditBtn').style.display = 'block';
+      document.getElementById('referenceVideoForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+
+    function deleteReferenceVideo(index) {
+      const videos = getReferenceVideos();
+      const list = videos[selectedExercise] || [];
+      const data = list[index];
+      if (!data || !confirm(`「${data.title || `参考動画 ${index + 1}`}」を削除しますか？`)) return;
+      list.splice(index, 1);
+      if (list.length) videos[selectedExercise] = list;
+      else delete videos[selectedExercise];
+      setReferenceVideos(videos);
+      resetReferenceVideoForm();
+      renderReferenceVideoList();
+      loadReferenceVideo();
+    }
+
+    function openReferenceVideo(index) {
+      const data = getSelectedExerciseVideos()[index];
+      if (!data) return;
+      const url = buildReferenceVideoUrl(data.url, data.startSeconds);
+      if (!url) {
+        showCopyToast('YouTubeのURLを入力してください');
+        return;
+      }
+      window.open(url, '_blank', 'noopener');
     }
 
     function getSetDrafts() {
@@ -2085,6 +2556,10 @@ function init() {
 
     function isBodyweightLoadExercise(exName = selectedExercise) {
       return isAssistExercise(exName) || isWeightedBodyweightExercise(exName);
+    }
+
+    function isRaiseExercise(exName = selectedExercise) {
+      return /レイズ|raise/i.test(exName || '');
     }
 
     let lastBodyweightCalcExercise = '';
@@ -2215,14 +2690,14 @@ function init() {
 
           currentSets.push({ 
             prevWeight: s.weight, prevReps: s.reps, prevRpe: rStr, 
-            weight: '', reps: '', rpe: rStr, 
+            prevPartialReps: s.partialReps ?? '', weight: '', reps: '', rpe: rStr, partialReps: '',
             done: false 
           });
         });
       } else {
         // Default 3 sets if no history
         for(let i=0; i<3; i++) {
-          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, weight: '', reps: '', rpe: 8, done: false });
+          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', weight: '', reps: '', rpe: 8, partialReps: '', done: false });
         }
       }
 
@@ -2240,6 +2715,13 @@ function init() {
 
     function renderSetRows() {
       const container = document.getElementById('setListContainer');
+      const usePartialReps = isRaiseExercise();
+      const metricHeader = document.getElementById('setMetricHeader');
+      const metricHelp = document.getElementById('setMetricHelp');
+      if (metricHeader) metricHeader.textContent = usePartialReps ? 'PR' : 'RPE';
+      if (metricHelp) metricHelp.textContent = usePartialReps
+        ? 'PR＝Partial Reps（パーシャルレップ）の回数です。下のUPでウォームアップセットに切り替えられます。'
+        : 'RPE＝あと何回できる余力があるかを表す運動強度です。RPE10は余力0回、9はあと1回、8はあと2回が目安です。';
       container.innerHTML = currentSets.map((s, i) => {
         const isDone = s.done ? 'is-done' : '';
         const checkClass = s.done ? 'checked' : '';
@@ -2248,6 +2730,7 @@ function init() {
         // Visual placeholders
         const pW = s.prevWeight || '-';
         const pR = s.prevReps || '-';
+        const pPartial = s.prevPartialReps ?? '';
 
         return `
         <div class="set-row ${isDone}" id="set-row-${i}">
@@ -2260,6 +2743,11 @@ function init() {
             <input type="number" inputmode="numeric" placeholder="${pR}" value="${s.reps}" onfocus="this.select()" oninput="updateSet(${i}, 'reps', this.value)">
             <span>回</span>
           </div>
+          ${usePartialReps ? `
+          <div class="partial-box">
+            <input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.rpe === 'UP' ? '' : (s.partialReps ?? '')}" ${s.rpe === 'UP' ? 'disabled' : ''} onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">
+            <button class="partial-up-btn ${s.rpe === 'UP' ? 'active' : ''} ${s.prevRpe === 'UP' && s.rpe !== 'UP' ? 'previous' : ''}" onclick="togglePartialUp(${i})">UP</button>
+          </div>` : `
           <div class="rpe-box">
             <select onchange="updateSet(${i}, 'rpe', this.value)">
               <option value="10" ${s.rpe==10?'selected':''}>10</option>
@@ -2272,7 +2760,7 @@ function init() {
               <option value="UP" ${s.rpe=='UP'?'selected':''}>UP</option>
               
             </select>
-          </div>
+          </div>`}
           <button class="check-btn ${checkClass}" onclick="toggleDone(${i})">${checkIcon}</button>
         </div>
       `}).join('');
@@ -2290,7 +2778,7 @@ function init() {
         const isReady = (last.weight !== '' && last.reps !== '');
         currentSets.push({...last, done: isReady}); // Clone fully and keep checked if valid
       } else {
-        currentSets.push({prevWeight: '', prevReps: '', prevRpe: 8, weight: '', reps: '', rpe: 8, done: false});
+        currentSets.push({prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', weight: '', reps: '', rpe: 8, partialReps: '', done: false});
       }
       renderSetRows();
       calcAdvice();
@@ -2330,6 +2818,24 @@ function init() {
       saveCurrentDraft();
     }
 
+    function updatePartialReps(idx, val) {
+      currentSets[idx].rpe = 8;
+      updateSet(idx, 'partialReps', val);
+    }
+
+    function togglePartialUp(idx) {
+      const s = currentSets[idx];
+      if (s.rpe === 'UP') {
+        s.rpe = 8;
+      } else {
+        s.rpe = 'UP';
+        s.partialReps = '';
+      }
+      renderSetRows();
+      calcAdvice();
+      saveCurrentDraft();
+    }
+
     function toggleDone(idx) {
       const s = currentSets[idx];
       s.done = !s.done;
@@ -2349,6 +2855,12 @@ function init() {
     function calcAdvice() {
       const advBox = document.getElementById('adviceBox');
       if (!advBox) return;
+      if (isRaiseExercise()) {
+        advBox.style.display = 'none';
+        window.currentBest1RM = 0;
+        window.lastValidSetData = null;
+        return;
+      }
       let best1RM = 0;
       window.currentBest1RM = 0;
       let lastValidSet = null;
@@ -2389,7 +2901,7 @@ function init() {
     
     let aiSheetSource = 'exercise';
     function getExerciseNamesForDate(dateStr) { const names = []; logs.filter(function(l){ return l.date === dateStr; }).sort(function(a,b){ return a.id - b.id; }).forEach(function(l){ if (!names.includes(l.exercise)) names.push(l.exercise); }); return names; }
-    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), rpe: s.rpe === 'UP' ? null : parseFloat(s.rpe), isWarmup: s.rpe === 'UP' }; }); }
+    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), rpe: isRaiseExercise(selectedExercise) || s.rpe === 'UP' ? null : parseFloat(s.rpe), partialReps: isRaiseExercise(selectedExercise) && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.rpe === 'UP' }; }); }
     function getAllTodayForAi() { const unsaved = getCurrentUnsavedAiSets(selectedExercise); const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); }); return saved.concat(unsaved).sort(function(a,b){ return a.id - b.id; }); }
     function getAiExerciseName() { const picker = document.getElementById('aiExercisePicker'); if (picker && picker.value) return picker.value; return selectedExercise; }
     function getAiExerciseSets(exName) { const unsaved = getCurrentUnsavedAiSets(exName); if (unsaved.length) return unsaved; return logs.filter(function(l){ return l.date === currentDateStr && l.exercise === exName; }).sort(function(a,b){ return a.id - b.id; }); }
@@ -2448,8 +2960,10 @@ function init() {
     function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; setTimeout(function(){ if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)') document.getElementById('sheetOverlay').style.display = 'none'; }, 300); }
 
     function formatSimpleAiSet(s) {
-      const rpe = (s.isWarmup || s.isForm || s.rpe == null) ? 'UP' : `RPE${s.rpe}`;
-      return `${s.weight}kg ${s.reps}回 ${rpe}`;
+      const effort = s.partialReps != null
+        ? `パーシャル${s.partialReps}回`
+        : ((s.isWarmup || s.isForm || s.rpe == null) ? 'UP' : `RPE${s.rpe}`);
+      return `${s.weight}kg ${s.reps}回 ${effort}`;
     }
 
     function showCopyToast(message) {
@@ -2483,6 +2997,88 @@ function init() {
       } catch (err) {
         showCopyToast('コピーできませんでした');
       }
+    }
+
+    function getPeriodSummaryLogs() {
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const available = logs.filter(l => l.date <= currentDateStr).sort((a,b) => a.date.localeCompare(b.date) || a.id - b.id);
+      if (mode !== 'cycle') {
+        const selected = new Date(currentDateStr + 'T00:00:00');
+        const start = new Date(selected);
+        start.setDate(selected.getDate() - selected.getDay());
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        const startStr = formatDate(start);
+        const endStr = formatDate(end);
+        return { title: `${startStr.replace(/-/g,'/')}〜${endStr.replace(/-/g,'/')}の1週間`, items: available.filter(l => l.date >= startStr && l.date <= endStr) };
+      }
+
+      const dates = [...new Set(available.map(l => l.date))];
+      const cycleDates = dates.filter(date => available.some(l => l.date === date && l.planMode === 'cycle'));
+      let selectedDates = cycleDates.length ? cycleDates : dates;
+      let startIndex = -1;
+      for (let i = selectedDates.length - 1; i >= 0; i--) {
+        const date = selectedDates[i];
+        if (available.some(l => l.date === date && l.planMode === 'cycle' && l.planLabel === 'プランA')) {
+          startIndex = i;
+          break;
+        }
+      }
+      selectedDates = startIndex >= 0 ? selectedDates.slice(startIndex, startIndex + 7) : selectedDates.slice(-7);
+      const dateSet = new Set(selectedDates);
+      return { title: '直近のA〜G 1ループ', items: available.filter(l => dateSet.has(l.date)) };
+    }
+
+    function buildPeriodSummaryText() {
+      const period = getPeriodSummaryLogs();
+      if (!period.items.length) return '';
+      const byDate = {};
+      period.items.forEach(l => {
+        if (!byDate[l.date]) byDate[l.date] = [];
+        byDate[l.date].push(l);
+      });
+      const weekdayLong = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
+      const lines = [period.title];
+      let periodVolume = 0;
+      let periodSets = 0;
+
+      Object.keys(byDate).sort().forEach(date => {
+        const dayLogs = byDate[date].sort((a,b) => a.id - b.id);
+        const d = new Date(date + 'T00:00:00');
+        const planLabel = dayLogs.find(l => l.planLabel)?.planLabel || '';
+        const planText = dayLogs.find(l => l.planText)?.planText || '';
+        const categories = [...new Set(dayLogs.map(l => getCategoryForExercise(l.exercise)))];
+        const heading = `${d.getMonth()+1}月${d.getDate()}日 ${weekdayLong[d.getDay()]}${planLabel ? ` ${planLabel}` : ''}${planText ? ` ${planText}` : ''}`;
+        lines.push('', heading, `部位: ${categories.join('・')}`);
+
+        const grouped = {};
+        const order = [];
+        dayLogs.forEach(l => {
+          if (!grouped[l.exercise]) {
+            grouped[l.exercise] = [];
+            order.push(l.exercise);
+          }
+          grouped[l.exercise].push(l);
+        });
+
+        let dayVolume = 0;
+        let daySets = 0;
+        order.forEach(name => {
+          const sets = grouped[name];
+          lines.push(`${name} ${sets.length}セット`);
+          sets.forEach(s => {
+            lines.push(formatSimpleAiSet(s));
+            dayVolume += Number(s.weight || 0) * Number(s.reps || 0);
+            daySets += 1;
+          });
+        });
+        periodVolume += dayVolume;
+        periodSets += daySets;
+        lines.push(`日計: ${daySets}セット ${Math.round(dayVolume).toLocaleString()}kg`);
+      });
+
+      lines.push('', `期間合計: ${periodSets}セット ${Math.round(periodVolume).toLocaleString()}kg`);
+      return lines.join('\n');
     }
 
     function copyAiOption(type) {
@@ -2530,6 +3126,9 @@ function init() {
           lines.push(...grouped[name].map(formatSimpleAiSet));
         });
         text = lines.join('\n');
+      } else if (type === 'periodSummary') {
+        text = buildPeriodSummaryText();
+        if (!text) return showCopyToast('期間内の記録がありません');
       }
       if (text) copyTextQuietly(text);
     }
@@ -2543,6 +3142,9 @@ function saveWorkout() {
       }
 
       const memoText = document.getElementById('sessionMemo').value.trim();
+      const planInfo = getActivePlanInfo();
+      const planMode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const raiseExercise = isRaiseExercise(selectedExercise);
 
       // Maintain order: use the original first set's ID if this exercise was already started today
       const todayLogsForEx = logs.filter(l => l.date === currentDateStr && l.exercise === selectedExercise);
@@ -2558,8 +3160,12 @@ function saveWorkout() {
           exercise: selectedExercise,
           weight: parseFloat(s.weight),
           reps: parseInt(s.reps),
-          rpe: s.rpe === 'UP' ? null : parseFloat(s.rpe),
+          rpe: raiseExercise || s.rpe === 'UP' ? null : parseFloat(s.rpe),
           isWarmup: s.rpe === 'UP',
+          partialReps: raiseExercise && s.partialReps !== '' ? parseInt(s.partialReps) : null,
+          planMode: planMode,
+          planLabel: planInfo.label,
+          planText: planInfo.text,
           memo: memoText
         });
       });
