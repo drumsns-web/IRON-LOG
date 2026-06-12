@@ -904,6 +904,7 @@
     let timerAlarmAudio = null;
     let timerAlarmAudioUrl = '';
     let timerFinishedAlertId = null;
+    let intervalTimerFinished = false;
 
     function getTimerSelectedSeconds() {
       const select = document.getElementById('timerMinutes');
@@ -923,6 +924,7 @@
     function resetIntervalTimer() {
       clearInterval(intervalTimerId);
       intervalTimerId = null;
+      intervalTimerFinished = false;
       intervalTimerTotal = getTimerSelectedSeconds();
       intervalTimerRemaining = intervalTimerTotal;
       const btn = document.getElementById('timerStartBtn');
@@ -1127,7 +1129,8 @@
     function tickIntervalTimer() {
       intervalTimerRemaining = Math.max(0, Math.ceil((intervalTimerEnd - Date.now()) / 1000));
       renderIntervalTimer();
-      if (intervalTimerRemaining <= 0) {
+      if (intervalTimerRemaining <= 0 && !intervalTimerFinished) {
+        intervalTimerFinished = true;
         clearInterval(intervalTimerId);
         intervalTimerId = null;
         playTimerAlarm();
@@ -1151,9 +1154,15 @@
         intervalTimerRemaining = intervalTimerTotal;
       }
       intervalTimerEnd = Date.now() + intervalTimerRemaining * 1000;
+      intervalTimerFinished = false;
       primeTimerAlarmAudio();
       if (btn) btn.textContent = '停止';
       intervalTimerId = setInterval(tickIntervalTimer, 250);
+      tickIntervalTimer();
+    }
+
+    function syncIntervalTimerAfterResume() {
+      if (intervalTimerFinished || !intervalTimerId || !intervalTimerEnd) return;
       tickIntervalTimer();
     }
 
@@ -1164,6 +1173,11 @@
       timerAlarmEnabled = localStorage.getItem('ironlog-timer-alarm') === '1';
       updateTimerAlarmButton();
       resetIntervalTimer();
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncIntervalTimerAfterResume();
+      });
+      window.addEventListener('pageshow', syncIntervalTimerAfterResume);
+      window.addEventListener('focus', syncIntervalTimerAfterResume);
     }
 
     
