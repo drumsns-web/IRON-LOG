@@ -110,6 +110,11 @@
     .timer-controls button { border:none; background:var(--accent-brand); color:#000; cursor:pointer; }
     .timer-alarm-btn { grid-column:1 / -1; min-height:32px !important; background:var(--surface-3) !important; color:var(--muted) !important; border:1px solid var(--line) !important; }
     .timer-alarm-btn.on { color:var(--accent-brand) !important; border-color:rgba(208,253,62,.45) !important; }
+    .timer-finish-alert { position:fixed; inset:0; z-index:350; display:none; align-items:center; justify-content:center; padding:24px; background:rgba(208,253,62,.94); color:#000; text-align:center; animation:timer-alert-flash .32s ease-in-out 5 alternate; }
+    .timer-finish-alert.show { display:flex; }
+    .timer-finish-alert strong { display:block; font-size:clamp(34px, 10vw, 58px); line-height:1.1; }
+    .timer-finish-alert span { display:block; margin-top:12px; font-size:15px; font-weight:800; }
+    @keyframes timer-alert-flash { from { opacity:.72; } to { opacity:1; } }
     .partial-box { width:50px; background:var(--surface-2); border-radius:8px; padding:2px 3px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:1px; }
     .partial-box input { width:100%; height:22px; border:none; outline:none; background:transparent; color:#fff; text-align:center; font-size:14px; font-weight:700; padding:0; }
     .partial-box input::placeholder { color:rgba(255,255,255,.25); font-weight:500; }
@@ -838,6 +843,12 @@
     </div>
   </div>
   <div id="copyToast" class="copy-toast">コピーしました</div>
+  <div id="timerFinishAlert" class="timer-finish-alert" onclick="hideTimerFinishedAlert()">
+    <div>
+      <strong>インターバル終了</strong>
+      <span>タップして閉じる</span>
+    </div>
+  </div>
 
   <script>
     // Data Storage
@@ -890,6 +901,9 @@
     let intervalTimerTotal = 120;
     let timerAlarmEnabled = false;
     let timerAudioContext = null;
+    let timerAlarmAudio = null;
+    let timerAlarmAudioUrl = '';
+    let timerFinishedAlertId = null;
 
     function getTimerSelectedSeconds() {
       const select = document.getElementById('timerMinutes');
@@ -941,20 +955,91 @@
       }
     }
 
-    function toggleTimerAlarm() {
+    function createTimerAlarmAudio() {
+      if (timerAlarmAudio) return timerAlarmAudio;
+      const sampleRate = 44100;
+      const duration = 0.86;
+      const sampleCount = Math.floor(sampleRate * duration);
+      const buffer = new ArrayBuffer(44 + sampleCount * 2);
+      const view = new DataView(buffer);
+      const writeText = (offset, text) => {
+        for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+      };
+      writeText(0, 'RIFF');
+      view.setUint32(4, 36 + sampleCount * 2, true);
+      writeText(8, 'WAVE');
+      writeText(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeText(36, 'data');
+      view.setUint32(40, sampleCount * 2, true);
+      const tones = [
+        { start:0, end:.19, frequency:880 },
+        { start:.27, end:.46, frequency:880 },
+        { start:.54, end:.82, frequency:1175 }
+      ];
+      for (let i = 0; i < sampleCount; i++) {
+        const time = i / sampleRate;
+        const tone = tones.find(item => time >= item.start && time < item.end);
+        let value = 0;
+        if (tone) {
+          const localTime = time - tone.start;
+          const toneDuration = tone.end - tone.start;
+          const edge = Math.min(1, localTime / .012, (toneDuration - localTime) / .025);
+          value = Math.sin(2 * Math.PI * tone.frequency * time) * Math.max(0, edge) * .72;
+        }
+        view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, value)) * 32767, true);
+      }
+      timerAlarmAudioUrl = URL.createObjectURL(new Blob([buffer], { type:'audio/wav' }));
+      timerAlarmAudio = new Audio(timerAlarmAudioUrl);
+      timerAlarmAudio.preload = 'auto';
+      timerAlarmAudio.volume = 1;
+      return timerAlarmAudio;
+    }
+
+    async function playTimerMediaAlarm(isTest = false) {
+      try {
+        const audio = createTimerAlarmAudio();
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = 1;
+        await audio.play();
+        if (isTest) {
+          setTimeout(() => {
+            audio.pause();
+            audio.currentTime = 0;
+          }, 210);
+        }
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function toggleTimerAlarm() {
       timerAlarmEnabled = !timerAlarmEnabled;
       localStorage.setItem('ironlog-timer-alarm', timerAlarmEnabled ? '1' : '0');
       updateTimerAlarmButton();
       if (timerAlarmEnabled) {
-        playTimerAlarm(true);
-        showCopyToast('アラームのテスト音を再生しました');
+        const played = await playTimerMediaAlarm(true);
+        if (!played) await playTimerWebAudioAlarm(true);
+        const vibrationNote = typeof navigator.vibrate === 'function' ? '' : '（この端末はWeb振動非対応）';
+        showCopyToast(played ? `テスト音を再生しました${vibrationNote}` : `テスト音を確認してください${vibrationNote}`);
+      } else if (timerAlarmAudio) {
+        timerAlarmAudio.pause();
+        timerAlarmAudio.currentTime = 0;
       }
     }
 
-    async function playTimerAlarm(isTest = false) {
+    async function playTimerWebAudioAlarm(isTest = false) {
       if (!timerAlarmEnabled) return;
       const audioContext = await ensureTimerAudio();
-      if (!audioContext) return;
+      if (!audioContext) return false;
       const now = audioContext.currentTime + 0.03;
       const tones = isTest
         ? [{ offset:0, frequency:740 }]
@@ -972,16 +1057,36 @@
         osc.start(now + tone.offset);
         osc.stop(now + tone.offset + 0.21);
       });
+      return true;
+    }
+
+    async function playTimerAlarm(isTest = false) {
+      if (!timerAlarmEnabled) return;
+      const played = await playTimerMediaAlarm(isTest);
+      if (!played) await playTimerWebAudioAlarm(isTest);
       if (!isTest && navigator.vibrate) navigator.vibrate([180, 100, 180, 100, 260]);
     }
 
     function showTimerFinishedFeedback() {
       const ring = document.getElementById('timerRing');
-      if (!ring) return;
-      ring.classList.remove('finished');
-      void ring.offsetWidth;
-      ring.classList.add('finished');
-      setTimeout(() => ring.classList.remove('finished'), 2200);
+      if (ring) {
+        ring.classList.remove('finished');
+        void ring.offsetWidth;
+        ring.classList.add('finished');
+        setTimeout(() => ring.classList.remove('finished'), 2200);
+      }
+      const alert = document.getElementById('timerFinishAlert');
+      if (alert) {
+        clearTimeout(timerFinishedAlertId);
+        alert.classList.add('show');
+        timerFinishedAlertId = setTimeout(hideTimerFinishedAlert, 3200);
+      }
+    }
+
+    function hideTimerFinishedAlert() {
+      clearTimeout(timerFinishedAlertId);
+      timerFinishedAlertId = null;
+      document.getElementById('timerFinishAlert')?.classList.remove('show');
     }
 
     function tickIntervalTimer() {
@@ -1012,6 +1117,7 @@
       }
       intervalTimerEnd = Date.now() + intervalTimerRemaining * 1000;
       ensureTimerAudio();
+      if (timerAlarmEnabled) createTimerAlarmAudio().load();
       if (btn) btn.textContent = '停止';
       intervalTimerId = setInterval(tickIntervalTimer, 250);
       tickIntervalTimer();
