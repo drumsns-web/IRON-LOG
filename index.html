@@ -100,21 +100,15 @@
     .interval-timer { display:flex; align-items:center; gap:12px; padding:12px; margin-bottom:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
     .timer-ring { --timer-progress:0deg; width:58px; height:58px; border-radius:50%; flex:0 0 auto; background:conic-gradient(var(--accent-brand) var(--timer-progress), var(--surface-3) 0); display:grid; place-items:center; }
     .timer-ring::after { content:''; width:48px; height:48px; border-radius:50%; background:var(--surface); }
-    .timer-ring.finished { animation:timer-finished-pulse .42s ease-in-out 4 alternate; box-shadow:0 0 0 5px rgba(208,253,62,.22), 0 0 24px rgba(208,253,62,.75); }
-    @keyframes timer-finished-pulse { from { transform:scale(1); filter:brightness(1); } to { transform:scale(1.12); filter:brightness(1.7); } }
     .timer-time { position:absolute; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; z-index:1; }
     .timer-ring-wrap { position:relative; display:grid; place-items:center; }
     .timer-controls { flex:1; min-width:0; display:grid; grid-template-columns:minmax(78px, 1fr) minmax(86px, 1fr); gap:8px; }
     .timer-controls select, .timer-controls button { min-height:40px; border-radius:8px; font-size:13px; font-weight:700; }
     .timer-controls select { background:var(--surface-2); border:1px solid var(--line); color:var(--text); padding:0 8px; }
     .timer-controls button { border:none; background:var(--accent-brand); color:#000; cursor:pointer; }
-    .timer-alarm-btn { grid-column:1 / -1; min-height:32px !important; background:var(--surface-3) !important; color:var(--muted) !important; border:1px solid var(--line) !important; }
-    .timer-alarm-btn.on { color:var(--accent-brand) !important; border-color:rgba(208,253,62,.45) !important; }
-    .timer-finish-alert { position:fixed; inset:0; z-index:350; display:none; align-items:center; justify-content:center; padding:24px; background:rgba(208,253,62,.94); color:#000; text-align:center; animation:timer-alert-flash .32s ease-in-out 5 alternate; }
-    .timer-finish-alert.show { display:flex; }
-    .timer-finish-alert strong { display:block; font-size:clamp(34px, 10vw, 58px); line-height:1.1; }
-    .timer-finish-alert span { display:block; margin-top:12px; font-size:15px; font-weight:800; }
-    @keyframes timer-alert-flash { from { opacity:.72; } to { opacity:1; } }
+    .timer-controls button.reset { background:var(--surface-3); color:var(--text); border:1px solid var(--line); }
+    .timer-status { min-height:17px; margin-top:6px; color:var(--muted); font-size:10px; line-height:1.45; font-variant-numeric:tabular-nums; }
+    .timer-status.overtime { color:var(--accent-brand); font-weight:700; }
     .partial-box { width:50px; background:var(--surface-2); border-radius:8px; padding:2px 3px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:1px; }
     .partial-box input { width:100%; height:22px; border:none; outline:none; background:transparent; color:#fff; text-align:center; font-size:14px; font-weight:700; padding:0; }
     .partial-box input::placeholder { color:rgba(255,255,255,.25); font-weight:500; }
@@ -384,7 +378,7 @@
     
     <!-- ===== 追加: 今日の曜日予定枠 ===== -->
     <div id="todayTemplateCard" class="today-template-card">
-      <div class="title" id="todayTemplateTitle">🔥 今日の予定（月）</div>
+      <div class="title" id="todayTemplateTitle">▣ 今日の予定（月）</div>
       <div class="content" id="todayTemplateContent"></div>
       <div id="cycleTemplateControls" style="display:none; gap:8px; margin-top:12px;">
         <button onclick="changeCycleSlot(-1)" aria-label="前の予定" style="width:44px; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; font-weight:700;">‹</button>
@@ -456,8 +450,8 @@
             <option value="5">5分</option>
           </select>
           <button id="timerStartBtn" onclick="toggleIntervalTimer()">スタート</button>
-          <button id="timerAlarmBtn" class="timer-alarm-btn" onclick="toggleTimerAlarm()">アラーム OFF</button>
         </div>
+        <div id="timerStatus" class="timer-status">スタートすると経過時間も表示します</div>
       </div>
     </div>
 
@@ -843,13 +837,6 @@
     </div>
   </div>
   <div id="copyToast" class="copy-toast">コピーしました</div>
-  <div id="timerFinishAlert" class="timer-finish-alert" onclick="hideTimerFinishedAlert()">
-    <div>
-      <strong>インターバル終了</strong>
-      <span>タップして閉じる</span>
-    </div>
-  </div>
-
   <script>
     // Data Storage
     const STORE_LOGS = 'ironlog-data-v4'; 
@@ -895,284 +882,161 @@
       return `${y}-${m}-${day}`;
     }
 
+    const STORE_INTERVAL_TIMER = 'ironlog-interval-timer-v2';
     let intervalTimerId = null;
+    let intervalTimerStart = 0;
     let intervalTimerEnd = 0;
     let intervalTimerRemaining = 120;
     let intervalTimerTotal = 120;
-    let timerAlarmEnabled = false;
-    let timerAudioContext = null;
-    let timerAlarmAudio = null;
-    let timerAlarmAudioUrl = '';
-    let timerFinishedAlertId = null;
-    let intervalTimerFinished = false;
+    let intervalTimerActive = false;
 
     function getTimerSelectedSeconds() {
       const select = document.getElementById('timerMinutes');
       return Math.max(60, Math.min(300, parseInt(select?.value || '2', 10) * 60));
     }
 
+    function formatTimerDuration(totalSeconds) {
+      const seconds = Math.max(0, Math.floor(totalSeconds));
+      const minutes = Math.floor(seconds / 60);
+      const rest = seconds % 60;
+      if (minutes && rest) return `${minutes}分${rest}秒`;
+      if (minutes) return `${minutes}分`;
+      return `${rest}秒`;
+    }
+
+    function saveIntervalTimerState() {
+      if (!intervalTimerActive) {
+        localStorage.removeItem(STORE_INTERVAL_TIMER);
+        return;
+      }
+      localStorage.setItem(STORE_INTERVAL_TIMER, JSON.stringify({
+        start: intervalTimerStart,
+        end: intervalTimerEnd,
+        total: intervalTimerTotal
+      }));
+    }
+
     function renderIntervalTimer() {
       const display = document.getElementById('timerDisplay');
       const ring = document.getElementById('timerRing');
+      const status = document.getElementById('timerStatus');
+      const btn = document.getElementById('timerStartBtn');
+      const now = Date.now();
+      let overtime = 0;
+
+      if (intervalTimerActive) {
+        intervalTimerRemaining = Math.max(0, Math.ceil((intervalTimerEnd - now) / 1000));
+        overtime = Math.max(0, Math.floor((now - intervalTimerEnd) / 1000));
+      }
+
       const minutes = Math.floor(intervalTimerRemaining / 60);
       const seconds = intervalTimerRemaining % 60;
-      if (display) display.textContent = `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+      if (display) {
+        display.textContent = overtime > 0
+          ? `+${String(Math.floor(overtime / 60)).padStart(2,'0')}:${String(overtime % 60).padStart(2,'0')}`
+          : `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+      }
       const remainingRatio = intervalTimerTotal > 0 ? intervalTimerRemaining / intervalTimerTotal : 0;
       if (ring) ring.style.setProperty('--timer-progress', `${Math.max(0, Math.min(1, remainingRatio)) * 360}deg`);
-    }
-
-    function resetIntervalTimer() {
-      clearInterval(intervalTimerId);
-      intervalTimerId = null;
-      intervalTimerFinished = false;
-      intervalTimerTotal = getTimerSelectedSeconds();
-      intervalTimerRemaining = intervalTimerTotal;
-      const btn = document.getElementById('timerStartBtn');
-      if (btn) btn.textContent = 'スタート';
-      renderIntervalTimer();
-    }
-
-    function changeTimerDuration() {
-      localStorage.setItem('ironlog-interval-minutes', document.getElementById('timerMinutes')?.value || '2');
-      resetIntervalTimer();
-    }
-
-    function updateTimerAlarmButton() {
-      const btn = document.getElementById('timerAlarmBtn');
-      if (!btn) return;
-      btn.textContent = timerAlarmEnabled ? 'アラーム ON' : 'アラーム OFF';
-      btn.classList.toggle('on', timerAlarmEnabled);
-    }
-
-    async function ensureTimerAudio() {
-      if (!timerAlarmEnabled) return null;
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return null;
-      try {
-        if (!timerAudioContext) timerAudioContext = new AudioCtx();
-        if (timerAudioContext.state === 'suspended') await timerAudioContext.resume();
-        return timerAudioContext;
-      } catch (e) {
-        return null;
+      if (btn) {
+        btn.textContent = intervalTimerActive ? 'リセット' : 'スタート';
+        btn.classList.toggle('reset', intervalTimerActive);
       }
-    }
-
-    function createTimerAlarmAudio() {
-      if (timerAlarmAudio) return timerAlarmAudio;
-      const sampleRate = 44100;
-      const duration = 0.86;
-      const sampleCount = Math.floor(sampleRate * duration);
-      const buffer = new ArrayBuffer(44 + sampleCount * 2);
-      const view = new DataView(buffer);
-      const writeText = (offset, text) => {
-        for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
-      };
-      writeText(0, 'RIFF');
-      view.setUint32(4, 36 + sampleCount * 2, true);
-      writeText(8, 'WAVE');
-      writeText(12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, 1, true);
-      view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * 2, true);
-      view.setUint16(32, 2, true);
-      view.setUint16(34, 16, true);
-      writeText(36, 'data');
-      view.setUint32(40, sampleCount * 2, true);
-      const tones = [
-        { start:0, end:.19, frequency:880 },
-        { start:.27, end:.46, frequency:880 },
-        { start:.54, end:.82, frequency:1175 }
-      ];
-      for (let i = 0; i < sampleCount; i++) {
-        const time = i / sampleRate;
-        const tone = tones.find(item => time >= item.start && time < item.end);
-        let value = 0;
-        if (tone) {
-          const localTime = time - tone.start;
-          const toneDuration = tone.end - tone.start;
-          const edge = Math.min(1, localTime / .012, (toneDuration - localTime) / .025);
-          value = Math.sin(2 * Math.PI * tone.frequency * time) * Math.max(0, edge) * .72;
+      if (status) {
+        status.classList.toggle('overtime', overtime > 0);
+        if (!intervalTimerActive) {
+          status.textContent = 'スタートすると経過時間も表示します';
+        } else {
+          const sinceStart = Math.max(0, Math.floor((now - intervalTimerStart) / 1000));
+          status.textContent = overtime > 0
+            ? `終了から ${formatTimerDuration(overtime)}経過・開始から ${formatTimerDuration(sinceStart)}経過`
+            : `開始から ${formatTimerDuration(sinceStart)}経過`;
         }
-        view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, value)) * 32767, true);
-      }
-      timerAlarmAudioUrl = URL.createObjectURL(new Blob([buffer], { type:'audio/wav' }));
-      timerAlarmAudio = new Audio(timerAlarmAudioUrl);
-      timerAlarmAudio.preload = 'auto';
-      timerAlarmAudio.volume = 1;
-      return timerAlarmAudio;
-    }
-
-    async function releaseTimerAudioSession() {
-      if (timerAlarmAudio) {
-        try {
-          timerAlarmAudio.pause();
-          timerAlarmAudio.removeAttribute('src');
-          timerAlarmAudio.load();
-        } catch (e) {}
-        timerAlarmAudio = null;
-      }
-      if (timerAlarmAudioUrl) {
-        URL.revokeObjectURL(timerAlarmAudioUrl);
-        timerAlarmAudioUrl = '';
-      }
-      if (timerAudioContext) {
-        try { await timerAudioContext.close(); } catch (e) {}
-        timerAudioContext = null;
       }
     }
 
-    async function primeTimerAlarmAudio() {
-      if (!timerAlarmEnabled) return;
-      try {
-        const audio = createTimerAlarmAudio();
-        audio.muted = true;
-        audio.currentTime = 0;
-        await audio.play();
-        audio.pause();
-        audio.currentTime = 0;
-        audio.muted = false;
-      } catch (e) {}
-    }
-
-    async function playTimerMediaAlarm(isTest = false) {
-      try {
-        const audio = createTimerAlarmAudio();
-        audio.muted = false;
-        audio.pause();
-        audio.currentTime = 0;
-        audio.volume = 1;
-        audio.onended = () => releaseTimerAudioSession();
-        await audio.play();
-        if (isTest) {
-          setTimeout(() => {
-            releaseTimerAudioSession();
-          }, 210);
-        }
-        return true;
-      } catch (e) {
+    function resetIntervalTimer(askConfirmation = false) {
+      if (askConfirmation && intervalTimerActive && !confirm('タイマーをリセットしますか？')) {
         return false;
       }
-    }
-
-    async function toggleTimerAlarm() {
-      timerAlarmEnabled = !timerAlarmEnabled;
-      localStorage.setItem('ironlog-timer-alarm', timerAlarmEnabled ? '1' : '0');
-      updateTimerAlarmButton();
-      if (timerAlarmEnabled) {
-        const played = await playTimerMediaAlarm(true);
-        if (!played) await playTimerWebAudioAlarm(true);
-        const vibrationNote = typeof navigator.vibrate === 'function' ? '' : '（この端末はWeb振動非対応）';
-        showCopyToast(played ? `テスト音を再生しました${vibrationNote}` : `テスト音を確認してください${vibrationNote}`);
-      } else {
-        releaseTimerAudioSession();
-      }
-    }
-
-    async function playTimerWebAudioAlarm(isTest = false) {
-      if (!timerAlarmEnabled) return;
-      const audioContext = await ensureTimerAudio();
-      if (!audioContext) return false;
-      const now = audioContext.currentTime + 0.03;
-      const tones = isTest
-        ? [{ offset:0, frequency:740 }]
-        : [{ offset:0, frequency:880 }, { offset:.24, frequency:880 }, { offset:.48, frequency:1175 }];
-      tones.forEach(tone => {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(tone.frequency, now + tone.offset);
-        gain.gain.setValueAtTime(0.0001, now + tone.offset);
-        gain.gain.exponentialRampToValueAtTime(isTest ? 0.12 : 0.3, now + tone.offset + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.offset + 0.19);
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.start(now + tone.offset);
-        osc.stop(now + tone.offset + 0.21);
-      });
-      setTimeout(() => {
-        if (timerAudioContext === audioContext) releaseTimerAudioSession();
-      }, isTest ? 350 : 1050);
+      clearInterval(intervalTimerId);
+      intervalTimerId = null;
+      intervalTimerActive = false;
+      intervalTimerStart = 0;
+      intervalTimerEnd = 0;
+      intervalTimerTotal = getTimerSelectedSeconds();
+      intervalTimerRemaining = intervalTimerTotal;
+      saveIntervalTimerState();
+      renderIntervalTimer();
       return true;
     }
 
-    async function playTimerAlarm(isTest = false) {
-      if (!timerAlarmEnabled) return;
-      const played = await playTimerMediaAlarm(isTest);
-      if (!played) await playTimerWebAudioAlarm(isTest);
-      if (!isTest && navigator.vibrate) navigator.vibrate([180, 100, 180, 100, 260]);
+    function changeTimerDuration() {
+      const select = document.getElementById('timerMinutes');
+      const newValue = select?.value || '2';
+      if (intervalTimerActive) {
+        const previousValue = String(Math.max(1, Math.min(5, Math.round(intervalTimerTotal / 60))));
+        if (!confirm(`${newValue}分に変更してタイマーをリセットしますか？`)) {
+          if (select) select.value = previousValue;
+          return;
+        }
+      }
+      localStorage.setItem('ironlog-interval-minutes', newValue);
+      resetIntervalTimer(false);
     }
 
-    function showTimerFinishedFeedback() {
-      const ring = document.getElementById('timerRing');
-      if (ring) {
-        ring.classList.remove('finished');
-        void ring.offsetWidth;
-        ring.classList.add('finished');
-        setTimeout(() => ring.classList.remove('finished'), 2200);
-      }
-      const alert = document.getElementById('timerFinishAlert');
-      if (alert) {
-        clearTimeout(timerFinishedAlertId);
-        alert.classList.add('show');
-        timerFinishedAlertId = setTimeout(hideTimerFinishedAlert, 3200);
-      }
-    }
-
-    function hideTimerFinishedAlert() {
-      clearTimeout(timerFinishedAlertId);
-      timerFinishedAlertId = null;
-      document.getElementById('timerFinishAlert')?.classList.remove('show');
-    }
-
-    function tickIntervalTimer() {
-      intervalTimerRemaining = Math.max(0, Math.ceil((intervalTimerEnd - Date.now()) / 1000));
-      renderIntervalTimer();
-      if (intervalTimerRemaining <= 0 && !intervalTimerFinished) {
-        intervalTimerFinished = true;
-        clearInterval(intervalTimerId);
-        intervalTimerId = null;
-        playTimerAlarm();
-        showTimerFinishedFeedback();
-        const btn = document.getElementById('timerStartBtn');
-        if (btn) btn.textContent = 'スタート';
-        setTimeout(resetIntervalTimer, 2200);
-      }
-    }
-
-    function toggleIntervalTimer() {
-      const btn = document.getElementById('timerStartBtn');
-      if (intervalTimerId) {
-        clearInterval(intervalTimerId);
-        intervalTimerId = null;
-        if (btn) btn.textContent = '再開';
-        return;
-      }
-      if (intervalTimerRemaining <= 0 || intervalTimerRemaining > getTimerSelectedSeconds()) {
-        intervalTimerTotal = getTimerSelectedSeconds();
-        intervalTimerRemaining = intervalTimerTotal;
-      }
-      intervalTimerEnd = Date.now() + intervalTimerRemaining * 1000;
-      intervalTimerFinished = false;
-      primeTimerAlarmAudio();
-      if (btn) btn.textContent = '停止';
+    function startIntervalTimer() {
+      intervalTimerTotal = getTimerSelectedSeconds();
+      intervalTimerRemaining = intervalTimerTotal;
+      intervalTimerStart = Date.now();
+      intervalTimerEnd = intervalTimerStart + intervalTimerTotal * 1000;
+      intervalTimerActive = true;
+      saveIntervalTimerState();
+      clearInterval(intervalTimerId);
       intervalTimerId = setInterval(tickIntervalTimer, 250);
       tickIntervalTimer();
     }
 
+    function toggleIntervalTimer() {
+      if (intervalTimerActive) {
+        resetIntervalTimer(true);
+        return;
+      }
+      startIntervalTimer();
+    }
+
+    function tickIntervalTimer() {
+      if (!intervalTimerActive) return;
+      renderIntervalTimer();
+    }
+
     function syncIntervalTimerAfterResume() {
-      if (intervalTimerFinished || !intervalTimerId || !intervalTimerEnd) return;
-      tickIntervalTimer();
+      if (!intervalTimerActive) return;
+      renderIntervalTimer();
+      if (!intervalTimerId) intervalTimerId = setInterval(tickIntervalTimer, 250);
     }
 
     function initIntervalTimer() {
       const select = document.getElementById('timerMinutes');
       const saved = localStorage.getItem('ironlog-interval-minutes') || '2';
+      localStorage.removeItem('ironlog-timer-alarm');
       if (select && ['1','2','3','4','5'].includes(saved)) select.value = saved;
-      timerAlarmEnabled = localStorage.getItem('ironlog-timer-alarm') === '1';
-      updateTimerAlarmButton();
-      resetIntervalTimer();
+      try {
+        const state = JSON.parse(localStorage.getItem(STORE_INTERVAL_TIMER) || 'null');
+        if (state && Number(state.start) > 0 && Number(state.end) > Number(state.start) && Number(state.total) > 0) {
+          intervalTimerStart = Number(state.start);
+          intervalTimerEnd = Number(state.end);
+          intervalTimerTotal = Number(state.total);
+          intervalTimerActive = true;
+          if (select) select.value = String(Math.max(1, Math.min(5, Math.round(intervalTimerTotal / 60))));
+          intervalTimerId = setInterval(tickIntervalTimer, 250);
+          renderIntervalTimer();
+        } else {
+          resetIntervalTimer(false);
+        }
+      } catch (e) {
+        resetIntervalTimer(false);
+      }
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) syncIntervalTimerAfterResume();
       });
@@ -1376,7 +1240,6 @@
         cycleCompletedSlot: localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '',
         cycleAdvancedDate: localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '',
         intervalMinutes: localStorage.getItem('ironlog-interval-minutes') || '2',
-        timerAlarm: localStorage.getItem('ironlog-timer-alarm') || '0',
         referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
         exportDate: new Date().toISOString()
@@ -1459,9 +1322,6 @@
               }
               if (data.intervalMinutes) {
                 localStorage.setItem('ironlog-interval-minutes', data.intervalMinutes);
-              }
-              if (data.timerAlarm != null) {
-                localStorage.setItem('ironlog-timer-alarm', data.timerAlarm);
               }
               if (data.referenceVideos) {
                 localStorage.setItem(STORE_REFERENCE_VIDEOS, JSON.stringify(data.referenceVideos));
@@ -1655,14 +1515,14 @@ function updateTodayTemplate() {
     const slot = getCurrentCycleSlot();
     const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
     todayTask = data[slot] || '';
-    title.textContent = `🔥 現在の予定（${slot}）`;
+    title.textContent = `▣ 現在の予定（${slot}）`;
     const slotSelect = document.getElementById('cycleSlotSelect');
     if (slotSelect) slotSelect.value = slot;
     if (cycleControls) cycleControls.style.display = 'flex';
   } else {
     const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
     todayTask = data[dayIndex] || '';
-    title.textContent = `🔥 今日の予定（${dayNames[dayIndex]}）`;
+    title.textContent = `▣ 今日の予定（${dayNames[dayIndex]}）`;
     if (cycleControls) cycleControls.style.display = 'none';
   }
 
