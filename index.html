@@ -100,6 +100,8 @@
     .interval-timer { display:flex; align-items:center; gap:12px; padding:12px; margin-bottom:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
     .timer-ring { --timer-progress:0deg; width:58px; height:58px; border-radius:50%; flex:0 0 auto; background:conic-gradient(var(--accent-brand) var(--timer-progress), var(--surface-3) 0); display:grid; place-items:center; }
     .timer-ring::after { content:''; width:48px; height:48px; border-radius:50%; background:var(--surface); }
+    .timer-ring.finished { animation:timer-finished-pulse .42s ease-in-out 4 alternate; box-shadow:0 0 0 5px rgba(208,253,62,.22), 0 0 24px rgba(208,253,62,.75); }
+    @keyframes timer-finished-pulse { from { transform:scale(1); filter:brightness(1); } to { transform:scale(1.12); filter:brightness(1.7); } }
     .timer-time { position:absolute; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; z-index:1; }
     .timer-ring-wrap { position:relative; display:grid; place-items:center; }
     .timer-controls { flex:1; min-width:0; display:grid; grid-template-columns:minmax(78px, 1fr) minmax(86px, 1fr); gap:8px; }
@@ -926,39 +928,60 @@
       btn.classList.toggle('on', timerAlarmEnabled);
     }
 
-    function ensureTimerAudio() {
-      if (!timerAlarmEnabled) return;
+    async function ensureTimerAudio() {
+      if (!timerAlarmEnabled) return null;
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      if (!timerAudioContext) timerAudioContext = new AudioCtx();
-      if (timerAudioContext.state === 'suspended') timerAudioContext.resume().catch(() => {});
+      if (!AudioCtx) return null;
+      try {
+        if (!timerAudioContext) timerAudioContext = new AudioCtx();
+        if (timerAudioContext.state === 'suspended') await timerAudioContext.resume();
+        return timerAudioContext;
+      } catch (e) {
+        return null;
+      }
     }
 
     function toggleTimerAlarm() {
       timerAlarmEnabled = !timerAlarmEnabled;
       localStorage.setItem('ironlog-timer-alarm', timerAlarmEnabled ? '1' : '0');
       updateTimerAlarmButton();
-      ensureTimerAudio();
+      if (timerAlarmEnabled) {
+        playTimerAlarm(true);
+        showCopyToast('アラームのテスト音を再生しました');
+      }
     }
 
-    function playTimerAlarm() {
+    async function playTimerAlarm(isTest = false) {
       if (!timerAlarmEnabled) return;
-      ensureTimerAudio();
-      if (!timerAudioContext) return;
-      const now = timerAudioContext.currentTime;
-      [0, 0.22].forEach(offset => {
-        const osc = timerAudioContext.createOscillator();
-        const gain = timerAudioContext.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, now + offset);
-        gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.22, now + offset + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.16);
+      const audioContext = await ensureTimerAudio();
+      if (!audioContext) return;
+      const now = audioContext.currentTime + 0.03;
+      const tones = isTest
+        ? [{ offset:0, frequency:740 }]
+        : [{ offset:0, frequency:880 }, { offset:.24, frequency:880 }, { offset:.48, frequency:1175 }];
+      tones.forEach(tone => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(tone.frequency, now + tone.offset);
+        gain.gain.setValueAtTime(0.0001, now + tone.offset);
+        gain.gain.exponentialRampToValueAtTime(isTest ? 0.12 : 0.3, now + tone.offset + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.offset + 0.19);
         osc.connect(gain);
-        gain.connect(timerAudioContext.destination);
-        osc.start(now + offset);
-        osc.stop(now + offset + 0.18);
+        gain.connect(audioContext.destination);
+        osc.start(now + tone.offset);
+        osc.stop(now + tone.offset + 0.21);
       });
+      if (!isTest && navigator.vibrate) navigator.vibrate([180, 100, 180, 100, 260]);
+    }
+
+    function showTimerFinishedFeedback() {
+      const ring = document.getElementById('timerRing');
+      if (!ring) return;
+      ring.classList.remove('finished');
+      void ring.offsetWidth;
+      ring.classList.add('finished');
+      setTimeout(() => ring.classList.remove('finished'), 2200);
     }
 
     function tickIntervalTimer() {
@@ -968,9 +991,10 @@
         clearInterval(intervalTimerId);
         intervalTimerId = null;
         playTimerAlarm();
+        showTimerFinishedFeedback();
         const btn = document.getElementById('timerStartBtn');
         if (btn) btn.textContent = 'スタート';
-        setTimeout(resetIntervalTimer, 700);
+        setTimeout(resetIntervalTimer, 2200);
       }
     }
 
