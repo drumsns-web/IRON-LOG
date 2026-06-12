@@ -87,8 +87,13 @@
     .input-box input::placeholder { color: rgba(255,255,255,0.25); font-weight: 500; } /* Thin/Ghost color for previous value */
     .input-box span { color: var(--muted); font-size: 12px; font-weight: 600; }
 
-    .rpe-box { width: 50px; background: var(--surface-2); border-radius: 8px; padding: 0 4px; display: flex; align-items: center; justify-content: center;}
+    .rpe-box { width: 64px; background: var(--surface-2); border-radius: 8px; padding: 2px 4px; display: flex; flex-direction:column; align-items: stretch; justify-content: center; gap:1px;}
     .rpe-box select { background: transparent; border: none; color: #fff; font-size: 14px; width: 100%; height: 38px; outline: none; appearance: none; text-align: center; font-weight:600;}
+    .metric-value-select { height:22px !important; font-size:14px !important; }
+    .set-type-select { height:17px !important; border-radius:4px !important; background:var(--surface-3) !important; color:var(--muted) !important; font-size:9px !important; font-weight:800 !important; text-align-last:center; cursor:pointer; }
+    .set-type-select.up { background:var(--accent-brand) !important; color:#000 !important; }
+    .metric-up-label { height:22px; display:flex; align-items:center; justify-content:center; color:var(--accent-brand); font-size:12px; font-weight:800; }
+    .metric-header-select { width:68px; height:28px; border:1px solid var(--line); border-radius:7px; outline:none; background:var(--surface-2); color:var(--text); font-size:10px; font-weight:800; text-align:center; text-align-last:center; }
 
     .check-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-3); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 16px; font-weight: bold; transition: 0.2s;}
     .check-btn.checked { background: var(--accent-2); color: #000; }
@@ -109,12 +114,11 @@
     .timer-controls button.reset { background:var(--surface-3); color:var(--text); border:1px solid var(--line); }
     .timer-status { min-height:17px; margin-top:6px; color:var(--muted); font-size:10px; line-height:1.45; font-variant-numeric:tabular-nums; }
     .timer-status.overtime { color:var(--accent-brand); font-weight:700; }
-    .partial-box { width:50px; background:var(--surface-2); border-radius:8px; padding:2px 3px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:1px; }
+    .partial-box { width:64px; background:var(--surface-2); border-radius:8px; padding:2px 4px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:1px; }
     .partial-box input { width:100%; height:22px; border:none; outline:none; background:transparent; color:#fff; text-align:center; font-size:14px; font-weight:700; padding:0; }
     .partial-box input::placeholder { color:rgba(255,255,255,.25); font-weight:500; }
-    .partial-up-btn { height:14px; border:none; border-radius:4px; background:transparent; color:var(--muted); font-size:9px; line-height:14px; font-weight:800; padding:0; cursor:pointer; }
-    .partial-up-btn.active { background:var(--accent-brand); color:#000; }
-    .partial-up-btn.previous { color:rgba(255,255,255,.38); }
+    .partial-type-select { width:100%; height:17px; border:none; outline:none; border-radius:4px; background:var(--surface-3); color:var(--muted); font-size:9px; line-height:17px; font-weight:800; text-align:center; text-align-last:center; padding:0 1px; cursor:pointer; }
+    .partial-type-select.up { background:var(--accent-brand); color:#000; }
     .set-metric-help { padding:7px 12px 9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.45; }
     .reference-video-trigger { width:100%; min-height:46px; padding:0 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); color:var(--text); font-size:13px; font-weight:700; cursor:pointer; }
     .reference-video-trigger span:last-child { color:var(--accent-brand); font-size:12px; }
@@ -343,6 +347,45 @@
   color: var(--text);
   white-space: pre-wrap;
 }
+.recall-workout-btn {
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 16px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.recall-workout-btn strong { font-size: 14px; }
+.recall-workout-btn span { color: var(--muted); font-size: 11px; }
+.recall-modal { position: fixed; inset: 0; z-index: 235; display: none; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.76); backdrop-filter: blur(4px); }
+.recall-dialog { width: min(600px, 100%); max-height: min(88vh, 88dvh); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 18px 18px 0 0; overflow: hidden; }
+.recall-header { min-height: 58px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.recall-header h3 { margin: 0; font-size: 16px; }
+.recall-header button { min-height: 36px; border: none; background: transparent; color: var(--muted); font-size: 14px; cursor: pointer; }
+.recall-body { padding: 14px 16px max(28px, env(safe-area-inset-bottom)); overflow-y: auto; }
+.recall-quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.recall-choice { min-height: 58px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--text); text-align: left; cursor: pointer; }
+.recall-choice:disabled { opacity: .4; cursor: default; }
+.recall-choice strong, .recall-choice span { display: block; }
+.recall-choice strong { font-size: 13px; }
+.recall-choice span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.recall-date-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
+.recall-date-row input { min-width: 0; min-height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 13px; }
+.recall-date-row button { min-height: 42px; padding: 0 14px; border: none; border-radius: 8px; background: var(--surface-3); color: var(--text); font-weight: 700; cursor: pointer; }
+.recall-preview { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.recall-preview-title { margin-bottom: 9px; font-size: 13px; font-weight: 700; }
+.recall-exercise { padding: 8px 0; border-top: 1px solid var(--line); }
+.recall-exercise:first-of-type { border-top: none; }
+.recall-exercise-name { font-size: 13px; font-weight: 700; }
+.recall-set-summary { margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.recall-apply-btn { width: 100%; min-height: 46px; margin-top: 12px; border: none; border-radius: 9px; background: var(--accent-brand); color: #000; font-size: 14px; font-weight: 800; cursor: pointer; }
 
 /* iOSキーボード被り対策: settingsSheetのスクロール領域調整 */
 #settingsSheetScroll {
@@ -405,6 +448,10 @@
         <button onclick="changeCycleSlot(1)" aria-label="次の予定" style="width:44px; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; font-weight:700;">›</button>
       </div>
     </div>
+    <button class="recall-workout-btn" onclick="openWorkoutRecallModal()">
+      <strong>過去メニューを呼び出す</strong>
+      <span>種目順・重量・回数・RPE</span>
+    </button>
     <!-- ================================ -->
 
     <!-- Backup Prompt -->
@@ -503,7 +550,12 @@
         <div style="width:44px; text-align:center">セット</div>
         <div style="flex:1; text-align:center">kg</div>
         <div style="flex:1; text-align:center">回</div>
-        <div id="setMetricHeader" style="width:50px; text-align:center">RPE</div>
+        <div id="setMetricHeader" style="width:68px; text-align:center">
+          <select id="exerciseMetricDefault" class="metric-header-select" onchange="changeExerciseMetricDefault(this.value)" aria-label="この種目の標準入力">
+            <option value="RPE">RPE</option>
+            <option value="PR">PR</option>
+          </select>
+        </div>
         <div style="width:36px; text-align:center">✓</div>
       </div>
       <div id="setMetricHelp" class="set-metric-help">RPE＝あと何回できる余力があるかを表す運動強度です。</div>
@@ -627,6 +679,34 @@
           </div>
         </div>
         <div id="referenceVideoList" class="video-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="recall-modal" id="workoutRecallModal" onclick="closeWorkoutRecallModal(event)">
+    <div class="recall-dialog" onclick="event.stopPropagation()">
+      <div class="recall-header">
+        <button onclick="closeWorkoutRecallModal()">閉じる</button>
+        <h3>過去メニューを呼び出す</h3>
+        <div style="width:48px"></div>
+      </div>
+      <div class="recall-body">
+        <div class="recall-quick-grid">
+          <button id="recallWeekdayBtn" class="recall-choice" onclick="selectWorkoutRecallSource('weekday')">
+            <strong>前回の同じ曜日</strong><span id="recallWeekdayLabel">記録を検索</span>
+          </button>
+          <button id="recallPlanBtn" class="recall-choice" onclick="selectWorkoutRecallSource('plan')">
+            <strong>前回の同じ予定</strong><span id="recallPlanLabel">A〜Gを検索</span>
+          </button>
+        </div>
+        <div class="recall-date-row">
+          <input id="recallDateInput" type="date" onchange="selectWorkoutRecallDate(this.value)" aria-label="呼び出す日付">
+          <button onclick="selectWorkoutRecallDate(document.getElementById('recallDateInput').value)">日付指定</button>
+        </div>
+        <div id="recallPreview" class="recall-preview">
+          <div style="color:var(--muted); font-size:12px; text-align:center;">呼び出す記録を選択してください</div>
+        </div>
+        <button id="recallApplyBtn" class="recall-apply-btn" onclick="applyWorkoutRecall()" style="display:none;">この内容を今日の下書きにする</button>
       </div>
     </div>
   </div>
@@ -875,6 +955,7 @@
     const STORE_SORT = 'ironlog-ex-sort-mode';
     const STORE_DRAFTS = 'ironlog-set-drafts-v1';
     const STORE_REFERENCE_VIDEOS = 'ironlog-reference-videos-v1';
+    const STORE_METRIC_PREFS = 'ironlog-exercise-metric-prefs-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1256,6 +1337,7 @@
         cycleCompletedSlot: localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '',
         cycleAdvancedDate: localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '',
         intervalMinutes: localStorage.getItem('ironlog-interval-minutes') || '2',
+        metricPreferences: getMetricPreferences(),
         referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
         exportDate: new Date().toISOString()
@@ -1338,6 +1420,9 @@
               }
               if (data.intervalMinutes) {
                 localStorage.setItem('ironlog-interval-minutes', data.intervalMinutes);
+              }
+              if (data.metricPreferences) {
+                localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(data.metricPreferences));
               }
               if (data.referenceVideos) {
                 localStorage.setItem(STORE_REFERENCE_VIDEOS, JSON.stringify(data.referenceVideos));
@@ -1533,6 +1618,196 @@ function renderTodayTemplateTitle(label, planText) {
     `<span class="today-template-dot" style="background:${catColors[category] || catColors['その他']};" title="${category}" aria-label="${category}"></span>`
   ).join('');
   title.innerHTML = `${dots ? `<span class="today-template-dots">${dots}</span>` : ''}<span>${label}</span>`;
+}
+
+let workoutRecallSourceDate = '';
+
+function getWorkoutDatesBefore(targetDateStr) {
+  return [...new Set(logs.filter(log => log.date < targetDateStr).map(log => log.date))]
+    .sort((a, b) => b.localeCompare(a));
+}
+
+function getPreviousSameWeekdayDate(targetDateStr) {
+  const targetDay = new Date(targetDateStr + 'T00:00:00').getDay();
+  return getWorkoutDatesBefore(targetDateStr)
+    .find(date => new Date(date + 'T00:00:00').getDay() === targetDay) || '';
+}
+
+function getPreviousSamePlanDate(targetDateStr) {
+  if ((localStorage.getItem(STORE_TMPL_MODE) || 'weekday') !== 'cycle') return '';
+  const planLabel = `プラン${getCurrentCycleSlot()}`;
+  return getWorkoutDatesBefore(targetDateStr)
+    .find(date => logs.some(log => log.date === date && log.planMode === 'cycle' && log.planLabel === planLabel)) || '';
+}
+
+function getWorkoutRecallGroups(dateStr) {
+  const dayLogs = logs.filter(log => log.date === dateStr).sort((a, b) => a.id - b.id);
+  const groups = [];
+  dayLogs.forEach(log => {
+    let group = groups.find(item => item.exercise === log.exercise);
+    if (!group) {
+      group = { exercise: log.exercise, sets: [] };
+      groups.push(group);
+    }
+    group.sets.push(log);
+  });
+  return groups;
+}
+
+function getRecallDateLabel(dateStr) {
+  if (!dateStr) return '記録なし';
+  const date = new Date(dateStr + 'T00:00:00');
+  return `${date.getMonth() + 1}/${date.getDate()}（${dayNames[date.getDay()]}）`;
+}
+
+function refreshWorkoutRecallChoices() {
+  const weekdayDate = getPreviousSameWeekdayDate(currentDateStr);
+  const planDate = getPreviousSamePlanDate(currentDateStr);
+  const weekdayBtn = document.getElementById('recallWeekdayBtn');
+  const planBtn = document.getElementById('recallPlanBtn');
+  const weekdayLabel = document.getElementById('recallWeekdayLabel');
+  const planLabel = document.getElementById('recallPlanLabel');
+  const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+
+  if (weekdayBtn) weekdayBtn.disabled = !weekdayDate;
+  if (weekdayLabel) weekdayLabel.textContent = getRecallDateLabel(weekdayDate);
+  if (planBtn) planBtn.disabled = mode !== 'cycle' || !planDate;
+  if (planLabel) {
+    planLabel.textContent = mode === 'cycle'
+      ? `${getCurrentCycleSlot()}：${getRecallDateLabel(planDate)}`
+      : 'A〜G方式で利用できます';
+  }
+
+  const dateInput = document.getElementById('recallDateInput');
+  if (dateInput) {
+    const target = new Date(currentDateStr + 'T00:00:00');
+    target.setDate(target.getDate() - 1);
+    dateInput.max = formatDate(target);
+    dateInput.value = '';
+  }
+}
+
+function openWorkoutRecallModal() {
+  workoutRecallSourceDate = '';
+  refreshWorkoutRecallChoices();
+  renderWorkoutRecallPreview('');
+  const modal = document.getElementById('workoutRecallModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeWorkoutRecallModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('workoutRecallModal');
+  if (modal) modal.style.display = 'none';
+  workoutRecallSourceDate = '';
+}
+
+function selectWorkoutRecallSource(type) {
+  const date = type === 'plan'
+    ? getPreviousSamePlanDate(currentDateStr)
+    : getPreviousSameWeekdayDate(currentDateStr);
+  selectWorkoutRecallDate(date);
+}
+
+function selectWorkoutRecallDate(dateStr) {
+  if (!dateStr) {
+    renderWorkoutRecallPreview('', '日付を選択してください');
+    return;
+  }
+  if (dateStr >= currentDateStr) {
+    renderWorkoutRecallPreview('', '選択中の日付より前の記録を指定してください');
+    return;
+  }
+  if (!logs.some(log => log.date === dateStr)) {
+    renderWorkoutRecallPreview('', '指定した日付には記録がありません');
+    return;
+  }
+  workoutRecallSourceDate = dateStr;
+  const dateInput = document.getElementById('recallDateInput');
+  if (dateInput) dateInput.value = dateStr;
+  renderWorkoutRecallPreview(dateStr);
+}
+
+function formatRecallSet(set) {
+  const effort = set.isWarmup
+    ? 'UP'
+    : (set.partialReps != null ? `PR${set.partialReps}` : `RPE${set.rpe ?? '-'}`);
+  return `${set.weight}kg×${set.reps}回 ${effort}`;
+}
+
+function renderWorkoutRecallPreview(dateStr, message = '') {
+  const preview = document.getElementById('recallPreview');
+  const applyBtn = document.getElementById('recallApplyBtn');
+  if (!preview || !applyBtn) return;
+  const groups = dateStr ? getWorkoutRecallGroups(dateStr) : [];
+  if (!groups.length) {
+    preview.innerHTML = `<div style="color:var(--muted); font-size:12px; text-align:center;">${escapeHtml(message || '呼び出す記録を選択してください')}</div>`;
+    applyBtn.style.display = 'none';
+    return;
+  }
+  const firstLog = logs.find(log => log.date === dateStr);
+  const planText = firstLog?.planLabel ? `・${firstLog.planLabel}` : '';
+  preview.innerHTML = `
+    <div class="recall-preview-title">${escapeHtml(getRecallDateLabel(dateStr) + planText)}・${groups.length}種目</div>
+    ${groups.map((group, index) => `
+      <div class="recall-exercise">
+        <div class="recall-exercise-name">${index + 1}. ${escapeHtml(group.exercise)}</div>
+        <div class="recall-set-summary">${group.sets.map(formatRecallSet).map(escapeHtml).join(' ／ ')}</div>
+      </div>
+    `).join('')}
+  `;
+  const targetLabel = currentDateStr === formatDate(new Date()) ? '今日' : getRecallDateLabel(currentDateStr);
+  applyBtn.textContent = `この内容を${targetLabel}の下書きにする`;
+  applyBtn.style.display = 'block';
+}
+
+function applyWorkoutRecall() {
+  const groups = getWorkoutRecallGroups(workoutRecallSourceDate);
+  if (!groups.length) return showCopyToast('呼び出す記録がありません');
+
+  const targetLogs = logs.filter(log => log.date === currentDateStr);
+  const targetDrafts = getDraftGroupsForDate(currentDateStr);
+  if ((targetLogs.length || targetDrafts.length) &&
+      !confirm('選択中の日付には記録または下書きがあります。\nすべて置き換えて過去メニューを呼び出しますか？')) {
+    return;
+  }
+
+  logs = logs.filter(log => log.date !== currentDateStr);
+  localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+
+  const drafts = getSetDrafts();
+  Object.keys(drafts).forEach(key => {
+    if (drafts[key]?.date === currentDateStr) delete drafts[key];
+  });
+  const baseTime = Date.now();
+  groups.forEach((group, groupIndex) => {
+    drafts[getDraftKey(currentDateStr, group.exercise)] = {
+      date: currentDateStr,
+      exercise: group.exercise,
+      sets: group.sets.map(set => ({
+        prevWeight: set.weight,
+        prevReps: set.reps,
+        prevRpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
+        prevPartialReps: set.partialReps ?? '',
+        prevMetricType: inferLogMetricType(set, group.exercise),
+        weight: String(set.weight),
+        reps: String(set.reps),
+        rpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
+        partialReps: set.partialReps ?? '',
+        metricType: inferLogMetricType(set, group.exercise),
+        done: false
+      })),
+      memo: '',
+      recalledFrom: workoutRecallSourceDate,
+      orderIndex: groupIndex,
+      updatedAt: baseTime + groupIndex
+    };
+  });
+  setSetDrafts(drafts);
+  closeWorkoutRecallModal();
+  renderCalendar();
+  renderDailyLogs();
+  showCopyToast(`${groups.length}種目を下書きにしました`);
 }
 
 function updateTodayTemplate() {
@@ -1946,9 +2221,10 @@ function init() {
           existing.draft = true;
           existing.draftSets = d.sets;
           existing.draftMemo = d.memo || '';
+          existing.recalledFrom = d.recalledFrom || '';
           existing.updatedAt = d.updatedAt || 0;
         } else {
-          groups.push({ exercise: d.exercise, sets: d.sets, id: groups.length, draft: true, draftSets: d.sets, draftMemo: d.memo || '', updatedAt: d.updatedAt || 0 });
+          groups.push({ exercise: d.exercise, sets: d.sets, id: groups.length, draft: true, draftSets: d.sets, draftMemo: d.memo || '', recalledFrom: d.recalledFrom || '', updatedAt: d.updatedAt || 0 });
         }
       });
 
@@ -1974,7 +2250,7 @@ function init() {
           if (!isNaN(weight) && !isNaN(reps)) totalVol += (weight * reps);
         });
         const summaryText = g.draft
-          ? '入力途中' + (completedDraftSets.length ? `・${completedDraftSets.length}セット入力済み` : '')
+          ? (g.recalledFrom ? `${getRecallDateLabel(g.recalledFrom)}から呼び出し` : '入力途中') + (completedDraftSets.length ? `・${completedDraftSets.length}セット入力済み` : '')
           : `${displaySets.length}セット (${totalVol.toLocaleString()} kg)`;
         const deleteText = g.draft ? '下書き削除' : '削除';
         const safeExercise = String(g.exercise).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -2000,9 +2276,10 @@ function init() {
                 return memoText ? `<div style="padding: 8px 16px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--line); background:rgba(255,255,255,0.02);">📝 ${memoText}</div>` : '';
               })()}
               ${displaySets.map((s, idx) => {
-                const tag = s.partialReps != null
-                  ? `PR ${s.partialReps}`
-                  : ((s.isWarmup || s.isForm || s.rpe === 'UP' || s.rpe == null) ? 'UP' : `RPE ${s.rpe}`);
+                const metricType = inferLogMetricType(s, g.exercise);
+                const tag = metricType === 'PR'
+                  ? `PR ${s.partialReps ?? '-'}`
+                  : (metricType === 'UP' ? 'UP' : `RPE ${s.rpe}`);
                 const weightText = s.weight !== '' && s.weight != null ? s.weight : '-';
                 const repsText = s.reps !== '' && s.reps != null ? s.reps : '-';
                 return `
@@ -2354,6 +2631,12 @@ function init() {
           delete videos[oldName];
           setReferenceVideos(videos);
         }
+        const metricPreferences = getMetricPreferences();
+        if (metricPreferences[oldName]) {
+          metricPreferences[cleanName] = metricPreferences[oldName];
+          delete metricPreferences[oldName];
+          localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(metricPreferences));
+        }
         saveExercises();
         renderSheetExList();
       }
@@ -2668,7 +2951,11 @@ function init() {
     function getDraftGroupsForDate(dateStr) {
       return Object.values(getSetDrafts())
         .filter(d => d && d.date === dateStr && d.exercise && Array.isArray(d.sets))
-        .sort((a,b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+        .sort((a,b) => {
+          const aOrder = Number.isFinite(a.orderIndex) ? a.orderIndex : Number.MAX_SAFE_INTEGER;
+          const bOrder = Number.isFinite(b.orderIndex) ? b.orderIndex : Number.MAX_SAFE_INTEGER;
+          return aOrder - bOrder || (a.updatedAt || 0) - (b.updatedAt || 0);
+        });
     }
 
     function setSetDrafts(drafts) {
@@ -2677,13 +2964,19 @@ function init() {
 
     function saveCurrentDraft() {
       if (!selectedExercise || !Array.isArray(currentSets) || currentSets.length === 0) return;
+      currentSets.forEach(set => normalizeCurrentSetMetric(set));
       const memoEl = document.getElementById('sessionMemo');
       const drafts = getSetDrafts();
-      drafts[getDraftKey()] = {
+      const draftKey = getDraftKey();
+      const recalledFrom = drafts[draftKey]?.recalledFrom || '';
+      const orderIndex = drafts[draftKey]?.orderIndex;
+      drafts[draftKey] = {
         date: currentDateStr,
         exercise: selectedExercise,
         sets: currentSets,
         memo: memoEl ? memoEl.value : '',
+        recalledFrom: recalledFrom,
+        ...(Number.isFinite(orderIndex) ? { orderIndex } : {}),
         updatedAt: Date.now()
       };
       setSetDrafts(drafts);
@@ -2715,6 +3008,50 @@ function init() {
 
     function isRaiseExercise(exName = selectedExercise) {
       return /レイズ|raise/i.test(exName || '');
+    }
+
+    function getMetricPreferences() {
+      try { return JSON.parse(localStorage.getItem(STORE_METRIC_PREFS) || '{}'); }
+      catch (e) { return {}; }
+    }
+
+    function getExerciseMetricDefault(exName = selectedExercise) {
+      const saved = getMetricPreferences()[exName];
+      if (saved === 'RPE' || saved === 'PR') return saved;
+      return isRaiseExercise(exName) ? 'PR' : 'RPE';
+    }
+
+    function inferLogMetricType(set, exName = selectedExercise) {
+      if (set?.metricType === 'UP' || set?.isWarmup || set?.isForm || set?.rpe === 'UP') return 'UP';
+      if (set?.metricType === 'PR' || set?.partialReps != null) return 'PR';
+      if (set?.metricType === 'RPE') return 'RPE';
+      return isRaiseExercise(exName) && set?.rpe == null ? 'PR' : 'RPE';
+    }
+
+    function normalizeCurrentSetMetric(set, exName = selectedExercise) {
+      const metricType = set.metricType || inferLogMetricType(set, exName);
+      set.metricType = ['RPE', 'PR', 'UP'].includes(metricType) ? metricType : getExerciseMetricDefault(exName);
+      if (set.metricType === 'UP') set.rpe = 'UP';
+      else if (set.metricType === 'RPE' && (set.rpe === 'UP' || set.rpe == null || set.rpe === '')) set.rpe = 8;
+      if (set.partialReps == null) set.partialReps = '';
+      return set;
+    }
+
+    function changeExerciseMetricDefault(metricType) {
+      if (!['RPE', 'PR'].includes(metricType) || !selectedExercise) return;
+      const preferences = getMetricPreferences();
+      preferences[selectedExercise] = metricType;
+      localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(preferences));
+      currentSets.forEach(set => {
+        normalizeCurrentSetMetric(set);
+        if (set.metricType !== 'UP') {
+          set.metricType = metricType;
+          if (metricType === 'RPE' && (set.rpe == null || set.rpe === 'UP')) set.rpe = 8;
+        }
+      });
+      renderSetRows();
+      calcAdvice();
+      saveCurrentDraft();
     }
 
     let lastBodyweightCalcExercise = '';
@@ -2839,26 +3176,28 @@ function init() {
 
       if (prevSets.length > 0) {
         prevSets.forEach(s => {
+          const metricType = inferLogMetricType(s, selectedExercise);
           let rStr = 8;
-          if (s.isWarmup || s.isForm) rStr = 'UP';
+          if (metricType === 'UP') rStr = 'UP';
           else if (s.rpe) rStr = s.rpe;
 
           currentSets.push({ 
             prevWeight: s.weight, prevReps: s.reps, prevRpe: rStr, 
-            prevPartialReps: s.partialReps ?? '', weight: '', reps: '', rpe: rStr, partialReps: '',
+            prevPartialReps: s.partialReps ?? '', prevMetricType: metricType,
+            weight: '', reps: '', rpe: rStr, partialReps: '', metricType: metricType,
             done: false 
           });
         });
       } else {
         // Default 3 sets if no history
         for(let i=0; i<3; i++) {
-          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', weight: '', reps: '', rpe: 8, partialReps: '', done: false });
+          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', prevMetricType: getExerciseMetricDefault(), weight: '', reps: '', rpe: 8, partialReps: '', metricType: getExerciseMetricDefault(), done: false });
         }
       }
 
       const draft = loadCurrentDraft();
       if (draft && Array.isArray(draft.sets)) {
-        currentSets = draft.sets;
+        currentSets = draft.sets.map(set => normalizeCurrentSetMetric(set));
         const memoEl = document.getElementById('sessionMemo');
         if (memoEl) memoEl.value = draft.memo || '';
       }
@@ -2870,14 +3209,13 @@ function init() {
 
     function renderSetRows() {
       const container = document.getElementById('setListContainer');
-      const usePartialReps = isRaiseExercise();
-      const metricHeader = document.getElementById('setMetricHeader');
+      const metricDefault = getExerciseMetricDefault();
+      const metricDefaultSelect = document.getElementById('exerciseMetricDefault');
       const metricHelp = document.getElementById('setMetricHelp');
-      if (metricHeader) metricHeader.textContent = usePartialReps ? 'PR' : 'RPE';
-      if (metricHelp) metricHelp.textContent = usePartialReps
-        ? 'PR＝Partial Reps（パーシャルレップ）の回数です。下のUPでウォームアップセットに切り替えられます。'
-        : 'RPE＝あと何回できる余力があるかを表す運動強度です。RPE10は余力0回、9はあと1回、8はあと2回が目安です。';
+      if (metricDefaultSelect) metricDefaultSelect.value = metricDefault;
+      if (metricHelp) metricHelp.textContent = '上の選択はこの種目の標準入力として保存されます。RPE＝余力の目安、PR＝パーシャルレップ回数、UP＝ウォームアップです。各セットだけ個別変更もできます。';
       container.innerHTML = currentSets.map((s, i) => {
+        normalizeCurrentSetMetric(s);
         const isDone = s.done ? 'is-done' : '';
         const checkClass = s.done ? 'checked' : '';
         const checkIcon = s.done ? '✔' : '';
@@ -2886,6 +3224,20 @@ function init() {
         const pW = s.prevWeight || '-';
         const pR = s.prevReps || '-';
         const pPartial = s.prevPartialReps ?? '';
+        const metricType = s.metricType;
+        const metricInput = metricType === 'PR'
+          ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">`
+          : metricType === 'UP'
+            ? `<div class="metric-up-label">UP</div>`
+            : `<select class="metric-value-select" aria-label="RPE" onchange="updateSet(${i}, 'rpe', this.value)">
+                <option value="10" ${s.rpe==10?'selected':''}>10</option>
+                <option value="9.5" ${s.rpe==9.5?'selected':''}>9.5</option>
+                <option value="9" ${s.rpe==9?'selected':''}>9</option>
+                <option value="8.5" ${s.rpe==8.5?'selected':''}>8.5</option>
+                <option value="8" ${s.rpe==8?'selected':''}>8</option>
+                <option value="7.5" ${s.rpe==7.5?'selected':''}>7.5</option>
+                <option value="7" ${s.rpe==7?'selected':''}>7</option>
+              </select>`;
 
         return `
         <div class="set-row ${isDone}" id="set-row-${i}">
@@ -2898,24 +3250,14 @@ function init() {
             <input type="number" inputmode="numeric" placeholder="${pR}" value="${s.reps}" onfocus="this.select()" oninput="updateSet(${i}, 'reps', this.value)">
             <span>回</span>
           </div>
-          ${usePartialReps ? `
           <div class="partial-box">
-            <input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.rpe === 'UP' ? '' : (s.partialReps ?? '')}" ${s.rpe === 'UP' ? 'disabled' : ''} onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">
-            <button class="partial-up-btn ${s.rpe === 'UP' ? 'active' : ''} ${s.prevRpe === 'UP' && s.rpe !== 'UP' ? 'previous' : ''}" onclick="togglePartialUp(${i})">UP</button>
-          </div>` : `
-          <div class="rpe-box">
-            <select onchange="updateSet(${i}, 'rpe', this.value)">
-              <option value="10" ${s.rpe==10?'selected':''}>10</option>
-              <option value="9.5" ${s.rpe==9.5?'selected':''}>9.5</option>
-              <option value="9" ${s.rpe==9?'selected':''}>9</option>
-              <option value="8.5" ${s.rpe==8.5?'selected':''}>8.5</option>
-              <option value="8" ${s.rpe==8?'selected':''}>8</option>
-              <option value="7.5" ${s.rpe==7.5?'selected':''}>7.5</option>
-              <option value="7" ${s.rpe==7?'selected':''}>7</option>
-              <option value="UP" ${s.rpe=='UP'?'selected':''}>UP</option>
-              
+            ${metricInput}
+            <select class="set-type-select ${metricType === 'UP' ? 'up' : ''}" aria-label="セットの入力方式" onchange="updateSetMetricType(${i}, this.value)">
+              <option value="RPE" ${metricType === 'RPE' ? 'selected' : ''}>RPE</option>
+              <option value="PR" ${metricType === 'PR' ? 'selected' : ''}>PR</option>
+              <option value="UP" ${metricType === 'UP' ? 'selected' : ''}>UP</option>
             </select>
-          </div>`}
+          </div>
           <button class="check-btn ${checkClass}" onclick="toggleDone(${i})">${checkIcon}</button>
         </div>
       `}).join('');
@@ -2933,7 +3275,7 @@ function init() {
         const isReady = (last.weight !== '' && last.reps !== '');
         currentSets.push({...last, done: isReady}); // Clone fully and keep checked if valid
       } else {
-        currentSets.push({prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', weight: '', reps: '', rpe: 8, partialReps: '', done: false});
+        currentSets.push({prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', prevMetricType: getExerciseMetricDefault(), weight: '', reps: '', rpe: 8, partialReps: '', metricType: getExerciseMetricDefault(), done: false});
       }
       renderSetRows();
       calcAdvice();
@@ -2974,17 +3316,23 @@ function init() {
     }
 
     function updatePartialReps(idx, val) {
+      currentSets[idx].metricType = 'PR';
       currentSets[idx].rpe = 8;
       updateSet(idx, 'partialReps', val);
     }
 
-    function togglePartialUp(idx) {
+    function updateSetMetricType(idx, type) {
       const s = currentSets[idx];
-      if (s.rpe === 'UP') {
-        s.rpe = 8;
-      } else {
+      if (type === 'UP') {
+        s.metricType = 'UP';
         s.rpe = 'UP';
         s.partialReps = '';
+      } else if (type === 'PR') {
+        s.metricType = 'PR';
+        if (s.rpe === 'UP') s.rpe = 8;
+      } else {
+        s.metricType = 'RPE';
+        if (s.rpe === 'UP' || s.rpe == null) s.rpe = 8;
       }
       renderSetRows();
       calcAdvice();
@@ -3010,22 +3358,17 @@ function init() {
     function calcAdvice() {
       const advBox = document.getElementById('adviceBox');
       if (!advBox) return;
-      if (isRaiseExercise()) {
-        advBox.style.display = 'none';
-        window.currentBest1RM = 0;
-        window.lastValidSetData = null;
-        return;
-      }
       let best1RM = 0;
       window.currentBest1RM = 0;
       let lastValidSet = null;
 
       currentSets.forEach(s => {
+        normalizeCurrentSetMetric(s);
         const w = parseFloat(s.weight !== '' ? s.weight : (s.done ? s.prevWeight : NaN));
         const r = parseInt(s.reps !== '' ? s.reps : (s.done ? s.prevReps : NaN));
         const rpeVal = s.rpe;
 
-        if (s.done && !isNaN(w) && !isNaN(r) && rpeVal !== 'UP' && rpeVal !== 'FORM') {
+        if (s.done && s.metricType === 'RPE' && !isNaN(w) && !isNaN(r) && rpeVal !== 'UP' && rpeVal !== 'FORM') {
           const rpeNum = parseFloat(rpeVal);
           const effectiveReps = r + (10 - rpeNum);
           const est1RM = w * (1 + effectiveReps / 30);
@@ -3056,12 +3399,12 @@ function init() {
     
     let aiSheetSource = 'exercise';
     function getExerciseNamesForDate(dateStr) { const names = []; logs.filter(function(l){ return l.date === dateStr; }).sort(function(a,b){ return a.id - b.id; }).forEach(function(l){ if (!names.includes(l.exercise)) names.push(l.exercise); }); return names; }
-    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), rpe: isRaiseExercise(selectedExercise) || s.rpe === 'UP' ? null : parseFloat(s.rpe), partialReps: isRaiseExercise(selectedExercise) && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.rpe === 'UP' }; }); }
+    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP' }; }); }
     function getAllTodayForAi() { const unsaved = getCurrentUnsavedAiSets(selectedExercise); const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); }); return saved.concat(unsaved).sort(function(a,b){ return a.id - b.id; }); }
     function getAiExerciseName() { const picker = document.getElementById('aiExercisePicker'); if (picker && picker.value) return picker.value; return selectedExercise; }
     function getAiExerciseSets(exName) { const unsaved = getCurrentUnsavedAiSets(exName); if (unsaved.length) return unsaved; return logs.filter(function(l){ return l.date === currentDateStr && l.exercise === exName; }).sort(function(a,b){ return a.id - b.id; }); }
     function populateAiExercisePicker() { const wrap = document.getElementById('aiExercisePickerWrap'); const picker = document.getElementById('aiExercisePicker'); if (!wrap || !picker) return; const names = getExerciseNamesForDate(currentDateStr); if (selectedExercise && !names.includes(selectedExercise)) names.push(selectedExercise); if (names.length === 0) { wrap.style.display = 'none'; picker.innerHTML = ''; return; } const defaultName = selectedExercise && names.includes(selectedExercise) ? selectedExercise : names[names.length - 1]; picker.innerHTML = names.map(function(name){ return '<option value="' + escapeHtml(name) + '" ' + (name === defaultName ? 'selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join(''); wrap.style.display = 'block'; }
-    function formatAiSetLine(s, index) { const rpeText = (s.isWarmup || s.isForm || s.rpe == null) ? 'アップ' : 'RPE ' + s.rpe; return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + rpeText + ')'; }
+    function formatAiSetLine(s, index) { const metricType = inferLogMetricType(s, s.exercise); const effort = metricType === 'UP' ? 'アップ' : (metricType === 'PR' ? 'PR ' + (s.partialReps ?? 0) + '回' : 'RPE ' + s.rpe); return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + effort + ')'; }
     function getAssistNote(exName) {
       if (/アシスト|assist/i.test(exName || '')) {
         return '\n[アシスト種目の見方]\n記録のkgは、体重 − アシスト重量で算出した実際の負荷として扱ってください。\n';
@@ -3115,9 +3458,10 @@ function init() {
     function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; setTimeout(function(){ if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)') document.getElementById('sheetOverlay').style.display = 'none'; }, 300); }
 
     function formatSimpleAiSet(s) {
-      const effort = s.partialReps != null
-        ? `パーシャル${s.partialReps}回`
-        : ((s.isWarmup || s.isForm || s.rpe == null) ? 'UP' : `RPE${s.rpe}`);
+      const metricType = inferLogMetricType(s, s.exercise);
+      const effort = metricType === 'PR'
+        ? `パーシャル${s.partialReps ?? 0}回`
+        : (metricType === 'UP' ? 'UP' : `RPE${s.rpe}`);
       return `${s.weight}kg ${s.reps}回 ${effort}`;
     }
 
@@ -3299,7 +3643,6 @@ function saveWorkout() {
       const memoText = document.getElementById('sessionMemo').value.trim();
       const planInfo = getActivePlanInfo();
       const planMode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
-      const raiseExercise = isRaiseExercise(selectedExercise);
 
       // Maintain order: use the original first set's ID if this exercise was already started today
       const todayLogsForEx = logs.filter(l => l.date === currentDateStr && l.exercise === selectedExercise);
@@ -3309,15 +3652,17 @@ function saveWorkout() {
       logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === selectedExercise));
 
       validSets.forEach((s, idx) => {
+        normalizeCurrentSetMetric(s);
         logs.push({ 
           id: baseId + idx,
           date: currentDateStr,
           exercise: selectedExercise,
           weight: parseFloat(s.weight),
           reps: parseInt(s.reps),
-          rpe: raiseExercise || s.rpe === 'UP' ? null : parseFloat(s.rpe),
-          isWarmup: s.rpe === 'UP',
-          partialReps: raiseExercise && s.partialReps !== '' ? parseInt(s.partialReps) : null,
+          metricType: s.metricType,
+          rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null,
+          isWarmup: s.metricType === 'UP',
+          partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null,
           planMode: planMode,
           planLabel: planInfo.label,
           planText: planInfo.text,
