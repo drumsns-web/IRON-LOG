@@ -689,6 +689,7 @@
 
       <div class="card" style="margin-bottom:24px;">
         <h3 style="font-size:16px; font-weight:700; margin:0 0 12px;">体重・回復状況</h3>
+        <div style="font-size:14px; font-weight:700; margin-bottom:8px;">体重の推移</div>
         <div id="bodyweightReport"></div>
         <div id="deloadSuggestion" style="margin-top:10px;"></div>
       </div>
@@ -2451,11 +2452,11 @@ function init() {
       maxValue += spread * 0.12;
 
       const width = 560;
-      const height = 280;
-      const left = 44;
+      const height = 300;
+      const left = 58;
       const right = 14;
       const top = 18;
-      const bottom = 36;
+      const bottom = 46;
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
       const xAt = index => left + (weeks.length === 1 ? plotWidth / 2 : index * plotWidth / (weeks.length - 1));
@@ -2465,12 +2466,12 @@ function init() {
         const value = maxValue - (maxValue - minValue) * ratio;
         const y = top + plotHeight * ratio;
         return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="rgba(255,255,255,.09)" stroke-width="1"/>
-          <text x="${left-6}" y="${y+3}" fill="#8e8e93" font-size="9" text-anchor="end">${Math.round(value)}</text>`;
+          <text x="${left-8}" y="${y+5}" fill="#d1d1d6" font-size="14" font-weight="600" text-anchor="end">${Math.round(value)}</text>`;
       }).join('');
       const labelEvery = Math.max(1, Math.ceil(weeks.length / 6));
       const xLabels = weeks.map((week, index) => {
         if (index % labelEvery !== 0 && index !== weeks.length - 1) return '';
-        return `<text x="${xAt(index)}" y="${height-12}" fill="#8e8e93" font-size="9" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`;
+        return `<text x="${xAt(index)}" y="${height-13}" fill="#d1d1d6" font-size="13" font-weight="600" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`;
       }).join('');
       const lines = visibleCategories.map(category => {
         const color = catColors[category] || catColors['その他'];
@@ -2502,7 +2503,7 @@ function init() {
       container.innerHTML = `<div class="strength-chart-wrap">
         <svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="部位別推定1RMの推移">
           ${gridLines}${xLabels}${lines}
-          <text x="10" y="12" fill="#8e8e93" font-size="9">kg</text>
+          <text x="12" y="15" fill="#d1d1d6" font-size="13" font-weight="700">kg</text>
         </svg>
       </div>
       <div class="strength-legend">${legend}</div>
@@ -2546,7 +2547,7 @@ function init() {
       const spread = Math.max(unit === 'kg' ? 5 : 1, maxValue - minValue);
       minValue = Math.max(0, minValue - spread * 0.15);
       maxValue += spread * 0.15;
-      const width = 560, height = 220, left = 44, right = 14, top = 18, bottom = 34;
+      const width = 560, height = 250, left = 58, right = 14, top = 20, bottom = 46;
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
       const xAt = index => left + (weeks.length === 1 ? plotWidth / 2 : index * plotWidth / (weeks.length - 1));
@@ -2556,12 +2557,12 @@ function init() {
         const value = maxValue - (maxValue - minValue) * ratio;
         const y = top + plotHeight * ratio;
         return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="rgba(255,255,255,.09)"/>
-          <text x="${left-6}" y="${y+3}" fill="#8e8e93" font-size="9" text-anchor="end">${value.toFixed(1)}</text>`;
+          <text x="${left-8}" y="${y+5}" fill="#d1d1d6" font-size="14" font-weight="600" text-anchor="end">${value.toFixed(1)}</text>`;
       }).join('');
       const labelEvery = Math.max(1, Math.ceil(weeks.length / 6));
       const labels = weeks.map((week, index) =>
         (index % labelEvery === 0 || index === weeks.length - 1)
-          ? `<text x="${xAt(index)}" y="${height-10}" fill="#8e8e93" font-size="9" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`
+          ? `<text x="${xAt(index)}" y="${height-13}" fill="#d1d1d6" font-size="13" font-weight="600" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`
           : ''
       ).join('');
       const coordinates = points.map((point, index) => point ? `${xAt(index)},${yAt(point.value)}` : '').filter(Boolean);
@@ -2572,7 +2573,7 @@ function init() {
         ? `<circle cx="${xAt(index)}" cy="${yAt(point.value)}" r="3.8" fill="${color}" stroke="#121212" stroke-width="1.5"><title>${point.date} ${point.value.toFixed(1)}${unit}</title></circle>`
         : '').join('');
       return `<div class="strength-chart-wrap"><svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${ariaLabel}">
-        ${grid}${labels}${line}${dots}<text x="10" y="12" fill="#8e8e93" font-size="9">${unit}</text>
+        ${grid}${labels}${line}${dots}<text x="12" y="16" fill="#d1d1d6" font-size="13" font-weight="700">${unit}</text>
       </svg></div>`;
     }
 
