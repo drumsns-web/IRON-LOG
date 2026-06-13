@@ -185,6 +185,22 @@
     .strength-summary-name { display:flex; align-items:center; gap:5px; color:var(--muted); font-size:10px; }
     .strength-summary-value { margin-top:4px; font-size:14px; font-weight:800; }
     .strength-summary-change { margin-left:5px; font-size:10px; font-weight:700; }
+    .daily-readiness { padding:12px; margin-bottom:16px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); }
+    .daily-readiness-title { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; font-size:12px; font-weight:700; }
+    .daily-readiness-grid { display:grid; grid-template-columns:1.15fr repeat(3, 1fr); gap:6px; }
+    .daily-readiness-field label { display:block; margin-bottom:4px; color:var(--muted); font-size:9px; text-align:center; }
+    .daily-readiness-field input, .daily-readiness-field select { width:100%; height:36px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); outline:none; text-align:center; font-size:12px; }
+    .report-insight { padding:11px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); font-size:12px; line-height:1.55; }
+    .report-insight.warn { border-color:rgba(255,69,58,.45); color:#ff9b94; }
+    .report-insight.good { border-color:rgba(50,215,75,.35); color:#8ee99d; }
+    .preset-controls { margin-bottom:16px; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
+    .preset-controls select, .preset-name-row input { width:100%; min-height:42px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); padding:0 10px; outline:none; }
+    .preset-controls > select { margin-top:8px; }
+    .preset-controls button, .preset-name-row button { min-height:42px; border:none; border-radius:8px; padding:0 12px; font-size:12px; font-weight:700; cursor:pointer; }
+    .preset-controls button { background:var(--surface-3); color:var(--text); border:1px solid var(--line); }
+    .preset-controls button.save { background:var(--accent-brand); color:#000; border:none; }
+    .preset-controls button.danger { background:transparent; color:var(--danger); border:1px solid rgba(255,69,58,.5); }
+    .preset-name-row { display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px; }
 
 
     /* Ex Selection Bottom Sheet */
@@ -476,6 +492,16 @@
       <strong>過去メニューを呼び出す</strong>
       <span>種目順・重量・回数・RPE</span>
     </button>
+    <div class="daily-readiness">
+      <div class="daily-readiness-title"><span>体重・コンディション</span><span id="readinessSavedLabel" style="color:var(--muted); font-size:10px;"></span></div>
+      <div class="daily-readiness-grid">
+        <div class="daily-readiness-field"><label>体重 kg</label><input id="dailyBodyWeight" type="number" inputmode="decimal" step="0.1" placeholder="--" onchange="saveDailyReadiness()"></div>
+        <div class="daily-readiness-field"><label>睡眠</label><select id="dailySleep" onchange="saveDailyReadiness()"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="daily-readiness-field"><label>疲労</label><select id="dailyFatigue" onchange="saveDailyReadiness()"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+        <div class="daily-readiness-field"><label>関節</label><select id="dailyJoint" onchange="saveDailyReadiness()"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      </div>
+      <div style="margin-top:6px; color:var(--muted); font-size:9px;">睡眠は5が良好、疲労・関節は5ほどつらい状態</div>
+    </div>
     <!-- ================================ -->
 
     <!-- Backup Prompt -->
@@ -655,6 +681,18 @@
       </div>
 
       <div class="card" style="margin-bottom:24px;">
+        <h3 style="font-size:16px; font-weight:700; margin:0 0 12px;">種目別 推定1RM</h3>
+        <select id="exerciseStrengthSelect" onchange="renderExerciseStrengthChart()" style="width:100%; min-height:40px; margin-bottom:10px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); padding:0 10px;"></select>
+        <div id="exerciseStrengthChart"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <h3 style="font-size:16px; font-weight:700; margin:0 0 12px;">体重・回復状況</h3>
+        <div id="bodyweightReport"></div>
+        <div id="deloadSuggestion" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">今週のボリューム</h3>
         <div id="reportVolumeList"></div>
       </div>
@@ -821,6 +859,21 @@
       <div class="template-body">
         <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
           曜日固定、または休んでもずれないA〜Gローテーションを選べます。
+        </div>
+        <div class="preset-controls">
+          <div style="font-size:12px; color:var(--text); font-weight:700;">保存したメニュー</div>
+          <select id="planPresetSelect" aria-label="保存したメニュー"></select>
+          <div class="preset-name-row">
+            <button type="button" onclick="applySelectedPlanPreset()">呼び出す</button>
+            <button type="button" class="danger" onclick="deleteSelectedPlanPreset()">削除</button>
+          </div>
+          <div class="preset-name-row">
+            <input id="planPresetName" type="text" maxlength="30" placeholder="例：3分割（胸・背中・脚）" onfocus="scrollToInput(this)">
+            <button type="button" class="save" onclick="saveCurrentPlanPreset()">現在の内容を保存</button>
+          </div>
+          <div style="font-size:10px; color:var(--muted); line-height:1.5;">
+            曜日またはA〜Gの内容をセットで保存します。同じ名前で保存すると上書きできます。
+          </div>
         </div>
         <div class="template-row">
           <label>予定の方式</label>
@@ -1043,6 +1096,8 @@
     const STORE_REFERENCE_VIDEOS = 'ironlog-reference-videos-v1';
     const STORE_METRIC_PREFS = 'ironlog-exercise-metric-prefs-v1';
     const STORE_AI_ICON = 'ironlog-ai-button-icon-v1';
+    const STORE_READINESS = 'ironlog-readiness-v1';
+    const STORE_PLAN_PRESETS = 'ironlog-plan-presets-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1396,6 +1451,7 @@
       document.getElementById('settingsSheet').style.transform = 'translateY(0)';
       renderCatColorSettings();
       renderAiButtonIcon();
+      renderPlanPresets();
     }
 
     function renderAiButtonIcon() {
@@ -1487,6 +1543,8 @@
         aiButtonIcon: localStorage.getItem(STORE_AI_ICON) || '',
         referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
+        readiness: getReadinessData(),
+        planPresets: getPlanPresets(),
         exportDate: new Date().toISOString()
       };
       const jsonStr = JSON.stringify(data, null, 2);
@@ -1581,6 +1639,12 @@
               if (data.setDrafts) {
                 localStorage.setItem(STORE_DRAFTS, JSON.stringify(data.setDrafts));
               }
+              if (data.readiness) {
+                localStorage.setItem(STORE_READINESS, JSON.stringify(data.readiness));
+              }
+              if (Array.isArray(data.planPresets)) {
+                localStorage.setItem(STORE_PLAN_PRESETS, JSON.stringify(data.planPresets));
+              }
               alert('データを復元しました。画面を再読み込みします。');
               location.reload();
             }
@@ -1634,6 +1698,59 @@ function scrollToInput(el) {
       scrollContainer.scrollTo({top: y, behavior: 'smooth'});
     }
   }, 300); // キーボードが出現するのを少し待つ
+}
+
+function getReadinessData() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_READINESS) || '{}');
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveDailyReadiness() {
+  const data = getReadinessData();
+  const weightValue = document.getElementById('dailyBodyWeight')?.value ?? '';
+  const sleepValue = document.getElementById('dailySleep')?.value ?? '';
+  const fatigueValue = document.getElementById('dailyFatigue')?.value ?? '';
+  const jointValue = document.getElementById('dailyJoint')?.value ?? '';
+  const entry = {
+    weight: weightValue === '' ? null : Number(weightValue),
+    sleep: sleepValue === '' ? null : Number(sleepValue),
+    fatigue: fatigueValue === '' ? null : Number(fatigueValue),
+    joint: jointValue === '' ? null : Number(jointValue),
+    updatedAt: Date.now()
+  };
+  const hasValue = [entry.weight, entry.sleep, entry.fatigue, entry.joint].some(value => Number.isFinite(value));
+  if (hasValue) data[currentDateStr] = entry;
+  else delete data[currentDateStr];
+  localStorage.setItem(STORE_READINESS, JSON.stringify(data));
+  if (Number.isFinite(entry.weight) && entry.weight > 0) {
+    localStorage.setItem('ironlog-body-weight', String(entry.weight));
+  }
+  const label = document.getElementById('readinessSavedLabel');
+  if (label) {
+    label.textContent = '保存済み';
+    clearTimeout(saveDailyReadiness.labelTimer);
+    saveDailyReadiness.labelTimer = setTimeout(() => { label.textContent = ''; }, 1600);
+  }
+}
+
+function loadDailyReadiness() {
+  const entry = getReadinessData()[currentDateStr] || {};
+  const fields = {
+    dailyBodyWeight: entry.weight,
+    dailySleep: entry.sleep,
+    dailyFatigue: entry.fatigue,
+    dailyJoint: entry.joint
+  };
+  Object.entries(fields).forEach(([id, value]) => {
+    const input = document.getElementById(id);
+    if (input) input.value = Number.isFinite(Number(value)) && value !== null && value !== '' ? value : '';
+  });
+  const label = document.getElementById('readinessSavedLabel');
+  if (label) label.textContent = '';
 }
 
 /* --- 曜日テンプレート用のJavaScript --- */
@@ -1695,6 +1812,75 @@ function saveTemplateMode() {
   localStorage.setItem(STORE_TMPL_MODE, select ? select.value : 'weekday');
   updateTemplateModeUi();
   updateTodayTemplate();
+}
+
+function getPlanPresets() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_PLAN_PRESETS) || '[]');
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function renderPlanPresets(preferredName = '') {
+  const select = document.getElementById('planPresetSelect');
+  if (!select) return;
+  const presets = getPlanPresets();
+  const previous = preferredName || select.value;
+  select.innerHTML = presets.length
+    ? presets.map(preset => `<option value="${escapeHtml(preset.name)}">${escapeHtml(preset.name)}（${preset.mode === 'cycle' ? 'A〜G' : '曜日'}）</option>`).join('')
+    : '<option value="">保存したメニューはありません</option>';
+  if (presets.some(preset => preset.name === previous)) select.value = previous;
+}
+
+function saveCurrentPlanPreset() {
+  const nameInput = document.getElementById('planPresetName');
+  const name = nameInput?.value.trim() || '';
+  if (!name) {
+    showCopyToast('メニュー名を入力してください');
+    nameInput?.focus();
+    return;
+  }
+  saveTemplates();
+  saveCycleTemplates();
+  const presets = getPlanPresets();
+  const preset = {
+    name,
+    mode: localStorage.getItem(STORE_TMPL_MODE) || 'weekday',
+    weekday: JSON.parse(localStorage.getItem(STORE_TMPL) || '{}'),
+    cycle: JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}'),
+    savedAt: Date.now()
+  };
+  const existingIndex = presets.findIndex(item => item.name === name);
+  if (existingIndex >= 0) presets[existingIndex] = preset;
+  else presets.push(preset);
+  localStorage.setItem(STORE_PLAN_PRESETS, JSON.stringify(presets));
+  renderPlanPresets(name);
+  if (nameInput) nameInput.value = '';
+  showCopyToast(existingIndex >= 0 ? 'メニューを上書きしました' : 'メニューを保存しました');
+}
+
+function applySelectedPlanPreset() {
+  const name = document.getElementById('planPresetSelect')?.value || '';
+  const preset = getPlanPresets().find(item => item.name === name);
+  if (!preset) return showCopyToast('呼び出すメニューがありません');
+  localStorage.setItem(STORE_TMPL_MODE, preset.mode === 'cycle' ? 'cycle' : 'weekday');
+  localStorage.setItem(STORE_TMPL, JSON.stringify(preset.weekday || {}));
+  localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(preset.cycle || {}));
+  loadTemplates();
+  renderPlanPresets(name);
+  showCopyToast(`${name}に切り替えました`);
+}
+
+function deleteSelectedPlanPreset() {
+  const name = document.getElementById('planPresetSelect')?.value || '';
+  if (!name) return;
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+  const presets = getPlanPresets().filter(item => item.name !== name);
+  localStorage.setItem(STORE_PLAN_PRESETS, JSON.stringify(presets));
+  renderPlanPresets();
+  showCopyToast('保存メニューを削除しました');
 }
 
 function updateTemplateModeUi() {
@@ -2010,6 +2196,7 @@ function init() {
       selectDate(currentDateStr);
       checkBackupPrompt();
       loadTemplates();
+      renderPlanPresets();
       initIntervalTimer();
       renderAiButtonIcon();
     }
@@ -2205,6 +2392,9 @@ function init() {
         button.classList.toggle('active', Number(button.dataset.range) === strengthChartRangeMonths);
       });
       renderStrengthChart();
+      renderExerciseStrengthChart();
+      renderBodyweightReport();
+      renderDeloadSuggestion();
     }
 
     function getStrengthChartWeeks() {
@@ -2318,6 +2508,196 @@ function init() {
       <div class="strength-summary">${summary}</div>`;
     }
 
+    function populateExerciseStrengthSelect() {
+      const select = document.getElementById('exerciseStrengthSelect');
+      if (!select) return;
+      const previous = select.value;
+      const names = [...new Set(logs.filter(set => estimateSet1RM(set) != null).map(set => set.exercise))]
+        .sort((a, b) => a.localeCompare(b, 'ja'));
+      select.innerHTML = names.length
+        ? names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')
+        : '<option value="">RPE記録のある種目がありません</option>';
+      if (names.includes(previous)) select.value = previous;
+    }
+
+    function getWeeklyExercise1RM(exercise) {
+      const weeks = getStrengthChartWeeks();
+      const points = Array(weeks.length).fill(null);
+      logs.forEach(set => {
+        if (set.exercise !== exercise) return;
+        const estimate = estimateSet1RM(set);
+        if (estimate == null) return;
+        const weekIndex = weeks.findIndex(week => set.date >= week.start && set.date <= week.end);
+        if (weekIndex < 0) return;
+        if (!points[weekIndex] || estimate > points[weekIndex].value) {
+          points[weekIndex] = { value: estimate, date: set.date };
+        }
+      });
+      return { weeks, points };
+    }
+
+    function buildLineChartSvg(weeks, points, color, ariaLabel, unit = 'kg') {
+      const available = points.filter(Boolean);
+      if (!available.length) return '';
+      const values = available.map(point => point.value);
+      let minValue = Math.min(...values);
+      let maxValue = Math.max(...values);
+      const spread = Math.max(unit === 'kg' ? 5 : 1, maxValue - minValue);
+      minValue = Math.max(0, minValue - spread * 0.15);
+      maxValue += spread * 0.15;
+      const width = 560, height = 220, left = 44, right = 14, top = 18, bottom = 34;
+      const plotWidth = width - left - right;
+      const plotHeight = height - top - bottom;
+      const xAt = index => left + (weeks.length === 1 ? plotWidth / 2 : index * plotWidth / (weeks.length - 1));
+      const yAt = value => top + (maxValue - value) * plotHeight / Math.max(1, maxValue - minValue);
+      const grid = Array.from({ length: 4 }, (_, index) => {
+        const ratio = index / 3;
+        const value = maxValue - (maxValue - minValue) * ratio;
+        const y = top + plotHeight * ratio;
+        return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="rgba(255,255,255,.09)"/>
+          <text x="${left-6}" y="${y+3}" fill="#8e8e93" font-size="9" text-anchor="end">${value.toFixed(1)}</text>`;
+      }).join('');
+      const labelEvery = Math.max(1, Math.ceil(weeks.length / 6));
+      const labels = weeks.map((week, index) =>
+        (index % labelEvery === 0 || index === weeks.length - 1)
+          ? `<text x="${xAt(index)}" y="${height-10}" fill="#8e8e93" font-size="9" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`
+          : ''
+      ).join('');
+      const coordinates = points.map((point, index) => point ? `${xAt(index)},${yAt(point.value)}` : '').filter(Boolean);
+      const line = coordinates.length > 1
+        ? `<polyline points="${coordinates.join(' ')}" fill="none" stroke="${color}" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>`
+        : '';
+      const dots = points.map((point, index) => point
+        ? `<circle cx="${xAt(index)}" cy="${yAt(point.value)}" r="3.8" fill="${color}" stroke="#121212" stroke-width="1.5"><title>${point.date} ${point.value.toFixed(1)}${unit}</title></circle>`
+        : '').join('');
+      return `<div class="strength-chart-wrap"><svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${ariaLabel}">
+        ${grid}${labels}${line}${dots}<text x="10" y="12" fill="#8e8e93" font-size="9">${unit}</text>
+      </svg></div>`;
+    }
+
+    function getLatestBodyWeight(onOrBeforeDate = '9999-12-31') {
+      const entries = Object.entries(getReadinessData())
+        .filter(([date, item]) => date <= onOrBeforeDate && Number(item?.weight) > 0)
+        .sort((a, b) => a[0].localeCompare(b[0]));
+      return entries.length ? Number(entries[entries.length - 1][1].weight) : null;
+    }
+
+    function renderExerciseStrengthChart() {
+      const container = document.getElementById('exerciseStrengthChart');
+      const select = document.getElementById('exerciseStrengthSelect');
+      if (!container || !select) return;
+      const exercise = select.value;
+      if (!exercise) {
+        container.innerHTML = '<div class="report-insight">RPEを記録すると種目別の推定1RMを表示します。</div>';
+        return;
+      }
+      const { weeks, points } = getWeeklyExercise1RM(exercise);
+      const available = points.filter(Boolean);
+      if (!available.length) {
+        container.innerHTML = '<div class="report-insight">この期間の記録がありません。</div>';
+        return;
+      }
+      const latest = available[available.length - 1];
+      const previous = available.length > 1 ? available[available.length - 2] : null;
+      const change = previous ? latest.value - previous.value : null;
+      const bodyWeight = getLatestBodyWeight(latest.date);
+      const ratio = bodyWeight ? latest.value / bodyWeight : null;
+      const category = getCategoryForExercise(exercise);
+      const color = catColors[category] || catColors['その他'];
+      const summary = `<div class="strength-summary">
+        <div class="strength-summary-item"><div class="strength-summary-name">最新の推定1RM</div><div class="strength-summary-value">${latest.value.toFixed(1)}kg</div></div>
+        <div class="strength-summary-item"><div class="strength-summary-name">前回比</div><div class="strength-summary-value" style="color:${change == null ? 'var(--muted)' : change >= 0 ? 'var(--accent-2)' : 'var(--danger)'}">${change == null ? '--' : `${change >= 0 ? '+' : ''}${change.toFixed(1)}kg`}</div></div>
+        <div class="strength-summary-item"><div class="strength-summary-name">体重比</div><div class="strength-summary-value">${ratio ? `${ratio.toFixed(2)}倍` : '--'}</div></div>
+      </div>`;
+      container.innerHTML = buildLineChartSvg(weeks, points, color, `${exercise}の推定1RM推移`) + summary;
+    }
+
+    function renderBodyweightReport() {
+      const container = document.getElementById('bodyweightReport');
+      if (!container) return;
+      const weeks = getStrengthChartWeeks();
+      const readiness = getReadinessData();
+      const points = weeks.map(week => {
+        const entries = Object.entries(readiness)
+          .filter(([date, item]) => date >= week.start && date <= week.end && Number(item?.weight) > 0)
+          .sort((a, b) => a[0].localeCompare(b[0]));
+        if (!entries.length) return null;
+        const [date, item] = entries[entries.length - 1];
+        return { date, value: Number(item.weight) };
+      });
+      const available = points.filter(Boolean);
+      if (!available.length) {
+        container.innerHTML = '<div class="report-insight">トップで体重を入力すると推移を表示します。</div>';
+        return;
+      }
+      const latest = available[available.length - 1];
+      const first = available[0];
+      const change = latest.value - first.value;
+      container.innerHTML = buildLineChartSvg(weeks, points, '#5ac8fa', '体重の推移')
+        + `<div class="report-insight"><strong>最新 ${latest.value.toFixed(1)}kg</strong>　期間内 ${change >= 0 ? '+' : ''}${change.toFixed(1)}kg</div>`;
+    }
+
+    function getRecentStrengthTrend() {
+      const end = new Date();
+      const weeks = [];
+      const currentStart = getStartOfWeek(end);
+      for (let offset = 5; offset >= 0; offset--) {
+        const start = new Date(currentStart);
+        start.setDate(currentStart.getDate() - offset * 7);
+        const finish = new Date(start);
+        finish.setDate(start.getDate() + 6);
+        weeks.push({ start: formatDate(start), end: formatDate(finish) });
+      }
+      const exerciseNames = [...new Set(logs.map(set => set.exercise))];
+      const changes = exerciseNames.map(exercise => {
+        const maxima = weeks.map(week => {
+          const values = logs
+            .filter(set => set.exercise === exercise && set.date >= week.start && set.date <= week.end)
+            .map(estimateSet1RM)
+            .filter(value => value != null);
+          return values.length ? Math.max(...values) : null;
+        }).filter(value => value != null);
+        if (maxima.length < 3) return null;
+        const latest = maxima[maxima.length - 1];
+        const previousAverage = maxima.slice(-3, -1).reduce((sum, value) => sum + value, 0) / 2;
+        return previousAverage > 0 ? (latest - previousAverage) / previousAverage : null;
+      }).filter(value => value != null);
+      if (!changes.length) return null;
+      changes.sort((a, b) => a - b);
+      return changes[Math.floor(changes.length / 2)];
+    }
+
+    function renderDeloadSuggestion() {
+      const container = document.getElementById('deloadSuggestion');
+      if (!container) return;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 9);
+      const entries = Object.entries(getReadinessData())
+        .filter(([date]) => date >= formatDate(cutoff) && date <= formatDate(new Date()))
+        .map(([, item]) => item);
+      if (entries.length < 3) {
+        container.innerHTML = '<div class="report-insight">体調を3日以上記録すると、デロードの目安を表示します。</div>';
+        return;
+      }
+      const average = key => {
+        const values = entries.map(item => Number(item?.[key])).filter(Number.isFinite);
+        return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+      };
+      const sleep = average('sleep');
+      const fatigue = average('fatigue');
+      const joint = average('joint');
+      const strengthTrend = getRecentStrengthTrend();
+      const signs = [];
+      if (sleep != null && sleep <= 2.5) signs.push('睡眠');
+      if (fatigue != null && fatigue >= 4) signs.push('疲労');
+      if (joint != null && joint >= 3.5) signs.push('関節');
+      if (strengthTrend != null && strengthTrend <= -0.05) signs.push('推定1RM低下');
+      const shouldDeload = signs.length >= 2;
+      container.innerHTML = shouldDeload
+        ? `<div class="report-insight warn"><strong>デロードを検討する目安</strong><br>${signs.join('・')}に疲労サインがあります。重量やセット数を一時的に抑える判断材料にしてください。</div>`
+        : '<div class="report-insight good"><strong>大きな疲労サインはありません</strong><br>体感を優先しながら通常どおり進められます。</div>';
+    }
+
     function renderReport() {
       const startOfWeek = getStartOfWeek(reportDateObj);
       const endOfWeek = new Date(startOfWeek);
@@ -2335,6 +2715,10 @@ function init() {
 
       document.getElementById('reportWeekLabel').textContent = `${fStart.replace(/-/g,'/')} 〜 ${fEnd.replace(/-/g,'/')}`;
       renderStrengthChart();
+      populateExerciseStrengthSelect();
+      renderExerciseStrengthChart();
+      renderBodyweightReport();
+      renderDeloadSuggestion();
 
       const currentStats = { volume: {}, sets: {}, exVol: {}, exSets: {} };
       const prevStats = { volume: {}, sets: {} };
@@ -2503,6 +2887,7 @@ function init() {
       renderCalendar();
       renderDailyLogs();
       updateTodayTemplate();
+      loadDailyReadiness();
     }
 
     function renderDailyLogs() {
@@ -3963,6 +4348,32 @@ function init() {
       }
       if (text) copyTextQuietly(text);
     }
+
+function detectPersonalRecords(exercise, dateStr, sets) {
+      const historical = logs.filter(set =>
+        set.exercise === exercise &&
+        set.date !== dateStr &&
+        inferLogMetricType(set, set.exercise) !== 'UP'
+      );
+      if (!historical.length) return [];
+      const candidates = sets.filter(set => set.metricType !== 'UP');
+      if (!candidates.length) return [];
+      const bestHistoricalWeight = Math.max(...historical.map(set => Number(set.weight) || 0));
+      const bestHistoricalVolume = Math.max(...historical.map(set => (Number(set.weight) || 0) * (Number(set.reps) || 0)));
+      const historicalEstimates = historical.map(estimateSet1RM).filter(value => value != null);
+      const bestCurrentWeight = Math.max(...candidates.map(set => Number(set.weight) || 0));
+      const bestCurrentVolume = Math.max(...candidates.map(set => (Number(set.weight) || 0) * (Number(set.reps) || 0)));
+      const currentEstimates = candidates.map(estimateSet1RM).filter(value => value != null);
+      const records = [];
+      if (bestCurrentWeight > bestHistoricalWeight) records.push('最高重量');
+      if (bestCurrentVolume > bestHistoricalVolume) records.push('1セットボリューム');
+      if (historicalEstimates.length && currentEstimates.length &&
+          Math.max(...currentEstimates) > Math.max(...historicalEstimates) + 0.05) {
+        records.push('推定1RM');
+      }
+      return records;
+    }
+
 function saveWorkout() {
       // Find rows that are marked done and have values
       const validSets = currentSets.filter(s => s.done && s.weight !== '' && s.reps !== '');
@@ -3975,6 +4386,16 @@ function saveWorkout() {
       const memoText = document.getElementById('sessionMemo').value.trim();
       const planInfo = getActivePlanInfo();
       const planMode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      validSets.forEach(normalizeCurrentSetMetric);
+      const recordCandidates = validSets.map(s => ({
+        exercise: selectedExercise,
+        weight: Number(s.weight),
+        reps: Number(s.reps),
+        metricType: s.metricType,
+        rpe: s.metricType === 'RPE' ? Number(s.rpe) : null,
+        partialReps: s.metricType === 'PR' ? Number(s.partialReps) || null : null
+      }));
+      const personalRecords = detectPersonalRecords(selectedExercise, currentDateStr, recordCandidates);
 
       // Maintain order: use the original first set's ID if this exercise was already started today
       const todayLogsForEx = logs.filter(l => l.date === currentDateStr && l.exercise === selectedExercise);
@@ -3984,7 +4405,6 @@ function saveWorkout() {
       logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === selectedExercise));
 
       validSets.forEach((s, idx) => {
-        normalizeCurrentSetMetric(s);
         logs.push({ 
           id: baseId + idx,
           date: currentDateStr,
@@ -4009,6 +4429,9 @@ function saveWorkout() {
       // Go back to daily view
       switchView('view-daily');
       selectDate(currentDateStr); // refresh
+      if (personalRecords.length) {
+        setTimeout(() => showCopyToast(`自己ベスト更新：${personalRecords.join('・')}`), 120);
+      }
     }
 
     init();
