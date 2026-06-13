@@ -194,6 +194,15 @@
     .report-insight { padding:11px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); font-size:12px; line-height:1.55; }
     .report-insight.warn { border-color:rgba(255,69,58,.45); color:#ff9b94; }
     .report-insight.good { border-color:rgba(50,215,75,.35); color:#8ee99d; }
+    .coach-card { margin-bottom:16px; padding:14px; border:1px solid rgba(208,253,62,.28); border-radius:var(--radius); background:rgba(208,253,62,.055); }
+    .coach-title { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; color:var(--accent-brand); font-size:15px; font-weight:800; }
+    .coach-goal { color:var(--muted); font-size:10px; font-weight:700; }
+    .coach-item { position:relative; padding:9px 0 9px 15px; border-top:1px solid rgba(255,255,255,.07); color:var(--text); font-size:13px; line-height:1.55; }
+    .coach-item:first-child { border-top:none; }
+    .coach-item::before { content:''; position:absolute; left:0; top:16px; width:6px; height:6px; border-radius:50%; background:var(--accent-brand); }
+    .coach-item.warn::before { background:var(--danger); }
+    .coach-reason { display:block; margin-top:2px; color:var(--muted); font-size:11px; }
+    .coach-settings select { width:100%; min-height:44px; margin-top:7px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); padding:0 11px; font-size:14px; outline:none; }
     .preset-controls { margin-bottom:16px; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
     .preset-controls select, .preset-name-row input { width:100%; min-height:42px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); padding:0 10px; outline:none; }
     .preset-controls > select { margin-top:8px; }
@@ -503,6 +512,10 @@
       </div>
       <div style="margin-top:10px; color:#c7c7cc; font-size:14px; line-height:1.5;">睡眠は5が良好、疲労・関節は5ほどつらい状態</div>
     </div>
+    <div id="dailyCoachCard" class="coach-card" style="display:none;">
+      <div class="coach-title"><span>本日のトレーニング提案</span><span id="dailyCoachGoal" class="coach-goal"></span></div>
+      <div id="dailyCoachContent"></div>
+    </div>
     <!-- ================================ -->
 
     <!-- Backup Prompt -->
@@ -692,6 +705,12 @@
         <div style="font-size:14px; font-weight:700; margin-bottom:8px;">体重の推移</div>
         <div id="bodyweightReport"></div>
         <div id="deloadSuggestion" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
+        <h3 style="font-size:16px; font-weight:700; margin:0 0 5px;">週間トレーニング分析</h3>
+        <div style="font-size:11px; color:var(--muted); margin-bottom:10px;">RPE・回数・セット数を目的別に重み付けした目安です。</div>
+        <div id="weeklyCoachReport"></div>
       </div>
 
       <div class="card" style="margin-bottom:24px;">
@@ -925,6 +944,23 @@
     </details>
 
     <details class="template-details">
+      <summary>トレーニング提案の目的</summary>
+      <div class="template-body coach-settings">
+        <div style="font-size:12px; color:var(--muted); line-height:1.55;">
+          AIを使わず、記録・RPE・体調・種目順から提案を作ります。数値は絶対的な正解ではなく、同じ条件での変化を見るための目安です。
+        </div>
+        <label for="coachGoalSelect" style="display:block; margin-top:12px; font-size:13px; font-weight:700;">主な目的</label>
+        <select id="coachGoalSelect" onchange="saveCoachSettings()">
+          <option value="powerbuilding">筋力＋筋肥大（おすすめ）</option>
+          <option value="hypertrophy">筋肥大</option>
+          <option value="strength">筋力・パワーリフティング</option>
+          <option value="technique">フォーム・技術練習</option>
+        </select>
+        <div id="coachGoalDescription" style="margin-top:9px; color:var(--muted); font-size:11px; line-height:1.55;"></div>
+      </div>
+    </details>
+
+    <details class="template-details">
       <summary>部位カラー</summary>
       <div class="template-body">
         <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
@@ -1100,6 +1136,7 @@
     const STORE_AI_ICON = 'ironlog-ai-button-icon-v1';
     const STORE_READINESS = 'ironlog-readiness-v1';
     const STORE_PLAN_PRESETS = 'ironlog-plan-presets-v1';
+    const STORE_COACH_SETTINGS = 'ironlog-coach-settings-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1454,6 +1491,7 @@
       renderCatColorSettings();
       renderAiButtonIcon();
       renderPlanPresets();
+      loadCoachSettings();
     }
 
     function renderAiButtonIcon() {
@@ -1547,6 +1585,7 @@
         setDrafts: getSetDrafts(),
         readiness: getReadinessData(),
         planPresets: getPlanPresets(),
+        coachSettings: getCoachSettings(),
         exportDate: new Date().toISOString()
       };
       const jsonStr = JSON.stringify(data, null, 2);
@@ -1647,6 +1686,9 @@
               if (Array.isArray(data.planPresets)) {
                 localStorage.setItem(STORE_PLAN_PRESETS, JSON.stringify(data.planPresets));
               }
+              if (data.coachSettings) {
+                localStorage.setItem(STORE_COACH_SETTINGS, JSON.stringify(data.coachSettings));
+              }
               alert('データを復元しました。画面を再読み込みします。');
               location.reload();
             }
@@ -1737,6 +1779,7 @@ function saveDailyReadiness() {
     clearTimeout(saveDailyReadiness.labelTimer);
     saveDailyReadiness.labelTimer = setTimeout(() => { label.textContent = ''; }, 1600);
   }
+  renderDailyCoach();
 }
 
 function loadDailyReadiness() {
@@ -1753,6 +1796,63 @@ function loadDailyReadiness() {
   });
   const label = document.getElementById('readinessSavedLabel');
   if (label) label.textContent = '';
+  renderDailyCoach();
+}
+
+const coachGoalPresets = {
+  powerbuilding: {
+    name: '筋力＋筋肥大',
+    description: '3〜12回を中心に、推定1RMの伸びと部位別の刺激セットを両方見ます。',
+    repMin: 3, repMax: 12, rpeMin: 7, rpeMax: 9, weeklyMin: 8, weeklyMax: 18
+  },
+  hypertrophy: {
+    name: '筋肥大',
+    description: '広い回数帯を認めつつ、限界への近さと週間の刺激セットを重視します。',
+    repMin: 5, repMax: 20, rpeMin: 7, rpeMax: 9.5, weeklyMin: 10, weeklyMax: 20
+  },
+  strength: {
+    name: '筋力',
+    description: '1〜6回の競技・主要種目を中心に、推定1RMと高強度セットの質を重視します。',
+    repMin: 1, repMax: 6, rpeMin: 6, rpeMax: 9, weeklyMin: 6, weeklyMax: 14
+  },
+  technique: {
+    name: 'フォーム・技術',
+    description: '疲労を抑えた反復と再現性を優先し、限界に近いセットを求めません。',
+    repMin: 2, repMax: 8, rpeMin: 5, rpeMax: 7, weeklyMin: 4, weeklyMax: 12
+  }
+};
+
+function getCoachSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_COACH_SETTINGS) || '{}');
+    return { goal: coachGoalPresets[saved.goal] ? saved.goal : 'powerbuilding' };
+  } catch (e) {
+    return { goal: 'powerbuilding' };
+  }
+}
+
+function loadCoachSettings() {
+  const settings = getCoachSettings();
+  const select = document.getElementById('coachGoalSelect');
+  if (select) select.value = settings.goal;
+  renderCoachGoalDescription();
+}
+
+function saveCoachSettings() {
+  const goal = document.getElementById('coachGoalSelect')?.value || 'powerbuilding';
+  localStorage.setItem(STORE_COACH_SETTINGS, JSON.stringify({ goal }));
+  renderCoachGoalDescription();
+  renderDailyCoach();
+  calcAdvice();
+  if (document.getElementById('view-report')?.classList.contains('active')) renderReport();
+  showCopyToast('トレーニング目的を変更しました');
+}
+
+function renderCoachGoalDescription() {
+  const goal = document.getElementById('coachGoalSelect')?.value || getCoachSettings().goal;
+  const preset = coachGoalPresets[goal] || coachGoalPresets.powerbuilding;
+  const container = document.getElementById('coachGoalDescription');
+  if (container) container.textContent = preset.description;
 }
 
 /* --- 曜日テンプレート用のJavaScript --- */
@@ -2151,6 +2251,7 @@ function applyWorkoutRecall() {
   closeWorkoutRecallModal();
   renderCalendar();
   renderDailyLogs();
+  renderDailyCoach();
   showCopyToast(`${groups.length}種目を下書きにしました`);
 }
 
@@ -2191,6 +2292,7 @@ function updateTodayTemplate() {
   } else {
     card.style.display = 'none';
   }
+  renderDailyCoach();
 }
 
 function init() {
@@ -2199,6 +2301,7 @@ function init() {
       checkBackupPrompt();
       loadTemplates();
       renderPlanPresets();
+      loadCoachSettings();
       initIntervalTimer();
       renderAiButtonIcon();
     }
@@ -2229,6 +2332,7 @@ function init() {
         renderCalendar();
         renderDailyLogs();
         updateTodayTemplate();
+        renderDailyCoach();
       } else if (viewId === 'view-report') {
         reportDateObj = new Date();
         renderReport();
@@ -2377,6 +2481,134 @@ function init() {
 
     let strengthChartRangeMonths = 3;
 
+    function getStimulusSetScore(set, goalKey = getCoachSettings().goal) {
+      const metricType = inferLogMetricType(set, set.exercise);
+      if (metricType === 'UP') return 0;
+      const reps = Number(set.reps);
+      if (!Number.isFinite(reps) || reps <= 0) return 0;
+      const preset = coachGoalPresets[goalKey] || coachGoalPresets.powerbuilding;
+      let effort = 0.55;
+      if (metricType === 'RPE' && Number.isFinite(Number(set.rpe))) {
+        const rpe = Number(set.rpe);
+        effort = rpe >= 9 ? 1 : rpe >= 8 ? 0.85 : rpe >= 7 ? 0.65 : rpe >= 6 ? 0.4 : 0.22;
+      } else if (metricType === 'PR') {
+        effort = Number(set.partialReps) > 0 ? 0.9 : 0.6;
+      }
+      let repFit = reps >= preset.repMin && reps <= preset.repMax ? 1 : 0.75;
+      if (reps > 30 || (goalKey === 'strength' && reps > 12)) repFit = 0.5;
+      if (goalKey === 'technique') {
+        const rpe = Number(set.rpe);
+        effort = metricType === 'RPE' && rpe >= 5 && rpe <= 7.5 ? 1 : 0.6;
+      }
+      return Math.round(effort * repFit * 100) / 100;
+    }
+
+    function getCategoryTrainingStats(startDate, endDate, goalKey = getCoachSettings().goal) {
+      const stats = {};
+      logs.filter(set => set.date >= startDate && set.date <= endDate).forEach(set => {
+        const category = getCategoryForExercise(set.exercise);
+        if (!stats[category]) stats[category] = { sets:0, stimulus:0, hardSets:0, volume:0 };
+        const metricType = inferLogMetricType(set, set.exercise);
+        if (metricType !== 'UP') {
+          stats[category].sets += 1;
+          stats[category].stimulus += getStimulusSetScore(set, goalKey);
+          stats[category].volume += (Number(set.weight) || 0) * (Number(set.reps) || 0);
+          if (metricType === 'RPE' && Number(set.rpe) >= 9) stats[category].hardSets += 1;
+          if (metricType === 'PR' && Number(set.partialReps) > 0) stats[category].hardSets += 1;
+        }
+      });
+      Object.values(stats).forEach(item => { item.stimulus = Math.round(item.stimulus * 10) / 10; });
+      return stats;
+    }
+
+    function coachItem(title, reason, warning = false) {
+      return `<div class="coach-item ${warning ? 'warn' : ''}"><strong>${title}</strong>${reason ? `<span class="coach-reason">${reason}</span>` : ''}</div>`;
+    }
+
+    function getPlanTargetCategories() {
+      const text = getActivePlanInfo().text || '';
+      return ['胸','肩','背中','脚','二頭筋','三頭筋','腹'].filter(category => text.includes(category));
+    }
+
+    function renderDailyCoach() {
+      const card = document.getElementById('dailyCoachCard');
+      const content = document.getElementById('dailyCoachContent');
+      const goalLabel = document.getElementById('dailyCoachGoal');
+      if (!card || !content) return;
+      const goalKey = getCoachSettings().goal;
+      const preset = coachGoalPresets[goalKey] || coachGoalPresets.powerbuilding;
+      if (goalLabel) goalLabel.textContent = preset.name;
+      const readiness = getReadinessData()[currentDateStr] || {};
+      const items = [];
+      const sleep = Number(readiness.sleep);
+      const fatigue = Number(readiness.fatigue);
+      const joint = Number(readiness.joint);
+
+      if (Number.isFinite(joint) && joint >= 4) {
+        items.push(coachItem('今日は痛みの出ない種目・可動域を優先', `関節状態が${joint}/5です。鋭い痛みがある動作は中止し、重量更新は見送る候補です。`, true));
+      }
+      if ((Number.isFinite(fatigue) && fatigue >= 4) || (Number.isFinite(sleep) && sleep <= 2)) {
+        items.push(coachItem('予定より5〜10%軽く始める候補', `睡眠${Number.isFinite(sleep) ? sleep : '-'}/5・疲労${Number.isFinite(fatigue) ? fatigue : '-'}/5。アップで動きを確認してから強度を決めます。`, true));
+      } else if (Number.isFinite(sleep) && sleep >= 4 && Number.isFinite(fatigue) && fatigue <= 2 && (!Number.isFinite(joint) || joint <= 2)) {
+        items.push(coachItem('通常どおり進めやすい状態', '睡眠と疲労の自己評価は良好です。アップの速度やフォームが良ければ漸進を検討できます。'));
+      }
+
+      const end = new Date(currentDateStr);
+      const start = new Date(end);
+      start.setDate(end.getDate() - 6);
+      const weeklyStats = getCategoryTrainingStats(formatDate(start), currentDateStr, goalKey);
+      const targets = getPlanTargetCategories();
+      targets.forEach(category => {
+        const stat = weeklyStats[category];
+        if (stat && stat.stimulus >= preset.weeklyMax) {
+          items.push(coachItem(`${category}は追加量を慎重に`, `直近7日で刺激セット換算${stat.stimulus}。目安上限${preset.weeklyMax}に達しています。`, true));
+        }
+      });
+
+      const todaySets = logs.filter(set => set.date === currentDateStr && inferLogMetricType(set, set.exercise) !== 'UP');
+      const todayHard = todaySets.filter(set =>
+        (inferLogMetricType(set, set.exercise) === 'RPE' && Number(set.rpe) >= 9) ||
+        (inferLogMetricType(set, set.exercise) === 'PR' && Number(set.partialReps) > 0)
+      ).length;
+      if (todayHard >= 4) {
+        items.push(coachItem('限界近くのセットを増やしすぎない', `本日はすでに高努力セットが${todayHard}セットあります。以降はフォーム維持を優先します。`, true));
+      }
+      if (!items.length) {
+        items.push(coachItem(`${preset.name}の基準で記録を比較`, `主な目安は${preset.repMin}〜${preset.repMax}回・RPE${preset.rpeMin}〜${preset.rpeMax}。範囲外でも無効にはせず、前回比を優先します。`));
+      }
+      card.style.display = 'block';
+      content.innerHTML = items.slice(0, 3).join('');
+    }
+
+    function renderWeeklyCoachReport() {
+      const container = document.getElementById('weeklyCoachReport');
+      if (!container) return;
+      const start = getStartOfWeek(reportDateObj);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      const goalKey = getCoachSettings().goal;
+      const preset = coachGoalPresets[goalKey] || coachGoalPresets.powerbuilding;
+      const stats = getCategoryTrainingStats(formatDate(start), formatDate(end), goalKey);
+      const categories = Object.keys(stats).filter(category => stats[category].sets > 0);
+      if (!categories.length) {
+        container.innerHTML = '<div class="report-insight">この週の記録がありません。</div>';
+        return;
+      }
+      container.innerHTML = categories.map(category => {
+        const stat = stats[category];
+        let status = '蓄積中';
+        let color = 'var(--muted)';
+        if (stat.stimulus >= preset.weeklyMax) { status = '高め'; color = 'var(--danger)'; }
+        else if (stat.stimulus >= preset.weeklyMin) { status = '目安内'; color = 'var(--accent-2)'; }
+        const hardNote = stat.hardSets >= 5 ? '・高努力セット多め' : '';
+        return `<div class="strength-summary-item">
+          <div class="strength-summary-name"><span class="strength-legend-dot" style="background:${catColors[category] || catColors['その他']}"></span>${category}</div>
+          <div class="strength-summary-value">${stat.stimulus}<span style="margin-left:5px; color:${color}; font-size:10px;">${status}${hardNote}</span></div>
+          <div style="margin-top:4px; color:var(--muted); font-size:10px;">実セット${stat.sets}・刺激セット換算${stat.stimulus}</div>
+        </div>`;
+      }).join('') + `<div style="margin-top:9px; color:var(--muted); font-size:10px; line-height:1.5;">刺激セットはRPE・回数帯から0〜1セット相当に重み付けした比較用の値です。種目間の重量は直接比較しません。</div>`;
+    }
+
     function estimateSet1RM(set) {
       const metricType = inferLogMetricType(set, set.exercise);
       const weight = Number(set.weight);
@@ -2397,6 +2629,7 @@ function init() {
       renderExerciseStrengthChart();
       renderBodyweightReport();
       renderDeloadSuggestion();
+      renderWeeklyCoachReport();
     }
 
     function getStrengthChartWeeks() {
@@ -2721,6 +2954,7 @@ function init() {
       renderExerciseStrengthChart();
       renderBodyweightReport();
       renderDeloadSuggestion();
+      renderWeeklyCoachReport();
 
       const currentStats = { volume: {}, sets: {}, exVol: {}, exSets: {} };
       const prevStats = { volume: {}, sets: {} };
@@ -4073,6 +4307,85 @@ function init() {
       saveCurrentDraft();
     }
 
+    function getPreviousExerciseSession(exName, beforeDate) {
+      const dates = [...new Set(logs.filter(set => set.exercise === exName && set.date < beforeDate).map(set => set.date))]
+        .sort((a, b) => b.localeCompare(a));
+      if (!dates.length) return null;
+      const currentOrder = getTodayPlannedOrder(exName);
+      const matchingDate = dates.find(date => getExOrderOnDate(date, exName) === currentOrder) || dates[0];
+      return {
+        date: matchingDate,
+        order: getExOrderOnDate(matchingDate, exName),
+        sameOrder: getExOrderOnDate(matchingDate, exName) === currentOrder,
+        sets: logs.filter(set => set.exercise === exName && set.date === matchingDate).sort((a, b) => a.id - b.id)
+      };
+    }
+
+    function getExerciseIncrement(exName) {
+      const category = getCategoryForExercise(exName);
+      return ['二頭筋','三頭筋','肩','腹'].includes(category) || /カール|レイズ|フライ|プレスダウン|extension/i.test(exName || '') ? 1 : 2.5;
+    }
+
+    function buildExerciseCoachAdvice(validSets, lastValidSet, best1RM) {
+      const goalKey = getCoachSettings().goal;
+      const preset = coachGoalPresets[goalKey] || coachGoalPresets.powerbuilding;
+      const readiness = getReadinessData()[currentDateStr] || {};
+      const sleep = Number(readiness.sleep);
+      const fatigue = Number(readiness.fatigue);
+      const joint = Number(readiness.joint);
+      const items = [];
+      const increment = getExerciseIncrement(selectedExercise);
+      let nextWeight = lastValidSet.w;
+      let nextAction = '同じ重量を維持';
+
+      if (Number.isFinite(joint) && joint >= 4) {
+        nextWeight = Math.max(0, lastValidSet.w * 0.9);
+        nextAction = '重量を約10%下げるか、この種目を終了';
+        items.push({ title: nextAction, reason:`関節状態${joint}/5のため、記録更新より痛みの回避を優先します。`, warn:true });
+      } else if ((Number.isFinite(fatigue) && fatigue >= 4) || (Number.isFinite(sleep) && sleep <= 2)) {
+        nextWeight = Math.max(0, lastValidSet.w * 0.95);
+        nextAction = '次セットは約5%軽くする候補';
+        items.push({ title:nextAction, reason:`睡眠${Number.isFinite(sleep) ? sleep : '-'}/5・疲労${Number.isFinite(fatigue) ? fatigue : '-'}/5を反映しました。`, warn:true });
+      } else if (lastValidSet.rpeNum >= 9.5) {
+        nextWeight = Math.max(0, lastValidSet.w - increment);
+        nextAction = `次セットは${nextWeight}kg前後、または終了`;
+        items.push({ title:nextAction, reason:`直前はRPE${lastValidSet.rpeNum}。限界セットを重ねるより質を保つ提案です。`, warn:true });
+      } else if (lastValidSet.rpeNum <= 6) {
+        items.push({ title:`${lastValidSet.w}kgを維持、または小幅増量`, reason:`RPE${lastValidSet.rpeNum}は限界から遠く、余力回数の誤差が大きくなりやすいため急な増量は避けます。` });
+      } else if (lastValidSet.rpeNum <= preset.rpeMin && lastValidSet.r >= preset.repMin) {
+        nextWeight = lastValidSet.w + increment;
+        nextAction = `次セットは${nextWeight}kgを試す候補`;
+        items.push({ title:nextAction, reason:`直前はRPE${lastValidSet.rpeNum}で、${preset.name}の目安より余力があります。` });
+      } else {
+        items.push({ title:`次セットは${lastValidSet.w}kgを維持`, reason:`直前のRPE${lastValidSet.rpeNum}は${preset.name}の狙いに近い範囲です。` });
+      }
+
+      if (validSets.length >= 2) {
+        const previous = validSets[validSets.length - 2];
+        const current = validSets[validSets.length - 1];
+        if (Number(previous.weight) === Number(current.weight) && Number(previous.reps) > 0 &&
+            Number(current.reps) / Number(previous.reps) <= 0.8) {
+          items.push({ title:'休憩を長めにする候補', reason:`同重量で回数が${previous.reps}回から${current.reps}回へ20%以上低下しています。`, warn:true });
+        }
+      }
+      if (lastValidSet.r > 12) {
+        items.push({ title:'推定1RMは参考値として扱う', reason:`${lastValidSet.r}回の高回数セットは、低回数より推定誤差が大きくなります。` });
+      }
+
+      const previousSession = getPreviousExerciseSession(selectedExercise, currentDateStr);
+      if (previousSession) {
+        const previousEstimates = previousSession.sets.map(estimateSet1RM).filter(value => value != null);
+        if (previousEstimates.length && best1RM > 0) {
+          const previousBest = Math.max(...previousEstimates);
+          const change = (best1RM - previousBest) / previousBest;
+          const condition = previousSession.sameOrder ? '同じ種目順' : `前回${previousSession.order}種目目・今回${getTodayPlannedOrder(selectedExercise)}種目目`;
+          if (change >= 0.02) items.push({ title:'前回よりパフォーマンス向上', reason:`${condition}で推定1RMが約${(change*100).toFixed(1)}%上昇しています。` });
+          else if (change <= -0.05) items.push({ title:'前回比だけで重量を追わない', reason:`${condition}で推定1RMが約${Math.abs(change*100).toFixed(1)}%低下。順番・睡眠・疲労も含めて判断します。`, warn:true });
+        }
+      }
+      return items.slice(0, 3);
+    }
+
 
     function calcAdvice() {
       const advBox = document.getElementById('adviceBox');
@@ -4104,14 +4417,15 @@ function init() {
         return;
       }
 
-      const targetRpe = Math.min(10, lastValidSet.rpeNum + 1);
-      const targetEffective = lastValidSet.r + (10 - targetRpe);
-      const nextWeight = lastValidSet.est1RM / (1 + targetEffective / 30);
-      const nextRounded = Math.round(nextWeight / 2.5) * 2.5;
-
+      const validSets = currentSets.filter(set =>
+        set.done && set.metricType === 'RPE' && set.weight !== '' && set.reps !== '' && Number.isFinite(Number(set.rpe))
+      ).map(set => ({ ...set, weight:Number(set.weight), reps:Number(set.reps), rpe:Number(set.rpe), exercise:selectedExercise }));
+      const adviceItems = buildExerciseCoachAdvice(validSets, lastValidSet, best1RM);
       advBox.style.display = 'block';
-      advBox.innerHTML = `<strong>最高推定1RM:</strong> ${(Math.round(best1RM*10)/10).toFixed(1)}kg<br>
-                          <span style="font-size:12px; opacity:0.8;">次セット目安 (同回数 / RPE${targetRpe}狙い): <strong>${nextRounded}kg</strong> 前後</span>`;
+      advBox.style.color = 'var(--text)';
+      advBox.innerHTML = `<div class="coach-title"><span>ローカルコーチ</span><span class="coach-goal">${coachGoalPresets[getCoachSettings().goal].name}</span></div>
+        ${adviceItems.map(item => coachItem(item.title, item.reason, item.warn)).join('')}
+        <div style="margin-top:8px; color:var(--muted); font-size:10px;">最高推定1RM ${best1RM.toFixed(1)}kg。フォームと痛みの有無を最優先してください。</div>`;
     }
 
     
