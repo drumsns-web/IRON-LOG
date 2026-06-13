@@ -172,6 +172,19 @@
     .ai-icon-setting-actions button { min-height:40px; padding:0 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
     .ai-icon-select-btn { border:none; background:var(--accent-brand); color:#000; }
     .ai-icon-clear-btn { border:1px solid var(--line); background:transparent; color:var(--muted); }
+    .strength-range { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-bottom:12px; }
+    .strength-range button { min-height:34px; padding:0 4px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:700; cursor:pointer; }
+    .strength-range button.active { border-color:var(--accent-brand); color:#000; background:var(--accent-brand); }
+    .strength-chart-wrap { width:100%; min-height:250px; overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
+    .strength-chart { display:block; width:100%; height:auto; min-height:250px; }
+    .strength-legend { display:flex; flex-wrap:wrap; gap:7px 12px; margin-top:11px; }
+    .strength-legend-item { display:flex; align-items:center; gap:5px; color:var(--muted); font-size:10px; }
+    .strength-legend-dot { width:7px; height:7px; border-radius:50%; }
+    .strength-summary { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px; margin-top:12px; }
+    .strength-summary-item { padding:9px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); }
+    .strength-summary-name { display:flex; align-items:center; gap:5px; color:var(--muted); font-size:10px; }
+    .strength-summary-value { margin-top:4px; font-size:14px; font-weight:800; }
+    .strength-summary-change { margin-left:5px; font-size:10px; font-weight:700; }
 
 
     /* Ex Selection Bottom Sheet */
@@ -199,8 +212,10 @@
     .ex-add-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 220; backdrop-filter: blur(4px); }
     .ex-add-dialog { width: min(420px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.45); }
     .ex-add-dialog h3 { margin: 0 0 14px; font-size: 18px; }
-    .ex-add-dialog input { width: 100%; min-height: 52px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; color: var(--text); font-size: 17px; outline: none; padding: 0 14px; }
-    .ex-add-dialog input:focus { border-color: var(--accent-brand); }
+    .ex-add-dialog input, .ex-add-dialog select { width: 100%; min-height: 52px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; color: var(--text); font-size: 17px; outline: none; padding: 0 14px; }
+    .ex-add-dialog select { margin-top:10px; font-size:15px; }
+    .ex-add-dialog input:focus, .ex-add-dialog select:focus { border-color: var(--accent-brand); }
+    .exercise-category-select { min-height:32px; max-width:92px; padding:0 6px; border:1px solid var(--line); border-radius:7px; background:var(--surface-3); color:var(--text); font-size:11px; font-weight:700; outline:none; }
     .ex-add-actions { display: flex; gap: 10px; margin-top: 14px; }
     .ex-add-actions button { flex: 1; min-height: 46px; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
     .ex-add-cancel { background: var(--surface-3); color: var(--text); }
@@ -623,6 +638,23 @@
       </div>
 
       <div class="card" style="margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px;">
+          <div>
+            <h3 style="font-size:16px; font-weight:700; margin:0;">部位別 推定1RMの推移</h3>
+            <div style="font-size:10px; color:var(--muted); margin-top:4px; line-height:1.45;">週ごとの部位内最高値。RPEセットのみを使用します。</div>
+          </div>
+        </div>
+        <div class="strength-range" id="strengthRangeButtons">
+          <button data-range="1" onclick="setStrengthChartRange(1)">1か月</button>
+          <button data-range="3" onclick="setStrengthChartRange(3)" class="active">3か月</button>
+          <button data-range="6" onclick="setStrengthChartRange(6)">6か月</button>
+          <button data-range="12" onclick="setStrengthChartRange(12)">1年</button>
+        </div>
+        <div id="strengthChartContainer"></div>
+        <div style="font-size:9px; color:var(--muted); margin-top:10px; line-height:1.5;">推定式：重量 ×（1 ＋ 実効回数 ÷ 30）。実効回数は「回数 ＋ (10 − RPE)」。種目が変わると数値の比較条件も変わります。</div>
+      </div>
+
+      <div class="card" style="margin-bottom:24px;">
         <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">今週のボリューム</h3>
         <div id="reportVolumeList"></div>
       </div>
@@ -652,6 +684,7 @@
     <div class="ex-add-dialog" onclick="event.stopPropagation()">
       <h3>新しい種目を追加</h3>
       <input type="text" id="newExInput" placeholder="種目名を入力" onkeydown="if(event.key === 'Enter') addEx()">
+      <select id="newExCategory" aria-label="種目の部位"></select>
       <div class="ex-add-actions">
         <button class="ex-add-cancel" onclick="closeAddExModal()">キャンセル</button>
         <button class="ex-add-submit" onclick="addEx()">追加</button>
@@ -827,7 +860,7 @@
         <div style="margin-top:12px; color:var(--text); font-weight:700;">種目名によって変わる入力</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">「アシスト」「assist」</strong>を含む種目：体重 − アシスト重量で実際の負荷を計算します。</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">「チンニング」「懸垂」「ディップス」</strong>を含む種目：体重 ＋ 追加重量で実際の負荷を計算します。</div>
-        <div style="margin-top:6px;"><strong style="color:var(--text);">「レイズ」「raise」</strong>を含む種目：RPE欄がPR（パーシャルレップ回数）欄に変わります。UPも選択できます。</div>
+        <div style="margin-top:6px;">すべての種目で、セットごとに<strong style="color:var(--text);">RPE・PR・UP</strong>を選択できます。種目ごとの標準入力も記憶されます。</div>
 
         <div style="margin-top:14px; color:var(--text); font-weight:700;">略語</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">RPE</strong>＝Rating of Perceived Exertion。セット終了時にあと何回できたかを表します。目安はRPE10＝余力0回、9＝あと1回、8＝あと2回、7＝あと3回です。</div>
@@ -969,13 +1002,40 @@
       "肩": ["オーバーヘッドプレス", "サイドレイズ", "リアレイズ", "フロントレイズ"],
       "背中": ["デッドリフト", "バーベルロウ", "ラットプルダウン", "チンニング"],
       "脚": ["スクワット", "レッグプレス", "レッグエクステンション"],
-      "腕": ["バーベルカール", "ダンベルカール", "プレスダウン"],
+      "二頭筋": ["バーベルカール", "ダンベルカール"],
+      "三頭筋": ["プレスダウン"],
       "腹": ["アブローラー", "クランチ"]
     };
     
     const STORE_EX = 'ironlog-ex-v5';
     let exercises = JSON.parse(localStorage.getItem(STORE_EX));
     if (!exercises || Array.isArray(exercises)) exercises = defaultExercises;
+
+    function isTricepsExerciseName(name) {
+      return /三頭|トライセプ|プレスダウン|フレンチ|スカル|ナロー|キックバック|エクステンション|triceps?|push[\s-]*down|skull|french/i.test(name || '');
+    }
+
+    function migrateArmCategories() {
+      exercises['二頭筋'] = Array.isArray(exercises['二頭筋']) ? exercises['二頭筋'] : [];
+      exercises['三頭筋'] = Array.isArray(exercises['三頭筋']) ? exercises['三頭筋'] : [];
+      const oldArmExercises = Array.isArray(exercises['腕']) ? exercises['腕'] : [];
+      oldArmExercises.forEach(name => {
+        const target = isTricepsExerciseName(name) ? '三頭筋' : '二頭筋';
+        if (!exercises[target].includes(name)) exercises[target].push(name);
+      });
+      delete exercises['腕'];
+      const preferredOrder = ['胸', '肩', '背中', '脚', '二頭筋', '三頭筋', '腹'];
+      const reordered = {};
+      preferredOrder.forEach(category => {
+        if (Array.isArray(exercises[category])) reordered[category] = exercises[category];
+      });
+      Object.entries(exercises).forEach(([category, list]) => {
+        if (!reordered[category] && Array.isArray(list)) reordered[category] = list;
+      });
+      exercises = reordered;
+      localStorage.setItem(STORE_EX, JSON.stringify(exercises));
+    }
+    migrateArmCategories();
 
     // 種目リストの並び順モード: 'freq'(頻度順) または 'manual'(手動順)
     const STORE_SORT = 'ironlog-ex-sort-mode';
@@ -1693,12 +1753,17 @@ function syncCycleSlotForToday() {
 function getPlanCategories(planText) {
   const text = String(planText || '').trim();
   if (!text) return [];
-  return Object.entries(exercises)
+  const categories = Object.entries(exercises)
     .filter(([category, exerciseList]) => {
       if (text.includes(category)) return true;
       return exerciseList.some(exercise => exercise && text.includes(exercise));
     })
     .map(([category]) => category);
+  if (text.includes('腕')) {
+    if (!categories.includes('二頭筋')) categories.push('二頭筋');
+    if (!categories.includes('三頭筋')) categories.push('三頭筋');
+  }
+  return categories;
 }
 
 function renderTodayTemplateTitle(label, planText) {
@@ -2026,19 +2091,34 @@ function init() {
     // 部位ごとの色（記録画面・レポートで共通利用）
     const STORE_CAT_COLORS = 'ironlog-category-colors-v1';
     const defaultCatColors = {
-      '胸': '#e74c3c', '肩': '#e67e22', '腕': '#f1c40f',
+      '胸': '#e74c3c', '肩': '#e67e22', '二頭筋': '#f1c40f', '三頭筋': '#ff6b9a',
       '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
     };
     let catColors = {
       ...defaultCatColors,
       ...(JSON.parse(localStorage.getItem(STORE_CAT_COLORS) || '{}'))
     };
+    if (catColors['腕']) catColors['二頭筋'] = catColors['腕'];
+    delete catColors['腕'];
+    localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(catColors));
 
     function getCategoryForExercise(exName) {
       for (const [cat, exList] of Object.entries(exercises)) {
         if (exList.includes(exName)) return cat;
       }
       return 'その他';
+    }
+
+    function getExerciseCategoryOptions(selectedCategory) {
+      return Object.keys(exercises).map(category =>
+        `<option value="${escapeHtml(category)}" ${category === selectedCategory ? 'selected' : ''}>${escapeHtml(category)}</option>`
+      ).join('');
+    }
+
+    function exerciseExistsAnywhere(name, exceptName = '') {
+      return Object.values(exercises).some(list =>
+        Array.isArray(list) && list.some(item => item === name && item !== exceptName)
+      );
     }
 
     function getReadableTextColor(hexColor) {
@@ -2106,6 +2186,138 @@ function init() {
       }
     }
 
+    let strengthChartRangeMonths = 3;
+
+    function estimateSet1RM(set) {
+      const metricType = inferLogMetricType(set, set.exercise);
+      const weight = Number(set.weight);
+      const reps = Number(set.reps);
+      const rpe = Number(set.rpe);
+      if (metricType !== 'RPE' || !Number.isFinite(weight) || weight <= 0 ||
+          !Number.isFinite(reps) || reps <= 0 || !Number.isFinite(rpe)) return null;
+      const effectiveReps = Math.max(1, reps + (10 - rpe));
+      return effectiveReps <= 1 ? weight : weight * (1 + effectiveReps / 30);
+    }
+
+    function setStrengthChartRange(months) {
+      strengthChartRangeMonths = [1, 3, 6, 12].includes(Number(months)) ? Number(months) : 3;
+      document.querySelectorAll('#strengthRangeButtons button').forEach(button => {
+        button.classList.toggle('active', Number(button.dataset.range) === strengthChartRangeMonths);
+      });
+      renderStrengthChart();
+    }
+
+    function getStrengthChartWeeks() {
+      const weekCount = ({ 1:5, 3:13, 6:26, 12:52 })[strengthChartRangeMonths] || 13;
+      const endWeek = getStartOfWeek(reportDateObj);
+      const weeks = [];
+      for (let offset = weekCount - 1; offset >= 0; offset--) {
+        const start = new Date(endWeek);
+        start.setDate(endWeek.getDate() - offset * 7);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        weeks.push({ start: formatDate(start), end: formatDate(end), date: start });
+      }
+      return weeks;
+    }
+
+    function getWeeklyCategory1RM() {
+      const weeks = getStrengthChartWeeks();
+      const categories = ['胸', '肩', '背中', '脚', '二頭筋', '三頭筋', '腹', 'その他'];
+      const series = Object.fromEntries(categories.map(category => [category, Array(weeks.length).fill(null)]));
+      logs.forEach(set => {
+        const weekIndex = weeks.findIndex(week => set.date >= week.start && set.date <= week.end);
+        if (weekIndex < 0) return;
+        const estimate = estimateSet1RM(set);
+        if (estimate == null) return;
+        const category = getCategoryForExercise(set.exercise);
+        const current = series[category]?.[weekIndex];
+        if (series[category] && (current == null || estimate > current.value)) {
+          series[category][weekIndex] = { value: estimate, exercise: set.exercise };
+        }
+      });
+      return { weeks, series };
+    }
+
+    function renderStrengthChart() {
+      const container = document.getElementById('strengthChartContainer');
+      if (!container) return;
+      document.querySelectorAll('#strengthRangeButtons button').forEach(button => {
+        button.classList.toggle('active', Number(button.dataset.range) === strengthChartRangeMonths);
+      });
+      const { weeks, series } = getWeeklyCategory1RM();
+      const visibleCategories = Object.keys(series).filter(category => series[category].some(point => point));
+      if (!visibleCategories.length) {
+        container.innerHTML = '<div class="strength-chart-wrap" style="display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px;">期間内にRPE記録がありません</div>';
+        return;
+      }
+
+      const values = visibleCategories.flatMap(category => series[category].filter(Boolean).map(point => point.value));
+      let minValue = Math.min(...values);
+      let maxValue = Math.max(...values);
+      const spread = Math.max(10, maxValue - minValue);
+      minValue = Math.max(0, minValue - spread * 0.12);
+      maxValue += spread * 0.12;
+
+      const width = 560;
+      const height = 280;
+      const left = 44;
+      const right = 14;
+      const top = 18;
+      const bottom = 36;
+      const plotWidth = width - left - right;
+      const plotHeight = height - top - bottom;
+      const xAt = index => left + (weeks.length === 1 ? plotWidth / 2 : index * plotWidth / (weeks.length - 1));
+      const yAt = value => top + (maxValue - value) * plotHeight / Math.max(1, maxValue - minValue);
+      const gridLines = Array.from({ length:5 }, (_, index) => {
+        const ratio = index / 4;
+        const value = maxValue - (maxValue - minValue) * ratio;
+        const y = top + plotHeight * ratio;
+        return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="rgba(255,255,255,.09)" stroke-width="1"/>
+          <text x="${left-6}" y="${y+3}" fill="#8e8e93" font-size="9" text-anchor="end">${Math.round(value)}</text>`;
+      }).join('');
+      const labelEvery = Math.max(1, Math.ceil(weeks.length / 6));
+      const xLabels = weeks.map((week, index) => {
+        if (index % labelEvery !== 0 && index !== weeks.length - 1) return '';
+        return `<text x="${xAt(index)}" y="${height-12}" fill="#8e8e93" font-size="9" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`;
+      }).join('');
+      const lines = visibleCategories.map(category => {
+        const color = catColors[category] || catColors['その他'];
+        const points = series[category].map((point, index) => point ? `${xAt(index)},${yAt(point.value)}` : '').filter(Boolean);
+        const paths = points.length > 1
+          ? `<polyline points="${points.join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`
+          : '';
+        const dots = series[category].map((point, index) => point
+          ? `<circle cx="${xAt(index)}" cy="${yAt(point.value)}" r="3.3" fill="${color}" stroke="#121212" stroke-width="1.5"><title>${category} ${point.exercise} ${point.value.toFixed(1)}kg</title></circle>`
+          : '').join('');
+        return paths + dots;
+      }).join('');
+      const legend = visibleCategories.map(category =>
+        `<div class="strength-legend-item"><span class="strength-legend-dot" style="background:${catColors[category] || catColors['その他']}"></span>${category}</div>`
+      ).join('');
+      const summary = visibleCategories.map(category => {
+        const points = series[category].filter(Boolean);
+        const latest = points[points.length - 1];
+        const previous = points.length > 1 ? points[points.length - 2] : null;
+        const change = previous ? latest.value - previous.value : null;
+        const changeText = change == null ? '' : `${change >= 0 ? '+' : ''}${change.toFixed(1)}`;
+        const changeColor = change == null ? 'var(--muted)' : (change > 0 ? 'var(--accent-2)' : (change < 0 ? 'var(--danger)' : 'var(--muted)'));
+        return `<div class="strength-summary-item">
+          <div class="strength-summary-name"><span class="strength-legend-dot" style="background:${catColors[category] || catColors['その他']}"></span>${category}・${escapeHtml(latest.exercise)}</div>
+          <div class="strength-summary-value">${latest.value.toFixed(1)}kg${changeText ? `<span class="strength-summary-change" style="color:${changeColor}">${changeText}</span>` : ''}</div>
+        </div>`;
+      }).join('');
+
+      container.innerHTML = `<div class="strength-chart-wrap">
+        <svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="部位別推定1RMの推移">
+          ${gridLines}${xLabels}${lines}
+          <text x="10" y="12" fill="#8e8e93" font-size="9">kg</text>
+        </svg>
+      </div>
+      <div class="strength-legend">${legend}</div>
+      <div class="strength-summary">${summary}</div>`;
+    }
+
     function renderReport() {
       const startOfWeek = getStartOfWeek(reportDateObj);
       const endOfWeek = new Date(startOfWeek);
@@ -2122,11 +2334,12 @@ function init() {
       const fPrevEnd = formatDate(prevEndOfWeek);
 
       document.getElementById('reportWeekLabel').textContent = `${fStart.replace(/-/g,'/')} 〜 ${fEnd.replace(/-/g,'/')}`;
+      renderStrengthChart();
 
       const currentStats = { volume: {}, sets: {}, exVol: {}, exSets: {} };
       const prevStats = { volume: {}, sets: {} };
 
-      const allCats = ['胸', '肩', '背中', '脚', '腕', '腹', 'その他'];
+      const allCats = ['胸', '肩', '背中', '脚', '二頭筋', '三頭筋', '腹', 'その他'];
       allCats.forEach(cat => {
         currentStats.volume[cat] = 0; currentStats.sets[cat] = 0;
         currentStats.exVol[cat] = {}; currentStats.exSets[cat] = {};
@@ -2565,14 +2778,17 @@ function init() {
           const upDis = i === 0 ? 'opacity:0.25; pointer-events:none;' : '';
           const downDis = i === displayList.length - 1 ? 'opacity:0.25; pointer-events:none;' : '';
           return `
-          <div class="ex-item" style="justify-content:space-between;">
+          <div class="ex-item" style="justify-content:space-between; flex-wrap:wrap; gap:8px;">
             <div style="display:flex; align-items:center; flex:1; gap:6px; min-width:0;">
               <button onclick="moveEx(decodeURIComponent('${safeName}'),-1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${upDis}">↑</button>
               <button onclick="moveEx(decodeURIComponent('${safeName}'),1)" style="background:var(--surface-3); border:none; color:#fff; width:32px; height:32px; min-height:32px; border-radius:8px; font-size:14px; cursor:pointer; padding:0; ${downDis}">↓</button>
               <div style="width:4px; height:16px; background:${exColor}; border-radius:2px; margin-left:4px; flex:0 0 auto;"></div>
               <span style="margin-left:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${label}</span>
             </div>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:6px; align-items:center; width:100%; justify-content:flex-end;">
+              <select class="exercise-category-select" aria-label="${label}の部位" onchange="moveExerciseToCategory(decodeURIComponent('${safeName}'), this.value)">
+                ${getExerciseCategoryOptions(exCat)}
+              </select>
               <button onclick="renameEx(decodeURIComponent('${safeName}'))" style="background:transparent; border:1px solid var(--line); color:var(--text); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">名前変更</button>
               <button onclick="deleteEx(decodeURIComponent('${safeName}'))" style="background:transparent; border:1px solid var(--danger); color:var(--danger); width:auto; padding:4px 10px; min-height:32px; font-size:12px;">削除</button>
             </div>
@@ -2681,8 +2897,13 @@ function init() {
     function openAddExModal() {
       const modal = document.getElementById('addExModal');
       const input = document.getElementById('newExInput');
+      const categorySelect = document.getElementById('newExCategory');
       modal.style.display = 'flex';
       input.value = '';
+      if (categorySelect) {
+        categorySelect.innerHTML = getExerciseCategoryOptions(activeCategory);
+        categorySelect.value = activeCategory;
+      }
       setTimeout(() => input.focus(), 80);
     }
 
@@ -2693,23 +2914,38 @@ function init() {
 
     function addEx() {
       const v = document.getElementById('newExInput').value.trim();
+      const category = document.getElementById('newExCategory')?.value || activeCategory;
       if (!v) return;
-      if (!exercises[activeCategory]) exercises[activeCategory] = [];
-      if (exercises[activeCategory].includes(v)) {
+      if (!exercises[category]) exercises[category] = [];
+      if (exerciseExistsAnywhere(v)) {
         alert('その種目は既に存在します');
         return;
       }
-      exercises[activeCategory].push(v);
+      exercises[category].push(v);
       saveExercises();
       closeAddExModal();
+      activeCategory = category;
+      renderCatTabs();
       renderSheetExList();
+    }
+
+    function moveExerciseToCategory(exName, targetCategory) {
+      const sourceCategory = getCategoryForExercise(exName);
+      if (!exercises[targetCategory] || sourceCategory === targetCategory) return;
+      exercises[sourceCategory] = (exercises[sourceCategory] || []).filter(name => name !== exName);
+      if (!exercises[targetCategory].includes(exName)) exercises[targetCategory].push(exName);
+      saveExercises();
+      refreshColorDependentViews();
+      renderCatTabs();
+      renderSheetExList();
+      showCopyToast(`「${exName}」を${targetCategory}へ変更しました`);
     }
 
     function renameEx(oldName) {
       const newName = prompt('新しい種目名を入力してください', oldName);
       if (!newName || newName.trim() === '' || newName.trim() === oldName) return;
       const cleanName = newName.trim();
-      if (exercises[activeCategory].includes(cleanName)) return alert('その種目は既に存在します');
+      if (exerciseExistsAnywhere(cleanName, oldName)) return alert('その種目は既に存在します');
 
       const idx = exercises[activeCategory].indexOf(oldName);
       if (idx > -1) {
