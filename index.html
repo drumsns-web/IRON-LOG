@@ -67,13 +67,11 @@
     .body-map-exercises { display:flex; flex-wrap:wrap; gap:7px; margin-top:13px; }
     .body-map-chip { padding:6px 9px; border:1px solid #3d4045; border-radius:7px; background:#202226; color:#f2f2f7; font-size:12px; font-weight:700; }
     .body-map-muscles { margin-top:11px; color:#ff8b84; font-size:13px; font-weight:700; line-height:1.55; }
-    .body-map-gallery { display:grid; gap:12px; margin-top:12px; }
-    .body-map-image-card { overflow:hidden; border:1px solid #34363a; border-radius:10px; background:#0d0e10; }
-    .body-map-image-title { padding:9px 12px; border-bottom:1px solid #2e3034; color:#f4f5f7; font-size:15px; font-weight:800; }
-    .body-map-reference-image { display:block; width:100%; height:auto; background:#0d0e10; font-size:0; color:transparent; }
-    .body-map-image-error { display:none; min-height:120px; padding:24px 16px; align-items:center; justify-content:center; color:var(--muted); font-size:14px; text-align:center; }
-    .body-map-image-card.load-failed .body-map-reference-image { display:none; }
-    .body-map-image-card.load-failed .body-map-image-error { display:flex; }
+    .body-map-category-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:16px; }
+    .body-map-category-item { min-height:64px; display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid #37393e; border-radius:10px; background:#1a1b1e; color:#f7f7f8; font-size:19px; font-weight:800; }
+    .body-map-category-dot { width:14px; height:14px; flex:0 0 auto; border-radius:50%; box-shadow:0 0 0 4px rgba(255,255,255,.05); }
+    .body-map-exercise-label { margin-top:20px; color:var(--muted); font-size:13px; font-weight:700; }
+    @media (max-width:380px) { .body-map-category-list { grid-template-columns:1fr; } }
 
     /* Floating Add Button */
     .fab-container { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 50;}
@@ -933,7 +931,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div style="width:58px;"></div>
       </div>
       <div class="body-map-body">
-        <div class="body-map-note">記録された部位に対応するトレーニング画像を表示します。</div>
+        <div class="body-map-note">この日に記録されたトレーニング部位です。</div>
         <div class="body-map-stage">
           <span class="body-map-view-label front">前面</span>
           <span class="body-map-view-label back">背面</span>
@@ -962,7 +960,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
             <path data-muscle="calves" d="M997 694C1017 682 1043 694 1058 720C1058 768 1051 819 1040 856C1028 876 1009 876 997 854C990 805 990 744 997 694ZM1161 694C1141 682 1115 694 1100 720C1100 768 1107 819 1118 856C1130 876 1149 876 1161 854C1168 805 1168 744 1161 694Z" class="body-muscle"/>
           </svg>
         </div>
-        <div id="bodyMapImageGallery" class="body-map-gallery"></div>
+        <div id="bodyMapCategoryList" class="body-map-category-list"></div>
+        <div class="body-map-exercise-label">記録した種目</div>
         <div id="bodyMapExercises" class="body-map-exercises"></div>
         <div id="bodyMapMuscles" class="body-map-muscles"></div>
       </div>
@@ -2792,36 +2791,6 @@ function init() {
       'その他': []
     };
 
-    const bodyMapImageForCategory = {
-      '胸': 'body_map_assets/chest.jpg',
-      '肩': 'body_map_assets/shoulders.jpg',
-      '背中': 'body_map_assets/back.jpg',
-      '脚': 'body_map_assets/legs.jpg',
-      '二頭筋': 'body_map_assets/biceps.jpg',
-      '三頭筋': 'body_map_assets/triceps.jpg',
-      '腹': 'body_map_assets/abs.jpg'
-    };
-    let bodyMapObjectUrls = [];
-
-    function releaseBodyMapObjectUrls() {
-      bodyMapObjectUrls.forEach(url => URL.revokeObjectURL(url));
-      bodyMapObjectUrls = [];
-    }
-
-    function getSafariSafeBodyMapImageUrl(source) {
-      if (!String(source).startsWith('data:image/')) return source;
-      const commaIndex = source.indexOf(',');
-      const header = source.slice(0, commaIndex);
-      const mimeMatch = header.match(/^data:([^;,]+)/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      const binary = atob(source.slice(commaIndex + 1));
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
-      bodyMapObjectUrls.push(objectUrl);
-      return objectUrl;
-    }
-
     function getPrimaryMusclesForExercise(exName) {
       const category = getCategoryForExercise(exName);
       return bodyMapMusclesForCategory[category] || [];
@@ -2843,40 +2812,15 @@ function init() {
       const { exerciseNames, categories, muscles } = getBodyMapDataForDate(dateStr);
       if (!exerciseNames.length) return;
 
-      const gallery = document.getElementById('bodyMapImageGallery');
-      releaseBodyMapObjectUrls();
-      gallery.replaceChildren();
-      categories.forEach(category => {
-        const imageSrc = bodyMapImageForCategory[category];
-        if (!imageSrc) return;
-
-        const card = document.createElement('div');
-        card.className = 'body-map-image-card';
-
-        const title = document.createElement('div');
-        title.className = 'body-map-image-title';
-        title.textContent = category;
-
-        const image = document.createElement('img');
-        image.className = 'body-map-reference-image';
-        image.alt = `${category}のトレーニング部位`;
-        image.decoding = 'async';
-        image.onload = () => card.classList.remove('load-failed');
-        image.onerror = () => card.classList.add('load-failed');
-
-        const error = document.createElement('div');
-        error.className = 'body-map-image-error';
-        error.textContent = '画像を読み込めませんでした。ページを再読み込みしてください。';
-
-        card.append(title, image, error);
-        gallery.appendChild(card);
-
-        try {
-          image.src = getSafariSafeBodyMapImageUrl(imageSrc);
-        } catch (error) {
-          card.classList.add('load-failed');
-        }
-      });
+      const categoryList = document.getElementById('bodyMapCategoryList');
+      categoryList.innerHTML = categories.length
+        ? categories.map(category => `
+            <div class="body-map-category-item">
+              <span class="body-map-category-dot" style="background:${catColors[category] || catColors['その他']}"></span>
+              <span>${escapeHtml(category)}</span>
+            </div>
+          `).join('')
+        : '<div class="body-map-category-item">部位未設定</div>';
 
       const date = new Date(`${dateStr}T00:00:00`);
       document.getElementById('bodyMapTitle').textContent =
@@ -2894,7 +2838,6 @@ function init() {
       if (event && event.target !== event.currentTarget) return;
       const modal = document.getElementById('bodyMapModal');
       if (modal) modal.style.display = 'none';
-      releaseBodyMapObjectUrls();
     }
 
     function getExerciseCategoryOptions(selectedCategory) {
