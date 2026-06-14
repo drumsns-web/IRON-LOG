@@ -4275,7 +4275,6 @@ function init() {
     };
     let editingTechniqueSetIndex = -1;
     let editingTechniqueDraft = { type:'none' };
-    let editingTechniqueWasApplied = false;
 
     function normalizeTechnique(technique) {
       if (!technique || !setTechniqueTypes[technique.type] || technique.type === 'none') return { type:'none' };
@@ -4336,8 +4335,7 @@ function init() {
     function openTechniqueModal(index) {
       editingTechniqueSetIndex = index;
       const currentTechnique = normalizeTechnique(currentSets[index]?.technique);
-      editingTechniqueWasApplied = currentTechnique.type !== 'none';
-      if (editingTechniqueWasApplied) {
+      if (currentTechnique.type !== 'none') {
         editingTechniqueDraft = currentTechnique;
       } else {
         const preferredType = getExerciseInputPreference(selectedExercise).techniqueType;
@@ -4356,7 +4354,6 @@ function init() {
       if (event && event.target !== event.currentTarget) return;
       document.getElementById('techniqueModal').style.display = 'none';
       editingTechniqueSetIndex = -1;
-      editingTechniqueWasApplied = false;
     }
 
     function selectTechniqueType(type) {
@@ -4368,7 +4365,6 @@ function init() {
       if (type === 'drop') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ weight:'', reps:'' }];
       if (type === 'myo') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
       if (type === 'superset') editingTechniqueDraft.partnerExercise = previous.partnerExercise || '';
-      editingTechniqueWasApplied = false;
       renderTechniqueModal();
     }
 
@@ -4402,15 +4398,6 @@ function init() {
         `<button type="button" class="technique-option ${editingTechniqueDraft.type === type ? 'active' : ''}" onclick="selectTechniqueType('${type}')">${label}</button>`
       ).join('');
       const type = editingTechniqueDraft.type;
-      if (!editingTechniqueWasApplied && ['forced','drop','restPause','myo'].includes(type)) {
-        const automatic = type === 'forced' || type === 'restPause'
-          ? 'RPE10へ自動設定します。'
-          : type === 'myo'
-            ? '活性化セットをRPE9へ自動設定します。'
-            : '現在のRPEを維持します。';
-        form.innerHTML = `<div style="color:var(--text); font-size:14px; line-height:1.65;"><strong>まず技法だけ設定します。</strong><br><span style="color:var(--muted);">${automatic} 実施後にもう一度「技法」を開くと、追加回数・重量・休憩時間など結果に必要な欄だけ表示されます。結果が分からない項目は空欄のまま保存できます。</span></div>`;
-        return;
-      }
       if (type === 'none') {
         form.innerHTML = '<div style="color:var(--muted); font-size:12px; line-height:1.6;">通常のセットとして、重量・回数・RPEを記録します。</div>';
       } else if (type === 'partial') {
