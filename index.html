@@ -81,6 +81,10 @@
     .set-row-block { border-bottom:1px solid var(--line); }
     .set-row-block:last-child { border-bottom:none; }
     .set-row-block .set-row { border-bottom:none; }
+    .set-comparison { display:flex; flex-wrap:wrap; gap:5px 10px; padding:0 16px 9px 70px; color:var(--muted); font-size:12px; font-weight:650; line-height:1.4; }
+    .set-comparison .up { color:#8ee99d; }
+    .set-comparison .down { color:#ff9b94; }
+    .set-comparison .same { color:var(--set-label-text); }
     .set-technique-line { display:flex; align-items:center; gap:10px; padding:0 16px 11px 70px; }
     .set-technique-btn { min-height:32px; padding:0 10px; border:1px solid #48484a; border-radius:7px; background:var(--surface-2); color:var(--set-label-text); font-size:12px; font-weight:750; cursor:pointer; }
     .set-technique-btn.active { border-color:rgba(208,253,62,.5); color:var(--accent-brand); background:rgba(208,253,62,.07); }
@@ -2792,21 +2796,40 @@ function init() {
       return Math.round(Math.min(1.25, effort * repFit * techniqueFactor) * 100) / 100;
     }
 
+    function getTechniqueFatigueWeight(set) {
+      const type = normalizeTechnique(set.technique).type;
+      const weights = {
+        none:1,
+        partial:1.15,
+        superset:1.1,
+        drop:1.35,
+        myo:1.35,
+        restPause:1.4,
+        forced:1.5
+      };
+      return weights[type] || 1;
+    }
+
     function getCategoryTrainingStats(startDate, endDate, goalKey = getCoachSettings().goal) {
       const stats = {};
       logs.filter(set => set.date >= startDate && set.date <= endDate).forEach(set => {
         const category = getCategoryForExercise(set.exercise);
-        if (!stats[category]) stats[category] = { sets:0, stimulus:0, hardSets:0, volume:0 };
+        if (!stats[category]) stats[category] = { sets:0, stimulus:0, hardSets:0, volume:0, fatigueSets:0, techniqueSets:0 };
         const metricType = inferLogMetricType(set, set.exercise);
         if (metricType !== 'UP') {
           stats[category].sets += 1;
           stats[category].stimulus += getStimulusSetScore(set, goalKey);
           stats[category].volume += calculateSetVolume(set);
+          stats[category].fatigueSets += getTechniqueFatigueWeight(set);
+          if (normalizeTechnique(set.technique).type !== 'none') stats[category].techniqueSets += 1;
           if (metricType === 'RPE' && Number(set.rpe) >= 9) stats[category].hardSets += 1;
           if (metricType === 'PR' && Number(set.partialReps) > 0) stats[category].hardSets += 1;
         }
       });
-      Object.values(stats).forEach(item => { item.stimulus = Math.round(item.stimulus * 10) / 10; });
+      Object.values(stats).forEach(item => {
+        item.stimulus = Math.round(item.stimulus * 10) / 10;
+        item.fatigueSets = Math.round(item.fatigueSets * 10) / 10;
+      });
       return stats;
     }
 
@@ -2857,6 +2880,8 @@ function init() {
         const stat = weeklyStats[category];
         if (stat && stat.stimulus >= preset.weeklyMax) {
           items.push(coachItem(`${category}は追加量を慎重に`, `直近7日で刺激セット換算${stat.stimulus}。目安上限${preset.weeklyMax}に達しています。`, true));
+        } else if (stat && stat.fatigueSets >= Math.max(preset.weeklyMin, stat.sets + 2)) {
+          items.push(coachItem(`${category}は技法による疲労が高め`, `実セット${stat.sets}に対して疲労換算${stat.fatigueSets}セットです。次回は通常セット中心も候補です。`, true));
         }
       });
 
@@ -2897,12 +2922,13 @@ function init() {
         if (stat.stimulus >= preset.weeklyMax) { status = '高め'; color = 'var(--danger)'; }
         else if (stat.stimulus >= preset.weeklyMin) { status = '目安内'; color = 'var(--accent-2)'; }
         const hardNote = stat.hardSets >= 5 ? '・高努力セット多め' : '';
+        const fatigueNote = stat.fatigueSets >= stat.sets + 1 ? '・技法疲労あり' : '';
         return `<div class="strength-summary-item">
           <div class="strength-summary-name"><span class="strength-legend-dot" style="background:${catColors[category] || catColors['その他']}"></span>${category}</div>
-          <div class="strength-summary-value">${stat.stimulus}<span style="margin-left:5px; color:${color}; font-size:10px;">${status}${hardNote}</span></div>
-          <div style="margin-top:4px; color:var(--muted); font-size:10px;">実セット${stat.sets}・刺激セット換算${stat.stimulus}</div>
+          <div class="strength-summary-value">${stat.stimulus}<span style="margin-left:5px; color:${color}; font-size:10px;">${status}${hardNote}${fatigueNote}</span></div>
+          <div style="margin-top:4px; color:var(--muted); font-size:10px;">実セット${stat.sets}・技法${stat.techniqueSets}・刺激${stat.stimulus}・疲労換算${stat.fatigueSets}</div>
         </div>`;
-      }).join('') + `<div style="margin-top:9px; color:var(--muted); font-size:10px; line-height:1.5;">刺激セットはRPE・回数帯から0〜1セット相当に重み付けした比較用の値です。種目間の重量は直接比較しません。</div>`;
+      }).join('') + `<div style="margin-top:9px; color:var(--muted); font-size:10px; line-height:1.5;">刺激セットはRPE・回数帯、疲労換算はドロップ・レストポーズ・フォーストなどの技法負担を加味した比較用の値です。</div>`;
     }
 
     function estimateSet1RM(set) {
@@ -4338,7 +4364,7 @@ function init() {
       if (currentTechnique.type !== 'none') {
         editingTechniqueDraft = currentTechnique;
       } else {
-        const preferredType = getExerciseInputPreference(selectedExercise).techniqueType;
+        const preferredType = getFrequentTechniqueType(selectedExercise);
         editingTechniqueDraft = setTechniqueTypes[preferredType] ? { type:preferredType } : { type:'none' };
         if (preferredType === 'forced') editingTechniqueDraft.assistedReps = '';
         if (preferredType === 'restPause' || preferredType === 'myo') editingTechniqueDraft.clusters = [{ reps:'', restSeconds:'' }];
@@ -4537,6 +4563,18 @@ function init() {
       return getExerciseInputPreferences()[exName] || {};
     }
 
+    function getFrequentTechniqueType(exName = selectedExercise) {
+      const recent = logs
+        .filter(set => set.exercise === exName && normalizeTechnique(set.technique).type !== 'none')
+        .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))
+        .slice(0, 5)
+        .map(set => normalizeTechnique(set.technique).type);
+      if (!recent.length) return getExerciseInputPreference(exName).techniqueType || 'none';
+      const counts = {};
+      recent.forEach(type => { counts[type] = (counts[type] || 0) + 1; });
+      return recent.reduce((best, type) => counts[type] > counts[best] ? type : best, recent[0]);
+    }
+
     function saveExerciseInputPreference(exName, changes) {
       if (!exName) return;
       const preferences = getExerciseInputPreferences();
@@ -4733,7 +4771,7 @@ function init() {
             prevPartialReps: s.partialReps ?? '', prevMetricType: metricType,
             prevTechnique: normalizeTechnique(s.technique),
             weight: '', reps: '', rpe: rStr, partialReps: '', metricType: metricType,
-            technique: normalizeTechnique(s.technique),
+            technique: { type:'none' },
             done: false 
           });
         });
@@ -4812,6 +4850,7 @@ function init() {
             </div>
             <button class="check-btn ${checkClass}" onclick="toggleDone(${i})">${checkIcon}</button>
           </div>
+          <div class="set-comparison" id="set-comparison-${i}">${getSetComparisonHtml(s)}</div>
           <div class="set-technique-line">
             <button type="button" class="set-technique-btn ${technique.type !== 'none' ? 'active' : ''}" onclick="openTechniqueModal(${i})">${technique.type === 'none' ? '＋ 技法' : setTechniqueTypes[technique.type]}</button>
             <div class="set-technique-summary">${escapeHtml(techniqueSummary)}</div>
@@ -4825,6 +4864,45 @@ function init() {
         el.addEventListener('blur', () => el.parentElement.classList.remove('focus-within'));
       });
       renderSupersetPartnerBox();
+    }
+
+    function formatSetDifference(label, current, previous, digits = 0, suffix = '') {
+      if (!Number.isFinite(current) || !Number.isFinite(previous)) return '';
+      const difference = current - previous;
+      const rounded = Number(difference.toFixed(digits));
+      const className = rounded > 0 ? 'up' : rounded < 0 ? 'down' : 'same';
+      const sign = rounded > 0 ? '+' : '';
+      return `<span class="${className}">${label} ${sign}${rounded.toFixed(digits)}${suffix}</span>`;
+    }
+
+    function getSetComparisonHtml(set) {
+      const parts = [];
+      const weight = Number(set.weight);
+      const reps = Number(set.reps);
+      const prevWeight = Number(set.prevWeight);
+      const prevReps = Number(set.prevReps);
+      if (set.weight !== '' && set.prevWeight !== '') parts.push(formatSetDifference('重量', weight, prevWeight, 1, 'kg'));
+      if (set.reps !== '' && set.prevReps !== '') parts.push(formatSetDifference('回数', reps, prevReps, 0, '回'));
+      if (set.metricType === 'RPE' && set.weight !== '' && set.reps !== '' &&
+          set.prevWeight !== '' && set.prevReps !== '' && set.prevMetricType === 'RPE') {
+        const currentEstimate = estimateSet1RM({ exercise:selectedExercise, weight, reps, rpe:set.rpe, metricType:'RPE' });
+        const previousEstimate = estimateSet1RM({
+          exercise:selectedExercise,
+          weight:prevWeight,
+          reps:prevReps,
+          rpe:set.prevRpe,
+          metricType:'RPE'
+        });
+        if (currentEstimate != null && previousEstimate != null) {
+          parts.push(formatSetDifference('推定1RM', currentEstimate, previousEstimate, 1, 'kg'));
+        }
+      }
+      return parts.filter(Boolean).join('');
+    }
+
+    function updateSetComparison(idx) {
+      const container = document.getElementById(`set-comparison-${idx}`);
+      if (container && currentSets[idx]) container.innerHTML = getSetComparisonHtml(currentSets[idx]);
     }
 
     function addSetRow() {
@@ -4869,6 +4947,7 @@ function init() {
         btn.classList.remove('checked');
         btn.textContent = '';
       }
+      updateSetComparison(idx);
       calcAdvice();
       saveCurrentDraft();
     }
@@ -5052,6 +5131,14 @@ function init() {
       }
       if (lastValidSet.r > 12) {
         items.push({ title:'推定1RMは参考値として扱う', reason:`${lastValidSet.r}回の高回数セットは、低回数より推定誤差が大きくなります。` });
+      }
+      const fatigueEquivalent = validSets.reduce((sum, set) => sum + getTechniqueFatigueWeight(set), 0);
+      if (fatigueEquivalent >= validSets.length + 1.2) {
+        items.push({
+          title:'技法を含むため通常セット以上の疲労',
+          reason:`${validSets.length}セットに対して疲労換算は約${fatigueEquivalent.toFixed(1)}セットです。次セット追加よりフォーム維持や終了を優先する候補です。`,
+          warn:true
+        });
       }
       const lastTechnique = normalizeTechnique(validSets[validSets.length - 1]?.technique).type;
       if (['drop','restPause','myo','forced'].includes(lastTechnique)) {
@@ -5377,6 +5464,18 @@ function detectPersonalRecords(exercise, dateStr, sets) {
       return records;
     }
 
+    function getIncompleteResultLabel(set, index) {
+      const number = index + 1;
+      const technique = normalizeTechnique(set.technique);
+      if (set.metricType === 'PR' && !(Number(set.partialReps) > 0)) return `セット${number}：PR回数`;
+      if (technique.type === 'forced' && !(Number(technique.assistedReps) > 0)) return `セット${number}：フォースト回数`;
+      if (technique.type === 'restPause' && !technique.clusters.some(item => Number(item.reps) > 0)) return `セット${number}：レストポーズ追加回数`;
+      if (technique.type === 'myo' && !technique.clusters.some(item => Number(item.reps) > 0)) return `セット${number}：マイオレップ追加回数`;
+      if (technique.type === 'drop' && !technique.stages.some(item => Number(item.weight) > 0 || Number(item.reps) > 0)) return `セット${number}：ドロップ結果`;
+      if (technique.type === 'superset' && !technique.partnerExercise) return `セット${number}：スーパーセット相手`;
+      return '';
+    }
+
 function saveWorkout() {
       // Find rows that are marked done and have values
       const validSets = currentSets.filter(s => s.done && s.weight !== '' && s.reps !== '');
@@ -5384,6 +5483,12 @@ function saveWorkout() {
       if(validSets.length === 0) {
         alert('保存するセットがありません。\n重量と回数を入力してください。');
         return;
+      }
+      const incompleteResults = validSets.map(getIncompleteResultLabel).filter(Boolean);
+      if (incompleteResults.length) {
+        const preview = incompleteResults.slice(0, 4).join('\n');
+        const more = incompleteResults.length > 4 ? `\nほか${incompleteResults.length - 4}件` : '';
+        if (!confirm(`結果が未入力の項目があります。\n\n${preview}${more}\n\n未入力のまま保存しますか？`)) return;
       }
 
       const memoText = document.getElementById('sessionMemo').value.trim();
