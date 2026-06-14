@@ -647,8 +647,8 @@
         <div style="flex:1; text-align:center">回</div>
         <div id="setMetricHeader" style="width:68px; text-align:center">
           <select id="exerciseMetricDefault" class="metric-header-select" onchange="changeExerciseMetricDefault(this.value)" aria-label="この種目の標準入力">
-            <option value="RPE">RPE</option>
-            <option value="PR">PR</option>
+            <option value="RPE">RPE（余力・強度）</option>
+            <option value="PR">PR（パーシャル回数）</option>
           </select>
         </div>
         <div style="width:36px; text-align:center">✓</div>
@@ -2347,7 +2347,7 @@ function formatRecallSet(set) {
   const effort = set.isWarmup
     ? 'UP'
     : (set.partialReps != null ? `PR${set.partialReps}` : `RPE${set.rpe ?? '-'}`);
-  const technique = getTechniqueSummary(set.technique);
+  const technique = getTechniqueSummary(set.technique, set);
   return `${set.weight}kg×${set.reps}回 ${effort}${technique ? `・${technique}` : ''}`;
 }
 
@@ -3386,7 +3386,7 @@ function init() {
                   : (metricType === 'UP' ? 'UP' : `RPE ${s.rpe}`);
                 const weightText = s.weight !== '' && s.weight != null ? s.weight : '-';
                 const repsText = s.reps !== '' && s.reps != null ? s.reps : '-';
-                const techniqueText = getTechniqueSummary(s.technique);
+                const techniqueText = getTechniqueSummary(s.technique, s);
                 return `
                 <div style="border-bottom:1px solid var(--line);">
                   <div class="log-row" style="background:transparent; border-bottom:none;">
@@ -4165,11 +4165,17 @@ function init() {
       return normalized;
     }
 
-    function getTechniqueSummary(technique) {
+    function getTechniqueSummary(technique, set = null) {
       const data = normalizeTechnique(technique);
       if (data.type === 'none') return '';
-      if (data.type === 'partial') return `パーシャル ${Number(data.extraReps) || 0}回`;
-      if (data.type === 'forced') return `フォースト ${Number(data.assistedReps) || 0}回`;
+      if (data.type === 'partial') {
+        const reps = Number(set?.partialReps);
+        return Number.isFinite(reps) && reps > 0 ? `パーシャル ${reps}回` : 'パーシャル（結果はPR欄）';
+      }
+      if (data.type === 'forced') {
+        const reps = Number(data.assistedReps);
+        return Number.isFinite(reps) && reps > 0 ? `フォースト ${reps}回` : 'フォースト（結果未入力）';
+      }
       if (data.type === 'restPause') {
         const clusters = data.clusters.map(item => Number(item.reps) || 0).filter(Boolean);
         return `レストポーズ ${clusters.join('＋') || '未入力'}回`;
@@ -4196,7 +4202,7 @@ function init() {
       } else if (['restPause','myo'].includes(technique.type)) {
         volume += weight * technique.clusters.reduce((sum, item) => sum + (Number(item.reps) || 0), 0);
       } else if (technique.type === 'partial') {
-        volume += weight * (Number(technique.extraReps) || 0);
+        volume += weight * (Number(set.partialReps) || 0);
       } else if (technique.type === 'forced') {
         volume += weight * (Number(technique.assistedReps) || 0);
       }
@@ -4221,11 +4227,10 @@ function init() {
       if (!setTechniqueTypes[type]) return;
       const previous = editingTechniqueDraft;
       editingTechniqueDraft = { type };
-      if (type === 'partial') editingTechniqueDraft.extraReps = previous.extraReps ?? '';
       if (type === 'forced') editingTechniqueDraft.assistedReps = previous.assistedReps ?? '';
-      if (type === 'restPause') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:20 }];
+      if (type === 'restPause') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
       if (type === 'drop') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ weight:'', reps:'' }];
-      if (type === 'myo') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:15 }];
+      if (type === 'myo') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
       if (type === 'superset') editingTechniqueDraft.partnerExercise = previous.partnerExercise || '';
       renderTechniqueModal();
     }
@@ -4241,7 +4246,7 @@ function init() {
 
     function addTechniqueStage() {
       if (editingTechniqueDraft.type === 'drop') editingTechniqueDraft.stages.push({ weight:'', reps:'' });
-      else editingTechniqueDraft.clusters.push({ reps:'', restSeconds:editingTechniqueDraft.type === 'myo' ? 15 : 20 });
+      else editingTechniqueDraft.clusters.push({ reps:'', restSeconds:'' });
       renderTechniqueModal();
     }
 
@@ -4263,22 +4268,22 @@ function init() {
       if (type === 'none') {
         form.innerHTML = '<div style="color:var(--muted); font-size:12px; line-height:1.6;">通常のセットとして、重量・回数・RPEを記録します。</div>';
       } else if (type === 'partial') {
-        form.innerHTML = `<label>通常回数の後に追加したパーシャル回数</label><input type="number" inputmode="numeric" min="0" value="${editingTechniqueDraft.extraReps ?? ''}" oninput="updateTechniqueField('extraReps',this.value)">`;
+        form.innerHTML = `<div style="color:var(--text); font-size:12px; line-height:1.65;"><strong>パーシャル回数はセット終了後の結果として記録します。</strong><br><span style="color:var(--muted);">「設定する」を押すと、このセットの入力欄が自動でPRへ切り替わります。実際に行ったパーシャル回数はセット表のPR欄へ入力してください。</span></div>`;
       } else if (type === 'forced') {
-        form.innerHTML = `<label>補助者に助けてもらった追加回数</label><input type="number" inputmode="numeric" min="0" value="${editingTechniqueDraft.assistedReps ?? ''}" oninput="updateTechniqueField('assistedReps',this.value)">`;
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--muted); font-size:11px; line-height:1.55;">技法だけ先に設定できます。実施後、実際に補助された回数を記録してください。</div><label>実施後のフォーストレップ回数</label><input type="number" inputmode="numeric" min="0" placeholder="結果を入力" value="${editingTechniqueDraft.assistedReps ?? ''}" oninput="updateTechniqueField('assistedReps',this.value)">`;
       } else if (type === 'drop') {
-        form.innerHTML = `<label>最初の重量・回数は通常欄へ入力し、落とした後の段階を追加します。</label>
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--muted); font-size:11px; line-height:1.55;">技法だけ先に設定できます。実施後、実際に落とした重量と回数を追記してください。</div><label>最初の重量・回数は通常欄へ入力し、その後の結果を追加します。</label>
           <div style="margin-top:9px;">${editingTechniqueDraft.stages.map((item,index) => `<div class="technique-stage">
-            <input type="number" inputmode="decimal" placeholder="重量 kg" value="${item.weight ?? ''}" oninput="updateTechniqueStage(${index},'weight',this.value)">
-            <input type="number" inputmode="numeric" placeholder="回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
+            <input type="number" inputmode="decimal" placeholder="実際の重量 kg" value="${item.weight ?? ''}" oninput="updateTechniqueStage(${index},'weight',this.value)">
+            <input type="number" inputmode="numeric" placeholder="実際の回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
             <button type="button" onclick="removeTechniqueStage(${index})">−</button>
           </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ドロップ段階を追加</button>`;
       } else if (type === 'restPause' || type === 'myo') {
         const title = type === 'myo' ? '活性化セット後のミニセット' : '短い休憩後の追加反復';
-        form.innerHTML = `<label>${title}を順番に入力します。最初の回数は通常欄へ入力します。</label>
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--muted); font-size:11px; line-height:1.55;">技法だけ先に設定できます。追加回数と休憩時間は実施後の結果として入力してください。</div><label>${title}を順番に記録します。最初の回数は通常欄へ入力します。</label>
           <div style="margin-top:9px;">${editingTechniqueDraft.clusters.map((item,index) => `<div class="technique-stage">
-            <input type="number" inputmode="numeric" placeholder="追加回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
-            <input type="number" inputmode="numeric" placeholder="休憩 秒" value="${item.restSeconds ?? ''}" oninput="updateTechniqueStage(${index},'restSeconds',this.value)">
+            <input type="number" inputmode="numeric" placeholder="実際の追加回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
+            <input type="number" inputmode="numeric" placeholder="実際の休憩 秒" value="${item.restSeconds ?? ''}" oninput="updateTechniqueStage(${index},'restSeconds',this.value)">
             <button type="button" onclick="removeTechniqueStage(${index})">−</button>
           </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ミニセットを追加</button>`;
       } else if (type === 'superset') {
@@ -4291,7 +4296,16 @@ function init() {
 
     function saveSetTechnique() {
       if (editingTechniqueSetIndex < 0 || !currentSets[editingTechniqueSetIndex]) return;
-      currentSets[editingTechniqueSetIndex].technique = normalizeTechnique(editingTechniqueDraft);
+      const set = currentSets[editingTechniqueSetIndex];
+      set.technique = normalizeTechnique(editingTechniqueDraft);
+      if (set.technique.type === 'partial') {
+        set.metricType = 'PR';
+        if (set.rpe === 'UP') set.rpe = 8;
+      } else if (set.technique.type === 'none' && set.metricType === 'PR') {
+        set.metricType = 'RPE';
+        set.rpe = 8;
+        set.partialReps = '';
+      }
       renderSetRows();
       renderSupersetPartnerBox();
       calcAdvice();
@@ -4383,6 +4397,7 @@ function init() {
       else if (set.metricType === 'RPE' && (set.rpe === 'UP' || set.rpe == null || set.rpe === '')) set.rpe = 8;
       if (set.partialReps == null) set.partialReps = '';
       set.technique = normalizeTechnique(set.technique);
+      if (set.metricType === 'PR' && set.technique.type === 'none') set.technique = { type:'partial' };
       return set;
     }
 
@@ -4396,6 +4411,8 @@ function init() {
         if (set.metricType !== 'UP') {
           set.metricType = metricType;
           if (metricType === 'RPE' && (set.rpe == null || set.rpe === 'UP')) set.rpe = 8;
+          if (metricType === 'PR') set.technique = { type:'partial' };
+          else if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
         }
       });
       renderSetRows();
@@ -4565,7 +4582,7 @@ function init() {
       const metricDefaultSelect = document.getElementById('exerciseMetricDefault');
       const metricHelp = document.getElementById('setMetricHelp');
       if (metricDefaultSelect) metricDefaultSelect.value = metricDefault;
-      if (metricHelp) metricHelp.textContent = 'RPE・PR・UPは運動強度の記録です。ドロップやレストポーズなどは各セット下の「技法」から別に設定できます。';
+      if (metricHelp) metricHelp.textContent = 'RPE＝通常反復部分の余力・強度。PR＝実際のパーシャル回数。技法の追加回数・重量・休憩は実施後に「技法」へ結果を入力します。';
       container.innerHTML = currentSets.map((s, i) => {
         normalizeCurrentSetMetric(s);
         const isDone = s.done ? 'is-done' : '';
@@ -4578,7 +4595,7 @@ function init() {
         const pPartial = s.prevPartialReps ?? '';
         const metricType = s.metricType;
         const technique = normalizeTechnique(s.technique);
-        const techniqueSummary = getTechniqueSummary(technique);
+        const techniqueSummary = getTechniqueSummary(technique, s);
         const metricInput = metricType === 'PR'
           ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">`
           : metricType === 'UP'
@@ -4683,6 +4700,7 @@ function init() {
     function updatePartialReps(idx, val) {
       currentSets[idx].metricType = 'PR';
       currentSets[idx].rpe = 8;
+      currentSets[idx].technique = { type:'partial' };
       updateSet(idx, 'partialReps', val);
     }
 
@@ -4692,12 +4710,15 @@ function init() {
         s.metricType = 'UP';
         s.rpe = 'UP';
         s.partialReps = '';
+        if (normalizeTechnique(s.technique).type === 'partial') s.technique = { type:'none' };
       } else if (type === 'PR') {
         s.metricType = 'PR';
         if (s.rpe === 'UP') s.rpe = 8;
+        s.technique = { type:'partial' };
       } else {
         s.metricType = 'RPE';
         if (s.rpe === 'UP' || s.rpe == null) s.rpe = 8;
+        if (normalizeTechnique(s.technique).type === 'partial') s.technique = { type:'none' };
       }
       renderSetRows();
       calcAdvice();
@@ -4856,7 +4877,7 @@ function init() {
     function getAiExerciseName() { const picker = document.getElementById('aiExercisePicker'); if (picker && picker.value) return picker.value; return selectedExercise; }
     function getAiExerciseSets(exName) { const unsaved = getCurrentUnsavedAiSets(exName); if (unsaved.length) return unsaved; return logs.filter(function(l){ return l.date === currentDateStr && l.exercise === exName; }).sort(function(a,b){ return a.id - b.id; }); }
     function populateAiExercisePicker() { const wrap = document.getElementById('aiExercisePickerWrap'); const picker = document.getElementById('aiExercisePicker'); if (!wrap || !picker) return; const names = getExerciseNamesForDate(currentDateStr); if (selectedExercise && !names.includes(selectedExercise)) names.push(selectedExercise); if (names.length === 0) { wrap.style.display = 'none'; picker.innerHTML = ''; return; } const defaultName = selectedExercise && names.includes(selectedExercise) ? selectedExercise : names[names.length - 1]; picker.innerHTML = names.map(function(name){ return '<option value="' + escapeHtml(name) + '" ' + (name === defaultName ? 'selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join(''); wrap.style.display = 'block'; }
-    function formatAiSetLine(s, index) { const metricType = inferLogMetricType(s, s.exercise); const effort = metricType === 'UP' ? 'アップ' : (metricType === 'PR' ? 'PR ' + (s.partialReps ?? 0) + '回' : 'RPE ' + s.rpe); const technique = getTechniqueSummary(s.technique); return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + effort + (technique ? '・' + technique : '') + ')'; }
+    function formatAiSetLine(s, index) { const metricType = inferLogMetricType(s, s.exercise); const effort = metricType === 'UP' ? 'アップ' : (metricType === 'PR' ? 'PR ' + (s.partialReps ?? 0) + '回' : 'RPE ' + s.rpe); const technique = getTechniqueSummary(s.technique, s); return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + effort + (technique && metricType !== 'PR' ? '・' + technique : '') + ')'; }
     function getAssistNote(exName) {
       if (/アシスト|assist/i.test(exName || '')) {
         return '\n[アシスト種目の見方]\n記録のkgは、体重 − アシスト重量で算出した実際の負荷として扱ってください。\n';
@@ -4914,8 +4935,8 @@ function init() {
       const effort = metricType === 'PR'
         ? `パーシャル${s.partialReps ?? 0}回`
         : (metricType === 'UP' ? 'UP' : `RPE${s.rpe}`);
-      const technique = getTechniqueSummary(s.technique);
-      return `${s.weight}kg ${s.reps}回 ${effort}${technique ? ` ${technique}` : ''}`;
+      const technique = getTechniqueSummary(s.technique, s);
+      return `${s.weight}kg ${s.reps}回 ${effort}${technique && metricType !== 'PR' ? ` ${technique}` : ''}`;
     }
 
     function showCopyToast(message) {
