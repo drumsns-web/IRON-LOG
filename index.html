@@ -109,7 +109,8 @@
     .set-controls { display: flex; gap: 12px; padding: 12px 16px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px;}
     .set-controls button { height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px; font-weight: bold;}
     .set-add-btn { flex: 1; background: var(--surface-2); border: none; color: #fff; font-size: 18px; }
-    .set-remove-btn { flex: 0 0 96px; background: transparent; border: 1px solid rgba(255, 107, 107, 0.5); color: #ff8b8b; font-size: 13px; }
+    .set-bulk-btn { flex:0 0 74px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:14px; }
+    .set-remove-btn { flex: 0 0 82px; background: transparent; border: 1px solid rgba(255, 107, 107, 0.5); color: #ff8b8b; font-size: 13px; }
     .interval-timer { display:flex; align-items:center; gap:12px; padding:12px; margin-bottom:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
     .timer-ring { --timer-progress:0deg; width:58px; height:58px; border-radius:50%; flex:0 0 auto; background:conic-gradient(var(--accent-brand) var(--timer-progress), var(--surface-3) 0); display:grid; place-items:center; }
     .timer-ring::after { content:''; width:48px; height:48px; border-radius:50%; background:var(--surface); }
@@ -189,6 +190,8 @@
     .metric-choice.up .metric-choice-code { color:#ffd60a; }
     .metric-choice-title { display:block; margin-bottom:4px; font-size:15px; font-weight:800; }
     .metric-choice-description { display:block; color:var(--muted); font-size:13px; font-weight:600; line-height:1.5; }
+    .bulk-action-list { display:grid; gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
+    .bulk-action-list button { width:100%; min-height:52px; padding:8px 14px; border:1px solid #48484a; border-radius:9px; background:var(--surface-2); color:var(--text); font-size:14px; font-weight:750; text-align:left; cursor:pointer; }
 
     .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer;}
     
@@ -687,6 +690,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     <div class="set-controls">
       <button class="set-add-btn" onclick="addSetRow()">＋ セット追加</button>
+      <button class="set-bulk-btn" onclick="openSetBulkModal()">一括</button>
       <button class="set-remove-btn" onclick="removeSetRow()">− 削除</button>
     </div>
 
@@ -701,7 +705,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     <div id="adviceBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.1); border:1px solid rgba(208, 253, 62, 0.2); color:var(--accent-brand); font-size:13px; line-height:1.5;"></div>
 
     
-    <button class="save-btn" onclick="saveWorkout()">チェックしたセットを保存</button>
+    <button class="save-btn" onclick="saveWorkout()">入力済みセットを保存</button>
     <button class="ai-copy-btn" onclick="openAiSheet()">
       <span class="ai-button-icon" data-ai-icon>AI</span> AIに相談する（状況をコピー）
     </button>
@@ -912,6 +916,23 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           <span class="metric-choice-code">UP</span>
           <span><span class="metric-choice-title">ウォームアップセット</span><span class="metric-choice-description">本番前の準備セットとして記録します。RPEやPRの評価には使用しません。</span></span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="technique-modal" id="setBulkModal" onclick="closeSetBulkModal(event)">
+    <div class="technique-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button type="button" onclick="closeSetBulkModal()">閉じる</button>
+        <h3>セットへ一括適用</h3>
+        <div style="width:72px;"></div>
+      </div>
+      <div class="bulk-action-list">
+        <button type="button" onclick="applySetBulkAction('weight')">セット1の重量を全セットへ</button>
+        <button type="button" onclick="applySetBulkAction('reps')">セット1の回数を全セットへ</button>
+        <button type="button" onclick="applySetBulkAction('metric')">セット1のRPE／PR／UP方式を全セットへ</button>
+        <button type="button" onclick="applySetBulkAction('technique')">セット1の技法を全セットへ</button>
+        <button type="button" onclick="applySetBulkAction('up')">全セットをUP（ウォームアップ）へ</button>
       </div>
     </div>
   </div>
@@ -1278,6 +1299,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     const STORE_DRAFTS = 'ironlog-set-drafts-v1';
     const STORE_REFERENCE_VIDEOS = 'ironlog-reference-videos-v1';
     const STORE_METRIC_PREFS = 'ironlog-exercise-metric-prefs-v1';
+    const STORE_EXERCISE_INPUT_PREFS = 'ironlog-exercise-input-prefs-v1';
     const STORE_AI_ICON = 'ironlog-ai-button-icon-v1';
     const STORE_READINESS = 'ironlog-readiness-v1';
     const STORE_PLAN_PRESETS = 'ironlog-plan-presets-v1';
@@ -1406,6 +1428,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         }
       }
       localStorage.setItem('ironlog-interval-minutes', newValue);
+      if (selectedExercise) saveExerciseInputPreference(selectedExercise, { timerMinutes:newValue });
       resetIntervalTimer(false);
     }
 
@@ -1756,6 +1779,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         cycleAdvancedDate: localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '',
         intervalMinutes: localStorage.getItem('ironlog-interval-minutes') || '2',
         metricPreferences: getMetricPreferences(),
+        exerciseInputPreferences: getExerciseInputPreferences(),
         aiButtonIcon: localStorage.getItem(STORE_AI_ICON) || '',
         referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
@@ -1845,6 +1869,9 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
               }
               if (data.metricPreferences) {
                 localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(data.metricPreferences));
+              }
+              if (data.exerciseInputPreferences) {
+                localStorage.setItem(STORE_EXERCISE_INPUT_PREFS, JSON.stringify(data.exerciseInputPreferences));
               }
               if (typeof data.aiButtonIcon === 'string') {
                 if (data.aiButtonIcon) localStorage.setItem(STORE_AI_ICON, data.aiButtonIcon);
@@ -4248,6 +4275,7 @@ function init() {
     };
     let editingTechniqueSetIndex = -1;
     let editingTechniqueDraft = { type:'none' };
+    let editingTechniqueWasApplied = false;
 
     function normalizeTechnique(technique) {
       if (!technique || !setTechniqueTypes[technique.type] || technique.type === 'none') return { type:'none' };
@@ -4307,7 +4335,18 @@ function init() {
 
     function openTechniqueModal(index) {
       editingTechniqueSetIndex = index;
-      editingTechniqueDraft = normalizeTechnique(currentSets[index]?.technique);
+      const currentTechnique = normalizeTechnique(currentSets[index]?.technique);
+      editingTechniqueWasApplied = currentTechnique.type !== 'none';
+      if (editingTechniqueWasApplied) {
+        editingTechniqueDraft = currentTechnique;
+      } else {
+        const preferredType = getExerciseInputPreference(selectedExercise).techniqueType;
+        editingTechniqueDraft = setTechniqueTypes[preferredType] ? { type:preferredType } : { type:'none' };
+        if (preferredType === 'forced') editingTechniqueDraft.assistedReps = '';
+        if (preferredType === 'restPause' || preferredType === 'myo') editingTechniqueDraft.clusters = [{ reps:'', restSeconds:'' }];
+        if (preferredType === 'drop') editingTechniqueDraft.stages = [{ weight:'', reps:'' }];
+        if (preferredType === 'superset') editingTechniqueDraft.partnerExercise = '';
+      }
       document.getElementById('techniqueModalTitle').textContent = `セット${index + 1}の技法`;
       document.getElementById('techniqueModal').style.display = 'flex';
       renderTechniqueModal();
@@ -4317,6 +4356,7 @@ function init() {
       if (event && event.target !== event.currentTarget) return;
       document.getElementById('techniqueModal').style.display = 'none';
       editingTechniqueSetIndex = -1;
+      editingTechniqueWasApplied = false;
     }
 
     function selectTechniqueType(type) {
@@ -4328,6 +4368,7 @@ function init() {
       if (type === 'drop') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ weight:'', reps:'' }];
       if (type === 'myo') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
       if (type === 'superset') editingTechniqueDraft.partnerExercise = previous.partnerExercise || '';
+      editingTechniqueWasApplied = false;
       renderTechniqueModal();
     }
 
@@ -4361,6 +4402,15 @@ function init() {
         `<button type="button" class="technique-option ${editingTechniqueDraft.type === type ? 'active' : ''}" onclick="selectTechniqueType('${type}')">${label}</button>`
       ).join('');
       const type = editingTechniqueDraft.type;
+      if (!editingTechniqueWasApplied && ['forced','drop','restPause','myo'].includes(type)) {
+        const automatic = type === 'forced' || type === 'restPause'
+          ? 'RPE10へ自動設定します。'
+          : type === 'myo'
+            ? '活性化セットをRPE9へ自動設定します。'
+            : '現在のRPEを維持します。';
+        form.innerHTML = `<div style="color:var(--text); font-size:14px; line-height:1.65;"><strong>まず技法だけ設定します。</strong><br><span style="color:var(--muted);">${automatic} 実施後にもう一度「技法」を開くと、追加回数・重量・休憩時間など結果に必要な欄だけ表示されます。結果が分からない項目は空欄のまま保存できます。</span></div>`;
+        return;
+      }
       if (type === 'none') {
         form.innerHTML = '<div style="color:var(--muted); font-size:12px; line-height:1.6;">通常のセットとして、重量・回数・RPEを記録します。</div>';
       } else if (type === 'partial') {
@@ -4393,10 +4443,7 @@ function init() {
       }
     }
 
-    function saveSetTechnique() {
-      if (editingTechniqueSetIndex < 0 || !currentSets[editingTechniqueSetIndex]) return;
-      const set = currentSets[editingTechniqueSetIndex];
-      set.technique = normalizeTechnique(editingTechniqueDraft);
+    function applyTechniqueMetricRules(set) {
       if (set.technique.type === 'partial') {
         set.metricType = 'PR';
         if (set.rpe === 'UP') set.rpe = 8;
@@ -4413,6 +4460,16 @@ function init() {
         set.rpe = 8;
         set.partialReps = '';
       }
+    }
+
+    function saveSetTechnique() {
+      if (editingTechniqueSetIndex < 0 || !currentSets[editingTechniqueSetIndex]) return;
+      const set = currentSets[editingTechniqueSetIndex];
+      set.technique = normalizeTechnique(editingTechniqueDraft);
+      if (set.technique.type !== 'none') {
+        saveExerciseInputPreference(selectedExercise, { techniqueType:set.technique.type });
+      }
+      applyTechniqueMetricRules(set);
       renderSetRows();
       renderSupersetPartnerBox();
       calcAdvice();
@@ -4484,6 +4541,33 @@ function init() {
       catch (e) { return {}; }
     }
 
+    function getExerciseInputPreferences() {
+      try { return JSON.parse(localStorage.getItem(STORE_EXERCISE_INPUT_PREFS) || '{}'); }
+      catch (e) { return {}; }
+    }
+
+    function getExerciseInputPreference(exName = selectedExercise) {
+      return getExerciseInputPreferences()[exName] || {};
+    }
+
+    function saveExerciseInputPreference(exName, changes) {
+      if (!exName) return;
+      const preferences = getExerciseInputPreferences();
+      preferences[exName] = { ...(preferences[exName] || {}), ...changes };
+      localStorage.setItem(STORE_EXERCISE_INPUT_PREFS, JSON.stringify(preferences));
+    }
+
+    function applyExerciseTimerPreference(exName = selectedExercise) {
+      if (intervalTimerActive) return;
+      const value = String(getExerciseInputPreference(exName).timerMinutes || '');
+      if (!['1','2','3','4','5'].includes(value)) return;
+      const select = document.getElementById('timerMinutes');
+      if (select) select.value = value;
+      intervalTimerTotal = Number(value) * 60;
+      intervalTimerRemaining = intervalTimerTotal;
+      renderIntervalTimer();
+    }
+
     function getExerciseMetricDefault(exName = selectedExercise) {
       const saved = getMetricPreferences()[exName];
       if (saved === 'RPE' || saved === 'PR') return saved;
@@ -4513,6 +4597,7 @@ function init() {
       const preferences = getMetricPreferences();
       preferences[selectedExercise] = metricType;
       localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(preferences));
+      saveExerciseInputPreference(selectedExercise, { metricType });
       currentSets.forEach(set => {
         normalizeCurrentSetMetric(set);
         if (set.metricType !== 'UP') {
@@ -4599,6 +4684,7 @@ function init() {
     }
 
     function loadPrevSets() {
+      applyExerciseTimerPreference(selectedExercise);
       const exLogs = logs.filter(l => l.exercise === selectedExercise && l.date <= currentDateStr)
                          .sort((a,b) => b.id - a.id);
 
@@ -4832,22 +4918,67 @@ function init() {
       closeSetMetricModal();
     }
 
+    function openSetBulkModal() {
+      if (!currentSets.length) return;
+      document.getElementById('setBulkModal').style.display = 'flex';
+    }
+
+    function closeSetBulkModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      document.getElementById('setBulkModal').style.display = 'none';
+    }
+
+    function applyMetricTypeToSet(set, type) {
+      if (type === 'UP') {
+        set.metricType = 'UP';
+        set.rpe = 'UP';
+        set.partialReps = '';
+        if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
+      } else if (type === 'PR') {
+        set.metricType = 'PR';
+        if (set.rpe === 'UP') set.rpe = 8;
+        set.technique = { type:'partial' };
+      } else {
+        set.metricType = 'RPE';
+        if (set.rpe === 'UP' || set.rpe == null) set.rpe = 8;
+        if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
+      }
+    }
+
+    function applySetBulkAction(action) {
+      const first = currentSets[0];
+      if (!first) return;
+      if (action === 'weight') {
+        if (first.weight === '') return showCopyToast('セット1の重量を入力してください');
+        currentSets.forEach(set => { set.weight = first.weight; });
+      } else if (action === 'reps') {
+        if (first.reps === '') return showCopyToast('セット1の回数を入力してください');
+        currentSets.forEach(set => { set.reps = first.reps; });
+      } else if (action === 'metric') {
+        currentSets.forEach(set => applyMetricTypeToSet(set, first.metricType));
+      } else if (action === 'technique') {
+        const technique = normalizeTechnique(first.technique);
+        if (technique.type === 'none') return showCopyToast('セット1の技法を設定してください');
+        currentSets.forEach(set => {
+          set.technique = normalizeTechnique(technique);
+          applyTechniqueMetricRules(set);
+        });
+      } else if (action === 'up') {
+        currentSets.forEach(set => applyMetricTypeToSet(set, 'UP'));
+      }
+      currentSets.forEach(set => {
+        if (set.weight !== '' && set.reps !== '') set.done = true;
+      });
+      renderSetRows();
+      calcAdvice();
+      saveCurrentDraft();
+      closeSetBulkModal();
+      showCopyToast('全セットへ反映しました');
+    }
+
     function updateSetMetricType(idx, type) {
       const s = currentSets[idx];
-      if (type === 'UP') {
-        s.metricType = 'UP';
-        s.rpe = 'UP';
-        s.partialReps = '';
-        if (normalizeTechnique(s.technique).type === 'partial') s.technique = { type:'none' };
-      } else if (type === 'PR') {
-        s.metricType = 'PR';
-        if (s.rpe === 'UP') s.rpe = 8;
-        s.technique = { type:'partial' };
-      } else {
-        s.metricType = 'RPE';
-        if (s.rpe === 'UP' || s.rpe == null) s.rpe = 8;
-        if (normalizeTechnique(s.technique).type === 'partial') s.technique = { type:'none' };
-      }
+      applyMetricTypeToSet(s, type);
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
@@ -5264,7 +5395,7 @@ function saveWorkout() {
       const validSets = currentSets.filter(s => s.done && s.weight !== '' && s.reps !== '');
 
       if(validSets.length === 0) {
-        alert('保存するセットがありません。\n入力するか、右の「✓」を押してください。');
+        alert('保存するセットがありません。\n重量と回数を入力してください。');
         return;
       }
 
