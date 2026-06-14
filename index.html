@@ -198,8 +198,8 @@
     .strength-range { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-bottom:12px; }
     .strength-range button { min-height:34px; padding:0 4px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:700; cursor:pointer; }
     .strength-range button.active { border-color:var(--accent-brand); color:#000; background:var(--accent-brand); }
-    .strength-chart-wrap { width:100%; min-height:250px; overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
-    .strength-chart { display:block; width:100%; height:auto; min-height:250px; }
+    .strength-chart-wrap { width:100%; min-height:280px; overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
+    .strength-chart { display:block; width:100%; height:auto; min-height:280px; }
     .strength-legend { display:flex; flex-wrap:wrap; gap:7px 12px; margin-top:11px; }
     .strength-legend-item { display:flex; align-items:center; gap:5px; color:var(--muted); font-size:12px; }
     .strength-legend-dot { width:7px; height:7px; border-radius:50%; }
@@ -2920,12 +2920,12 @@ function init() {
       minValue = Math.max(0, minValue - spread * 0.12);
       maxValue += spread * 0.12;
 
-      const width = 560;
-      const height = 300;
-      const left = 58;
-      const right = 14;
-      const top = 18;
-      const bottom = 46;
+      const width = Math.max(320, Math.round(container.clientWidth || 560));
+      const height = 320;
+      const left = 66;
+      const right = 18;
+      const top = 30;
+      const bottom = 58;
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
       const xAt = index => left + (weeks.length === 1 ? plotWidth / 2 : index * plotWidth / (weeks.length - 1));
@@ -2935,12 +2935,14 @@ function init() {
         const value = maxValue - (maxValue - minValue) * ratio;
         const y = top + plotHeight * ratio;
         return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="rgba(255,255,255,.09)" stroke-width="1"/>
-          <text x="${left-8}" y="${y+5}" fill="#d1d1d6" font-size="14" font-weight="600" text-anchor="end">${Math.round(value)}</text>`;
+          <text x="${left-10}" y="${y+5}" fill="#f2f2f7" font-size="15" font-weight="700" text-anchor="end">${Math.round(value)}</text>`;
       }).join('');
-      const labelEvery = Math.max(1, Math.ceil(weeks.length / 6));
+      const maxDateLabels = Math.max(3, Math.floor(plotWidth / 72));
+      const labelEvery = Math.max(1, Math.ceil((weeks.length - 1) / Math.max(1, maxDateLabels - 1)));
       const xLabels = weeks.map((week, index) => {
         if (index % labelEvery !== 0 && index !== weeks.length - 1) return '';
-        return `<text x="${xAt(index)}" y="${height-13}" fill="#d1d1d6" font-size="13" font-weight="600" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`;
+        const anchor = index === weeks.length - 1 ? 'end' : (index === 0 ? 'start' : 'middle');
+        return `<text x="${xAt(index)}" y="${height-17}" fill="#f2f2f7" font-size="15" font-weight="700" text-anchor="${anchor}">${week.date.getMonth()+1}/${week.date.getDate()}</text>`;
       }).join('');
       const lines = visibleCategories.map(category => {
         const color = catColors[category] || catColors['その他'];
@@ -2972,7 +2974,7 @@ function init() {
       container.innerHTML = `<div class="strength-chart-wrap">
         <svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="部位別推定1RMの推移">
           ${gridLines}${xLabels}${lines}
-          <text x="12" y="15" fill="#d1d1d6" font-size="13" font-weight="700">kg</text>
+          <text x="${width-right}" y="19" fill="#f2f2f7" font-size="15" font-weight="800" text-anchor="end">kg</text>
         </svg>
       </div>
       <div class="strength-legend">${legend}</div>
@@ -3007,7 +3009,7 @@ function init() {
       return { weeks, points };
     }
 
-    function buildLineChartSvg(weeks, points, color, ariaLabel, unit = 'kg') {
+    function buildLineChartSvg(weeks, points, color, ariaLabel, unit = 'kg', renderWidth = 560) {
       const available = points.filter(Boolean);
       if (!available.length) return '';
       const values = available.map(point => point.value);
@@ -3016,7 +3018,8 @@ function init() {
       const spread = Math.max(unit === 'kg' ? 5 : 1, maxValue - minValue);
       minValue = Math.max(0, minValue - spread * 0.15);
       maxValue += spread * 0.15;
-      const width = 560, height = 250, left = 58, right = 14, top = 20, bottom = 46;
+      const width = Math.max(320, Math.round(renderWidth || 560));
+      const height = 280, left = 66, right = 18, top = 30, bottom = 58;
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
       const xAt = index => left + (weeks.length === 1 ? plotWidth / 2 : index * plotWidth / (weeks.length - 1));
@@ -3026,14 +3029,15 @@ function init() {
         const value = maxValue - (maxValue - minValue) * ratio;
         const y = top + plotHeight * ratio;
         return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}" stroke="rgba(255,255,255,.09)"/>
-          <text x="${left-8}" y="${y+5}" fill="#d1d1d6" font-size="14" font-weight="600" text-anchor="end">${value.toFixed(1)}</text>`;
+          <text x="${left-10}" y="${y+5}" fill="#f2f2f7" font-size="15" font-weight="700" text-anchor="end">${value.toFixed(1)}</text>`;
       }).join('');
-      const labelEvery = Math.max(1, Math.ceil(weeks.length / 6));
-      const labels = weeks.map((week, index) =>
-        (index % labelEvery === 0 || index === weeks.length - 1)
-          ? `<text x="${xAt(index)}" y="${height-13}" fill="#d1d1d6" font-size="13" font-weight="600" text-anchor="middle">${week.date.getMonth()+1}/${week.date.getDate()}</text>`
-          : ''
-      ).join('');
+      const maxDateLabels = Math.max(3, Math.floor(plotWidth / 72));
+      const labelEvery = Math.max(1, Math.ceil((weeks.length - 1) / Math.max(1, maxDateLabels - 1)));
+      const labels = weeks.map((week, index) => {
+        if (index % labelEvery !== 0 && index !== weeks.length - 1) return '';
+        const anchor = index === weeks.length - 1 ? 'end' : (index === 0 ? 'start' : 'middle');
+        return `<text x="${xAt(index)}" y="${height-17}" fill="#f2f2f7" font-size="15" font-weight="700" text-anchor="${anchor}">${week.date.getMonth()+1}/${week.date.getDate()}</text>`;
+      }).join('');
       const coordinates = points.map((point, index) => point ? `${xAt(index)},${yAt(point.value)}` : '').filter(Boolean);
       const line = coordinates.length > 1
         ? `<polyline points="${coordinates.join(' ')}" fill="none" stroke="${color}" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>`
@@ -3042,7 +3046,7 @@ function init() {
         ? `<circle cx="${xAt(index)}" cy="${yAt(point.value)}" r="3.8" fill="${color}" stroke="#121212" stroke-width="1.5"><title>${point.date} ${point.value.toFixed(1)}${unit}</title></circle>`
         : '').join('');
       return `<div class="strength-chart-wrap"><svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${ariaLabel}">
-        ${grid}${labels}${line}${dots}<text x="12" y="16" fill="#d1d1d6" font-size="13" font-weight="700">${unit}</text>
+        ${grid}${labels}${line}${dots}<text x="${width-right}" y="19" fill="#f2f2f7" font-size="15" font-weight="800" text-anchor="end">${unit}</text>
       </svg></div>`;
     }
 
@@ -3080,7 +3084,7 @@ function init() {
         <div class="strength-summary-item"><div class="strength-summary-name">前回比</div><div class="strength-summary-value" style="color:${change == null ? 'var(--muted)' : change >= 0 ? 'var(--accent-2)' : 'var(--danger)'}">${change == null ? '--' : `${change >= 0 ? '+' : ''}${change.toFixed(1)}kg`}</div></div>
         <div class="strength-summary-item"><div class="strength-summary-name">体重比</div><div class="strength-summary-value">${ratio ? `${ratio.toFixed(2)}倍` : '--'}</div></div>
       </div>`;
-      container.innerHTML = buildLineChartSvg(weeks, points, color, `${exercise}の推定1RM推移`) + summary;
+      container.innerHTML = buildLineChartSvg(weeks, points, color, `${exercise}の推定1RM推移`, 'kg', container.clientWidth) + summary;
     }
 
     function renderBodyweightReport() {
@@ -3104,7 +3108,7 @@ function init() {
       const latest = available[available.length - 1];
       const first = available[0];
       const change = latest.value - first.value;
-      container.innerHTML = buildLineChartSvg(weeks, points, '#5ac8fa', '体重の推移')
+      container.innerHTML = buildLineChartSvg(weeks, points, '#5ac8fa', '体重の推移', 'kg', container.clientWidth)
         + `<div class="report-insight"><strong>最新 ${latest.value.toFixed(1)}kg</strong>　期間内 ${change >= 0 ? '+' : ''}${change.toFixed(1)}kg</div>`;
     }
 
