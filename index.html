@@ -11,6 +11,7 @@
       --bg: #000000; --surface: #121212; --surface-2: #1c1c1e; --surface-3: #2c2c2e;
       --text: #f3f5f7; --muted: #8e8e93; --line: #2c2c2e;
       --accent: #ff453a; --accent-brand: #d0fd3e; --accent-2: #32d74b;
+      --set-value-text: #ffffff; --set-label-text: #d1d1d6; --set-ghost-text: #9f9fa5;
       --danger: #ff453a;
       --radius: 12px;
     }
@@ -73,7 +74,7 @@
     .nav-header h1 { margin: 0; font-size: 18px; font-weight: 600; flex: 1; text-align: center; }
 
     .set-list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; overflow:hidden;}
-    .set-header { display: flex; padding: 10px 16px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); font-weight: 600;}
+    .set-header { display: flex; padding: 10px 16px; font-size: 13px; color: var(--set-label-text); border-bottom: 1px solid var(--line); font-weight: 700;}
     .set-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); gap: 10px; transition: background 0.2s;}
     .set-row:last-child { border-bottom: none; }
     .set-row.is-done { background: rgba(50, 215, 75, 0.05); }
@@ -81,26 +82,26 @@
     .set-row-block:last-child { border-bottom:none; }
     .set-row-block .set-row { border-bottom:none; }
     .set-technique-line { display:flex; align-items:center; gap:10px; padding:0 16px 11px 70px; }
-    .set-technique-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:700; cursor:pointer; }
+    .set-technique-btn { min-height:32px; padding:0 10px; border:1px solid #48484a; border-radius:7px; background:var(--surface-2); color:var(--set-label-text); font-size:12px; font-weight:750; cursor:pointer; }
     .set-technique-btn.active { border-color:rgba(208,253,62,.5); color:var(--accent-brand); background:rgba(208,253,62,.07); }
-    .set-technique-summary { min-width:0; flex:1; color:#f2f2f7; font-size:14px; font-weight:750; line-height:1.4; white-space:normal; overflow-wrap:anywhere; }
+    .set-technique-summary { min-width:0; flex:1; color:var(--set-value-text); font-size:14px; font-weight:750; line-height:1.4; white-space:normal; overflow-wrap:anywhere; }
 
-    .set-label { width: 44px; font-size: 14px; font-weight: 600; color: var(--muted); text-align: center;}
+    .set-label { width: 44px; font-size: 15px; font-weight: 750; color: var(--set-label-text); text-align: center;}
 
     /* Input Box with Placeholder styled like ghost value */
     .input-box { flex: 1; background: var(--surface-2); border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: space-between; border: 1px solid transparent;}
     .input-box.focus-within { border-color: var(--accent-brand); }
-    .input-box input { background: transparent; border: none; color: #fff; font-size: 18px; font-weight: 700; width: 100%; text-align: right; outline: none; padding: 0; margin-right: 4px;}
-    .input-box input::placeholder { color: rgba(255,255,255,0.25); font-weight: 500; } /* Thin/Ghost color for previous value */
-    .input-box span { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .input-box input { background: transparent; border: none; color: var(--set-value-text); font-size: 19px; font-weight: 750; width: 100%; text-align: right; outline: none; padding: 0; margin-right: 4px;}
+    .input-box input::placeholder { color: var(--set-ghost-text); opacity:1; font-weight: 600; } /* Previous value */
+    .input-box span { color: var(--set-label-text); font-size: 13px; font-weight: 700; }
 
     .rpe-box { width: 64px; background: var(--surface-2); border-radius: 8px; padding: 2px 4px; display: flex; flex-direction:column; align-items: stretch; justify-content: center; gap:1px;}
-    .rpe-box select { background: transparent; border: none; color: #fff; font-size: 14px; width: 100%; height: 38px; outline: none; appearance: none; text-align: center; font-weight:600;}
+    .rpe-box select { background: transparent; border: none; color: var(--set-value-text); font-size: 14px; width: 100%; height: 38px; outline: none; appearance: none; text-align: center; font-weight:700;}
     .metric-value-select { height:22px !important; font-size:14px !important; }
-    .set-type-select { height:17px !important; border-radius:4px !important; background:var(--surface-3) !important; color:var(--muted) !important; font-size:9px !important; font-weight:800 !important; text-align-last:center; cursor:pointer; }
+    .set-type-select { height:19px !important; border-radius:4px !important; background:var(--surface-3) !important; color:var(--set-label-text) !important; font-size:11px !important; font-weight:800 !important; text-align-last:center; cursor:pointer; }
     .set-type-select.up { background:var(--accent-brand) !important; color:#000 !important; }
     .metric-up-label { height:22px; display:flex; align-items:center; justify-content:center; color:var(--accent-brand); font-size:12px; font-weight:800; }
-    .metric-header-select { width:68px; height:28px; border:1px solid var(--line); border-radius:7px; outline:none; background:var(--surface-2); color:var(--text); font-size:10px; font-weight:800; text-align:center; text-align-last:center; }
+    .metric-header-select { width:68px; height:30px; border:1px solid #48484a; border-radius:7px; outline:none; background:var(--surface-2); color:var(--set-value-text); font-size:11px; font-weight:800; text-align:center; text-align-last:center; }
 
     .check-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-3); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 16px; font-weight: bold; transition: 0.2s;}
     .check-btn.checked { background: var(--accent-2); color: #000; }
@@ -122,11 +123,11 @@
     .timer-status { min-height:17px; margin-top:6px; color:var(--muted); font-size:10px; line-height:1.45; font-variant-numeric:tabular-nums; }
     .timer-status.overtime { color:var(--accent-brand); font-weight:700; }
     .partial-box { width:64px; background:var(--surface-2); border-radius:8px; padding:2px 4px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:1px; }
-    .partial-box input { width:100%; height:22px; border:none; outline:none; background:transparent; color:#fff; text-align:center; font-size:14px; font-weight:700; padding:0; }
-    .partial-box input::placeholder { color:rgba(255,255,255,.25); font-weight:500; }
-    .partial-type-select { width:100%; height:17px; border:none; outline:none; border-radius:4px; background:var(--surface-3); color:var(--muted); font-size:9px; line-height:17px; font-weight:800; text-align:center; text-align-last:center; padding:0 1px; cursor:pointer; }
+    .partial-box input { width:100%; height:22px; border:none; outline:none; background:transparent; color:var(--set-value-text); text-align:center; font-size:15px; font-weight:750; padding:0; }
+    .partial-box input::placeholder { color:var(--set-ghost-text); opacity:1; font-weight:600; }
+    .partial-type-select { width:100%; height:19px; border:none; outline:none; border-radius:4px; background:var(--surface-3); color:var(--set-label-text); font-size:11px; line-height:19px; font-weight:800; text-align:center; text-align-last:center; padding:0 1px; cursor:pointer; }
     .partial-type-select.up { background:var(--accent-brand); color:#000; }
-    .set-metric-help { padding:7px 12px 9px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; line-height:1.45; }
+    .set-metric-help { padding:8px 12px 10px; border-top:1px solid var(--line); color:var(--set-label-text); font-size:12px; font-weight:600; line-height:1.5; }
     .reference-video-trigger { width:100%; min-height:46px; padding:0 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); color:var(--text); font-size:13px; font-weight:700; cursor:pointer; }
     .reference-video-trigger span:last-child { color:var(--accent-brand); font-size:12px; }
     .video-modal { position:fixed; inset:0; z-index:230; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.72); backdrop-filter:blur(4px); }
@@ -984,6 +985,15 @@
     <details class="template-details">
       <summary>入力欄・略語の説明</summary>
       <div class="template-body" style="font-size:12px; color:var(--muted); line-height:1.65;">
+        <div style="color:var(--text); font-weight:700;">セット入力欄の文字色</div>
+        <select id="setTextColorSelect" onchange="saveSetTextColor(this.value)" style="width:100%; min-height:44px; margin-top:8px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); font-size:15px; font-weight:700; outline:none;">
+          <option value="white">白（高コントラスト）</option>
+          <option value="lime">黄緑</option>
+          <option value="blue">水色</option>
+          <option value="warm">暖色</option>
+        </select>
+        <div style="margin-top:6px;">重量・回数・RPE/PRと、セット周辺の見出しへ反映されます。前回値は区別できるよう少し薄く表示します。</div>
+
         <div style="margin-top:12px; color:var(--text); font-weight:700;">種目名によって変わる入力</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">「アシスト」「assist」</strong>を含む種目：体重 − アシスト重量で実際の負荷を計算します。</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">「チンニング」「懸垂」「ディップス」</strong>を含む種目：体重 ＋ 追加重量で実際の負荷を計算します。</div>
@@ -1227,6 +1237,7 @@
     const STORE_READINESS = 'ironlog-readiness-v1';
     const STORE_PLAN_PRESETS = 'ironlog-plan-presets-v1';
     const STORE_COACH_SETTINGS = 'ironlog-coach-settings-v1';
+    const STORE_SET_TEXT_COLOR = 'ironlog-set-text-color-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1578,10 +1589,40 @@
       document.getElementById('sheetOverlay').style.display = 'block';
       setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
       document.getElementById('settingsSheet').style.transform = 'translateY(0)';
+      loadSetTextColor();
       renderCatColorSettings();
       renderAiButtonIcon();
       renderPlanPresets();
       loadCoachSettings();
+    }
+
+    const setTextColorThemes = {
+      white: { value:'#ffffff', label:'#d1d1d6', ghost:'#9f9fa5' },
+      lime: { value:'#e7ff94', label:'#d4e3a4', ghost:'#9ead78' },
+      blue: { value:'#d8f0ff', label:'#c4d9e7', ghost:'#91a8b8' },
+      warm: { value:'#fff0c7', label:'#e7d7b2', ghost:'#aa9c7c' }
+    };
+
+    function applySetTextColor(themeName) {
+      const name = setTextColorThemes[themeName] ? themeName : 'white';
+      const theme = setTextColorThemes[name];
+      const root = document.documentElement.style;
+      root.setProperty('--set-value-text', theme.value);
+      root.setProperty('--set-label-text', theme.label);
+      root.setProperty('--set-ghost-text', theme.ghost);
+      const select = document.getElementById('setTextColorSelect');
+      if (select) select.value = name;
+    }
+
+    function loadSetTextColor() {
+      applySetTextColor(localStorage.getItem(STORE_SET_TEXT_COLOR) || 'white');
+    }
+
+    function saveSetTextColor(themeName) {
+      const name = setTextColorThemes[themeName] ? themeName : 'white';
+      localStorage.setItem(STORE_SET_TEXT_COLOR, name);
+      applySetTextColor(name);
+      showCopyToast('セット入力欄の文字色を変更しました');
     }
 
     function renderAiButtonIcon() {
@@ -2476,6 +2517,7 @@ function init() {
       loadCoachSettings();
       initIntervalTimer();
       renderAiButtonIcon();
+      loadSetTextColor();
     }
 
     // --- View Navigation ---
