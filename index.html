@@ -4364,11 +4364,11 @@ function init() {
       if (type === 'none') {
         form.innerHTML = '<div style="color:var(--muted); font-size:12px; line-height:1.6;">通常のセットとして、重量・回数・RPEを記録します。</div>';
       } else if (type === 'partial') {
-        form.innerHTML = `<div style="color:var(--text); font-size:12px; line-height:1.65;"><strong>パーシャル回数はセット終了後の結果として記録します。</strong><br><span style="color:var(--muted);">「設定する」を押すと、このセットの入力欄が自動でPRへ切り替わります。実際に行ったパーシャル回数はセット表のPR欄へ入力してください。</span></div>`;
+        form.innerHTML = `<div style="color:var(--text); font-size:12px; line-height:1.65;"><strong>入力欄をPRへ自動変更します。</strong><br><span style="color:var(--muted);">パーシャル回数はセット終了後の結果として記録します。実際に行った追加回数をセット表のPR欄へ入力してください。</span></div>`;
       } else if (type === 'forced') {
-        form.innerHTML = `<div style="margin-bottom:9px; color:var(--muted); font-size:11px; line-height:1.55;">技法だけ先に設定できます。実施後、実際に補助された回数を記録してください。</div><label>実施後のフォーストレップ回数</label><input type="number" inputmode="numeric" min="0" placeholder="結果を入力" value="${editingTechniqueDraft.assistedReps ?? ''}" oninput="updateTechniqueField('assistedReps',this.value)">`;
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>限界後の補助反復としてRPE10へ自動設定します。</strong><br><span style="color:var(--muted);">実施後、補助を受けて追加した回数を記録してください。</span></div><label>実施後のフォーストレップ回数</label><input type="number" inputmode="numeric" min="0" placeholder="結果を入力" value="${editingTechniqueDraft.assistedReps ?? ''}" oninput="updateTechniqueField('assistedReps',this.value)">`;
       } else if (type === 'drop') {
-        form.innerHTML = `<div style="margin-bottom:9px; color:var(--muted); font-size:11px; line-height:1.55;">技法だけ先に設定できます。実施後、実際に落とした重量と回数を追記してください。</div><label>最初の重量・回数は通常欄へ入力し、その後の結果を追加します。</label>
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>最初のセットのRPEは現在の入力を維持します。</strong><br><span style="color:var(--muted);">実施後、実際に落とした重量と回数を追記してください。</span></div><label>最初の重量・回数は通常欄へ入力し、その後の結果を追加します。</label>
           <div style="margin-top:9px;">${editingTechniqueDraft.stages.map((item,index) => `<div class="technique-stage">
             <input type="number" inputmode="decimal" placeholder="実際の重量 kg" value="${item.weight ?? ''}" oninput="updateTechniqueStage(${index},'weight',this.value)">
             <input type="number" inputmode="numeric" placeholder="実際の回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
@@ -4376,7 +4376,10 @@ function init() {
           </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ドロップ段階を追加</button>`;
       } else if (type === 'restPause' || type === 'myo') {
         const title = type === 'myo' ? '活性化セット後のミニセット' : '短い休憩後の追加反復';
-        form.innerHTML = `<div style="margin-bottom:9px; color:var(--muted); font-size:11px; line-height:1.55;">技法だけ先に設定できます。追加回数と休憩時間は実施後の結果として入力してください。</div><label>${title}を順番に記録します。最初の回数は通常欄へ入力します。</label>
+        const effortNote = type === 'myo'
+          ? '<strong>活性化セットをRPE9へ自動設定します。</strong>'
+          : '<strong>限界付近から再開する技法としてRPE10へ自動設定します。</strong>';
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;">${effortNote}<br><span style="color:var(--muted);">追加回数と休憩時間は実施後の結果として入力してください。</span></div><label>${title}を順番に記録します。最初の回数は通常欄へ入力します。</label>
           <div style="margin-top:9px;">${editingTechniqueDraft.clusters.map((item,index) => `<div class="technique-stage">
             <input type="number" inputmode="numeric" placeholder="実際の追加回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
             <input type="number" inputmode="numeric" placeholder="実際の休憩 秒" value="${item.restSeconds ?? ''}" oninput="updateTechniqueStage(${index},'restSeconds',this.value)">
@@ -4384,7 +4387,7 @@ function init() {
           </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ミニセットを追加</button>`;
       } else if (type === 'superset') {
         const names = Object.values(exercises).flat().filter(name => name !== selectedExercise);
-        form.innerHTML = `<label>続けて行う相手種目</label><select onchange="updateTechniqueField('partnerExercise',this.value)">
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>限界とは限らないため、現在のRPEを維持します。</strong></div><label>続けて行う相手種目</label><select onchange="updateTechniqueField('partnerExercise',this.value)">
           <option value="">選択してください</option>${names.map(name => `<option value="${escapeHtml(name)}" ${editingTechniqueDraft.partnerExercise === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
         </select><div style="margin-top:8px; color:var(--muted); font-size:10px; line-height:1.5;">相手種目側にも同じ組み合わせが表示されます。各種目の重量・回数はそれぞれの画面で記録します。</div>`;
       }
@@ -4397,6 +4400,14 @@ function init() {
       if (set.technique.type === 'partial') {
         set.metricType = 'PR';
         if (set.rpe === 'UP') set.rpe = 8;
+      } else if (set.technique.type === 'forced' || set.technique.type === 'restPause') {
+        set.metricType = 'RPE';
+        set.rpe = 10;
+        set.partialReps = '';
+      } else if (set.technique.type === 'myo') {
+        set.metricType = 'RPE';
+        set.rpe = 9;
+        set.partialReps = '';
       } else if (set.technique.type === 'none' && set.metricType === 'PR') {
         set.metricType = 'RPE';
         set.rpe = 8;
