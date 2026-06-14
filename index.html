@@ -71,6 +71,9 @@
     .body-map-image-card { overflow:hidden; border:1px solid #34363a; border-radius:10px; background:#0d0e10; }
     .body-map-image-title { padding:9px 12px; border-bottom:1px solid #2e3034; color:#f4f5f7; font-size:15px; font-weight:800; }
     .body-map-reference-image { display:block; width:100%; height:auto; background:#0d0e10; font-size:0; color:transparent; }
+    .body-map-image-error { display:none; min-height:120px; padding:24px 16px; align-items:center; justify-content:center; color:var(--muted); font-size:14px; text-align:center; }
+    .body-map-image-card.load-failed .body-map-reference-image { display:none; }
+    .body-map-image-card.load-failed .body-map-image-error { display:flex; }
 
     /* Floating Add Button */
     .fab-container { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 50;}
@@ -2798,6 +2801,26 @@ function init() {
       '三頭筋': 'body_map_assets/triceps.jpg',
       '腹': 'body_map_assets/abs.jpg'
     };
+    let bodyMapObjectUrls = [];
+
+    function releaseBodyMapObjectUrls() {
+      bodyMapObjectUrls.forEach(url => URL.revokeObjectURL(url));
+      bodyMapObjectUrls = [];
+    }
+
+    function getSafariSafeBodyMapImageUrl(source) {
+      if (!String(source).startsWith('data:image/')) return source;
+      const commaIndex = source.indexOf(',');
+      const header = source.slice(0, commaIndex);
+      const mimeMatch = header.match(/^data:([^;,]+)/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const binary = atob(source.slice(commaIndex + 1));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+      bodyMapObjectUrls.push(objectUrl);
+      return objectUrl;
+    }
 
     function getPrimaryMusclesForExercise(exName) {
       const category = getCategoryForExercise(exName);
@@ -2821,16 +2844,39 @@ function init() {
       if (!exerciseNames.length) return;
 
       const gallery = document.getElementById('bodyMapImageGallery');
-      gallery.innerHTML = categories.map(category => {
+      releaseBodyMapObjectUrls();
+      gallery.replaceChildren();
+      categories.forEach(category => {
         const imageSrc = bodyMapImageForCategory[category];
-        if (!imageSrc) return '';
-        return `
-          <div class="body-map-image-card">
-            <div class="body-map-image-title">${escapeHtml(category)}</div>
-            <img class="body-map-reference-image" src="${imageSrc}" alt="${escapeHtml(category)}のトレーニング部位">
-          </div>
-        `;
-      }).join('');
+        if (!imageSrc) return;
+
+        const card = document.createElement('div');
+        card.className = 'body-map-image-card';
+
+        const title = document.createElement('div');
+        title.className = 'body-map-image-title';
+        title.textContent = category;
+
+        const image = document.createElement('img');
+        image.className = 'body-map-reference-image';
+        image.alt = `${category}のトレーニング部位`;
+        image.decoding = 'async';
+        image.onload = () => card.classList.remove('load-failed');
+        image.onerror = () => card.classList.add('load-failed');
+
+        const error = document.createElement('div');
+        error.className = 'body-map-image-error';
+        error.textContent = '画像を読み込めませんでした。ページを再読み込みしてください。';
+
+        card.append(title, image, error);
+        gallery.appendChild(card);
+
+        try {
+          image.src = getSafariSafeBodyMapImageUrl(imageSrc);
+        } catch (error) {
+          card.classList.add('load-failed');
+        }
+      });
 
       const date = new Date(`${dateStr}T00:00:00`);
       document.getElementById('bodyMapTitle').textContent =
@@ -2848,6 +2894,7 @@ function init() {
       if (event && event.target !== event.currentTarget) return;
       const modal = document.getElementById('bodyMapModal');
       if (modal) modal.style.display = 'none';
+      releaseBodyMapObjectUrls();
     }
 
     function getExerciseCategoryOptions(selectedCategory) {
