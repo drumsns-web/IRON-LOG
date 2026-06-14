@@ -127,6 +127,8 @@
     .partial-box input::placeholder { color:var(--set-ghost-text); opacity:1; font-weight:600; }
     .partial-type-select { width:100%; height:19px; border:none; outline:none; border-radius:4px; background:var(--surface-3); color:var(--set-label-text); font-size:11px; line-height:19px; font-weight:800; text-align:center; text-align-last:center; padding:0 1px; cursor:pointer; }
     .partial-type-select.up { background:var(--accent-brand); color:#000; }
+    .set-metric-trigger { width:100%; height:21px; border:1px solid #48484a; outline:none; border-radius:5px; background:var(--surface-3); color:var(--set-label-text); font-size:11px; line-height:19px; font-weight:800; text-align:center; padding:0 2px; cursor:pointer; }
+    .set-metric-trigger.up { background:var(--accent-brand); color:#000; border-color:var(--accent-brand); }
     .set-metric-help { padding:8px 12px 10px; border-top:1px solid var(--line); color:var(--set-label-text); font-size:12px; font-weight:600; line-height:1.5; }
     .reference-video-trigger { width:100%; min-height:46px; padding:0 14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); color:var(--text); font-size:13px; font-weight:700; cursor:pointer; }
     .reference-video-trigger span:last-child { color:var(--accent-brand); font-size:12px; }
@@ -180,6 +182,13 @@
     .technique-add-stage { width:100%; min-height:38px; border:1px dashed var(--line); border-radius:8px; background:transparent; color:var(--text); font-weight:700; cursor:pointer; }
     .technique-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
     .technique-actions button { min-height:44px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; }
+    .metric-choice-list { display:grid; gap:10px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
+    .metric-choice { width:100%; min-height:78px; display:grid; grid-template-columns:58px 1fr; gap:12px; align-items:center; padding:12px; border:1px solid #48484a; border-radius:10px; background:var(--surface-2); color:var(--text); text-align:left; cursor:pointer; }
+    .metric-choice.active { border-color:var(--accent-brand); background:rgba(208,253,62,.08); }
+    .metric-choice-code { color:var(--accent-brand); font-size:18px; font-weight:900; text-align:center; }
+    .metric-choice.up .metric-choice-code { color:#ffd60a; }
+    .metric-choice-title { display:block; margin-bottom:4px; font-size:15px; font-weight:800; }
+    .metric-choice-description { display:block; color:var(--muted); font-size:13px; font-weight:600; line-height:1.5; }
 
     .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer;}
     
@@ -879,6 +888,30 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div class="youtube-player-footer">
         <div class="youtube-player-note">埋め込み再生できない動画はYouTubeで開いてください。</div>
         <button class="youtube-external-btn" type="button" onclick="openCurrentVideoInYouTube()">YouTubeで開く</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="technique-modal" id="setMetricModal" onclick="closeSetMetricModal(event)">
+    <div class="technique-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button type="button" onclick="closeSetMetricModal()">キャンセル</button>
+        <h3 id="setMetricModalTitle">入力方式を選択</h3>
+        <div style="width:72px;"></div>
+      </div>
+      <div class="metric-choice-list">
+        <button type="button" class="metric-choice" data-metric-choice="RPE" onclick="selectSetMetricFromModal('RPE')">
+          <span class="metric-choice-code">RPE</span>
+          <span><span class="metric-choice-title">余力・運動強度</span><span class="metric-choice-description">セット終了時に「あと何回できたか」を記録します。RPE10＝余力0回、9＝あと1回、8＝あと2回です。</span></span>
+        </button>
+        <button type="button" class="metric-choice" data-metric-choice="PR" onclick="selectSetMetricFromModal('PR')">
+          <span class="metric-choice-code">PR</span>
+          <span><span class="metric-choice-title">Partial Reps（パーシャルレップ）</span><span class="metric-choice-description">通常の可動域の後に行った、狭い可動域での追加回数を記録します。例：追加5回ならPRは5です。</span></span>
+        </button>
+        <button type="button" class="metric-choice up" data-metric-choice="UP" onclick="selectSetMetricFromModal('UP')">
+          <span class="metric-choice-code">UP</span>
+          <span><span class="metric-choice-title">ウォームアップセット</span><span class="metric-choice-description">本番前の準備セットとして記録します。RPEやPRの評価には使用しません。</span></span>
+        </button>
       </div>
     </div>
   </div>
@@ -4691,11 +4724,7 @@ function init() {
             </div>
             <div class="partial-box">
               ${metricInput}
-              <select class="set-type-select ${metricType === 'UP' ? 'up' : ''}" aria-label="セットの入力方式" onchange="updateSetMetricType(${i}, this.value)">
-                <option value="RPE" ${metricType === 'RPE' ? 'selected' : ''}>RPE</option>
-                <option value="PR" ${metricType === 'PR' ? 'selected' : ''}>PR</option>
-                <option value="UP" ${metricType === 'UP' ? 'selected' : ''}>UP</option>
-              </select>
+              <button type="button" class="set-metric-trigger ${metricType === 'UP' ? 'up' : ''}" aria-label="セット${i+1}の入力方式を選択" onclick="openSetMetricModal(${i})">${metricType}</button>
             </div>
             <button class="check-btn ${checkClass}" onclick="toggleDone(${i})">${checkIcon}</button>
           </div>
@@ -4765,6 +4794,31 @@ function init() {
       currentSets[idx].rpe = 8;
       currentSets[idx].technique = { type:'partial' };
       updateSet(idx, 'partialReps', val);
+    }
+
+    let editingMetricSetIndex = -1;
+
+    function openSetMetricModal(idx) {
+      if (!currentSets[idx]) return;
+      editingMetricSetIndex = idx;
+      document.getElementById('setMetricModalTitle').textContent = `セット${idx + 1}の入力方式`;
+      document.querySelectorAll('[data-metric-choice]').forEach(button => {
+        button.classList.toggle('active', button.dataset.metricChoice === currentSets[idx].metricType);
+      });
+      document.getElementById('setMetricModal').style.display = 'flex';
+    }
+
+    function closeSetMetricModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      document.getElementById('setMetricModal').style.display = 'none';
+      editingMetricSetIndex = -1;
+    }
+
+    function selectSetMetricFromModal(type) {
+      if (editingMetricSetIndex < 0) return;
+      const idx = editingMetricSetIndex;
+      updateSetMetricType(idx, type);
+      closeSetMetricModal();
     }
 
     function updateSetMetricType(idx, type) {
