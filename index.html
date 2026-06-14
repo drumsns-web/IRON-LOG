@@ -56,7 +56,7 @@
     .body-map-close { min-height:38px; padding:0 12px; border:none; background:transparent; color:var(--muted); font-size:15px; font-weight:700; cursor:pointer; }
     .body-map-body { padding:14px 16px max(28px,env(safe-area-inset-bottom)); overflow-y:auto; }
     .body-map-note { color:var(--muted); font-size:13px; line-height:1.5; text-align:center; }
-    .body-map-stage { position:relative; isolation:isolate; width:100%; margin-top:12px; overflow:hidden; border:1px solid #303238; border-radius:10px; background:#101113; aspect-ratio:3/2; }
+    .body-map-stage { display:none; }
     .body-map-anatomy { display:block; width:100%; height:100%; object-fit:cover; font-size:0; color:transparent; }
     .body-map-svg { position:absolute; inset:0; display:block; width:100%; height:100%; pointer-events:none; }
     .body-map-view-label { position:absolute; top:10px; z-index:2; padding:5px 9px; border:1px solid rgba(255,255,255,.18); border-radius:6px; background:rgba(10,11,12,.8); color:#f4f5f7; font-size:13px; font-weight:800; }
@@ -67,6 +67,10 @@
     .body-map-exercises { display:flex; flex-wrap:wrap; gap:7px; margin-top:13px; }
     .body-map-chip { padding:6px 9px; border:1px solid #3d4045; border-radius:7px; background:#202226; color:#f2f2f7; font-size:12px; font-weight:700; }
     .body-map-muscles { margin-top:11px; color:#ff8b84; font-size:13px; font-weight:700; line-height:1.55; }
+    .body-map-gallery { display:grid; gap:12px; margin-top:12px; }
+    .body-map-image-card { overflow:hidden; border:1px solid #34363a; border-radius:10px; background:#0d0e10; }
+    .body-map-image-title { padding:9px 12px; border-bottom:1px solid #2e3034; color:#f4f5f7; font-size:15px; font-weight:800; }
+    .body-map-reference-image { display:block; width:100%; height:auto; background:#0d0e10; font-size:0; color:transparent; }
 
     /* Floating Add Button */
     .fab-container { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 50;}
@@ -926,11 +930,11 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div style="width:58px;"></div>
       </div>
       <div class="body-map-body">
-        <div class="body-map-note">種目に設定された部位を、部位全体で赤く表示します。</div>
+        <div class="body-map-note">記録された部位に対応するトレーニング画像を表示します。</div>
         <div class="body-map-stage">
           <span class="body-map-view-label front">前面</span>
           <span class="body-map-view-label back">背面</span>
-          <img class="body-map-anatomy" src="body_map_anatomy_v2.jpg" alt="" aria-label="正面と背面の筋肉解剖図">
+          <img class="body-map-anatomy" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="">
           <svg class="body-map-svg" viewBox="0 0 1536 1024" role="img" aria-label="トレーニングした筋肉の強調表示">
             <!-- Front -->
             <path data-muscle="chest" d="M292 171C319 148 365 143 404 169L403 247C370 262 328 258 298 230C291 211 288 190 292 171ZM411 169C450 143 496 148 523 171C527 190 524 211 517 230C487 258 445 262 412 247Z" class="body-muscle"/>
@@ -955,6 +959,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
             <path data-muscle="calves" d="M997 694C1017 682 1043 694 1058 720C1058 768 1051 819 1040 856C1028 876 1009 876 997 854C990 805 990 744 997 694ZM1161 694C1141 682 1115 694 1100 720C1100 768 1107 819 1118 856C1130 876 1149 876 1161 854C1168 805 1168 744 1161 694Z" class="body-muscle"/>
           </svg>
         </div>
+        <div id="bodyMapImageGallery" class="body-map-gallery"></div>
         <div id="bodyMapExercises" class="body-map-exercises"></div>
         <div id="bodyMapMuscles" class="body-map-muscles"></div>
       </div>
@@ -2784,6 +2789,16 @@ function init() {
       'その他': []
     };
 
+    const bodyMapImageForCategory = {
+      '胸': 'body_map_assets/chest.jpg',
+      '肩': 'body_map_assets/shoulders.jpg',
+      '背中': 'body_map_assets/back.jpg',
+      '脚': 'body_map_assets/legs.jpg',
+      '二頭筋': 'body_map_assets/biceps.jpg',
+      '三頭筋': 'body_map_assets/triceps.jpg',
+      '腹': 'body_map_assets/abs.jpg'
+    };
+
     function getPrimaryMusclesForExercise(exName) {
       const category = getCategoryForExercise(exName);
       return bodyMapMusclesForCategory[category] || [];
@@ -2805,9 +2820,17 @@ function init() {
       const { exerciseNames, categories, muscles } = getBodyMapDataForDate(dateStr);
       if (!exerciseNames.length) return;
 
-      modal.querySelectorAll('[data-muscle]').forEach(part => {
-        part.classList.toggle('active', muscles.includes(part.dataset.muscle));
-      });
+      const gallery = document.getElementById('bodyMapImageGallery');
+      gallery.innerHTML = categories.map(category => {
+        const imageSrc = bodyMapImageForCategory[category];
+        if (!imageSrc) return '';
+        return `
+          <div class="body-map-image-card">
+            <div class="body-map-image-title">${escapeHtml(category)}</div>
+            <img class="body-map-reference-image" src="${imageSrc}" alt="${escapeHtml(category)}のトレーニング部位">
+          </div>
+        `;
+      }).join('');
 
       const date = new Date(`${dateStr}T00:00:00`);
       document.getElementById('bodyMapTitle').textContent =
