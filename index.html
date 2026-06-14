@@ -49,6 +49,24 @@
     .cal-dots { display: flex; justify-content: center; align-items: center; gap: 3px; min-height: 6px; max-width: 42px; overflow: hidden; }
     .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex: 0 0 auto; }
     .cal-day.empty { opacity: 0; pointer-events: none; }
+    .body-map-modal { position:fixed; inset:0; z-index:260; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.82); backdrop-filter:blur(6px); }
+    .body-map-dialog { width:min(600px,100%); max-height:min(92vh,92dvh); display:flex; flex-direction:column; background:#101113; border:1px solid #34363a; border-radius:18px 18px 0 0; overflow:hidden; }
+    .body-map-header { min-height:62px; padding:0 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #2f3135; }
+    .body-map-header h3 { margin:0; font-size:18px; }
+    .body-map-close { min-height:38px; padding:0 12px; border:none; background:transparent; color:var(--muted); font-size:15px; font-weight:700; cursor:pointer; }
+    .body-map-body { padding:14px 16px max(28px,env(safe-area-inset-bottom)); overflow-y:auto; }
+    .body-map-note { color:var(--muted); font-size:13px; line-height:1.5; text-align:center; }
+    .body-map-figures { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    .body-map-figure { min-width:0; padding:10px 4px 6px; border:1px solid #303238; border-radius:10px; background:#17181b; }
+    .body-map-figure-title { margin-bottom:4px; color:#f4f5f7; font-size:14px; font-weight:800; text-align:center; }
+    .body-map-svg { display:block; width:100%; height:auto; max-height:390px; }
+    .body-base { fill:#24262a; stroke:#8e939b; stroke-width:2; stroke-linejoin:round; }
+    .body-detail { fill:none; stroke:#555a62; stroke-width:1.2; stroke-linecap:round; }
+    .body-muscle { fill:#2d3035; stroke:#16171a; stroke-width:1.5; transition:fill .18s,filter .18s; }
+    .body-muscle.active { fill:#ff453a; filter:drop-shadow(0 0 4px rgba(255,69,58,.5)); }
+    .body-map-exercises { display:flex; flex-wrap:wrap; gap:7px; margin-top:13px; }
+    .body-map-chip { padding:6px 9px; border:1px solid #3d4045; border-radius:7px; background:#202226; color:#f2f2f7; font-size:12px; font-weight:700; }
+    .body-map-muscles { margin-top:11px; color:#ff8b84; font-size:13px; font-weight:700; line-height:1.55; }
 
     /* Floating Add Button */
     .fab-container { position: fixed; bottom: 24px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; z-index: 50;}
@@ -896,6 +914,76 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div class="youtube-player-footer">
         <div class="youtube-player-note">埋め込み再生できない動画はYouTubeで開いてください。</div>
         <button class="youtube-external-btn" type="button" onclick="openCurrentVideoInYouTube()">YouTubeで開く</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="body-map-modal" id="bodyMapModal" onclick="closeBodyMapModal(event)">
+    <div class="body-map-dialog" onclick="event.stopPropagation()">
+      <div class="body-map-header">
+        <button class="body-map-close" type="button" onclick="closeBodyMapModal()">閉じる</button>
+        <h3 id="bodyMapTitle">トレーニング部位</h3>
+        <div style="width:58px;"></div>
+      </div>
+      <div class="body-map-body">
+        <div class="body-map-note">その日の種目から、主に鍛えた筋群を赤く表示します。</div>
+        <div class="body-map-figures">
+          <div class="body-map-figure">
+            <div class="body-map-figure-title">前面</div>
+            <svg class="body-map-svg" viewBox="0 0 260 520" role="img" aria-label="身体前面の筋肉マップ">
+              <ellipse cx="130" cy="42" rx="29" ry="35" class="body-base"/>
+              <path d="M113 73L103 96L75 110L57 154L43 225L58 236L76 178L84 158L76 268L90 365L101 493L123 493L130 370L137 493L159 493L173 365L184 268L176 158L184 178L202 236L217 225L203 154L185 110L157 96L147 73Z" class="body-base"/>
+              <path d="M113 73Q130 86 147 73M103 96Q130 112 157 96M130 86V268M84 158Q130 173 176 158M76 268Q130 287 184 268" class="body-detail"/>
+              <path data-muscle="chest" d="M80 112Q102 92 127 104L127 151Q101 158 80 139Z" class="body-muscle"/>
+              <path data-muscle="chest" d="M180 112Q158 92 133 104L133 151Q159 158 180 139Z" class="body-muscle"/>
+              <path data-muscle="frontDelts" d="M76 109Q57 119 57 148L80 156L88 116Z" class="body-muscle"/>
+              <path data-muscle="frontDelts" d="M184 109Q203 119 203 148L180 156L172 116Z" class="body-muscle"/>
+              <path data-muscle="biceps" d="M59 153L82 151L75 206L57 224L47 216Z" class="body-muscle"/>
+              <path data-muscle="biceps" d="M201 153L178 151L185 206L203 224L213 216Z" class="body-muscle"/>
+              <path data-muscle="abs" d="M91 155Q110 164 127 158L126 200Q108 208 92 196Z" class="body-muscle"/>
+              <path data-muscle="abs" d="M169 155Q150 164 133 158L134 200Q152 208 168 196Z" class="body-muscle"/>
+              <path data-muscle="abs" d="M94 201Q111 210 126 204L125 245Q110 253 96 240Z" class="body-muscle"/>
+              <path data-muscle="abs" d="M166 201Q149 210 134 204L135 245Q150 253 164 240Z" class="body-muscle"/>
+              <path data-muscle="obliques" d="M83 158L91 157L96 242L82 259L76 220Z" class="body-muscle"/>
+              <path data-muscle="obliques" d="M177 158L169 157L164 242L178 259L184 220Z" class="body-muscle"/>
+              <path data-muscle="quads" d="M78 270Q103 282 127 272L122 367L92 363Z" class="body-muscle"/>
+              <path data-muscle="quads" d="M182 270Q157 282 133 272L138 367L168 363Z" class="body-muscle"/>
+              <path data-muscle="calves" d="M93 371L122 374L116 488L101 488Z" class="body-muscle"/>
+              <path data-muscle="calves" d="M167 371L138 374L144 488L159 488Z" class="body-muscle"/>
+            </svg>
+          </div>
+          <div class="body-map-figure">
+            <div class="body-map-figure-title">背面</div>
+            <svg class="body-map-svg" viewBox="0 0 260 520" role="img" aria-label="身体背面の筋肉マップ">
+              <ellipse cx="130" cy="42" rx="29" ry="35" class="body-base"/>
+              <path d="M113 73L103 96L75 110L57 154L43 225L58 236L76 178L84 158L76 268L90 365L101 493L123 493L130 370L137 493L159 493L173 365L184 268L176 158L184 178L202 236L217 225L203 154L185 110L157 96L147 73Z" class="body-base"/>
+              <path d="M130 78V268M103 96Q130 111 157 96M84 158Q130 178 176 158M76 268Q130 289 184 268" class="body-detail"/>
+              <path data-muscle="traps" d="M113 74L130 87L147 74L158 101L145 145L130 158L115 145L102 101Z" class="body-muscle"/>
+              <path data-muscle="rearDelts" d="M76 109Q57 119 57 148L80 156L88 116Z" class="body-muscle"/>
+              <path data-muscle="rearDelts" d="M184 109Q203 119 203 148L180 156L172 116Z" class="body-muscle"/>
+              <path data-muscle="infraspinatus" d="M105 110L128 101L126 142L103 153L88 132Z" class="body-muscle"/>
+              <path data-muscle="infraspinatus" d="M155 110L132 101L134 142L157 153L172 132Z" class="body-muscle"/>
+              <path data-muscle="teres" d="M91 137L105 151L126 143L123 165L101 177L86 158Z" class="body-muscle"/>
+              <path data-muscle="teres" d="M169 137L155 151L134 143L137 165L159 177L174 158Z" class="body-muscle"/>
+              <path data-muscle="rhomboids" d="M111 145L127 139L126 190L104 174Z" class="body-muscle"/>
+              <path data-muscle="rhomboids" d="M149 145L133 139L134 190L156 174Z" class="body-muscle"/>
+              <path data-muscle="lats" d="M101 176L126 191L124 252L91 233L82 181Z" class="body-muscle"/>
+              <path data-muscle="lats" d="M159 176L134 191L136 252L169 233L178 181Z" class="body-muscle"/>
+              <path data-muscle="erectors" d="M124 190L129 190L128 269L115 258Z" class="body-muscle"/>
+              <path data-muscle="erectors" d="M136 190L131 190L132 269L145 258Z" class="body-muscle"/>
+              <path data-muscle="triceps" d="M59 153L82 151L75 206L57 224L47 216Z" class="body-muscle"/>
+              <path data-muscle="triceps" d="M201 153L178 151L185 206L203 224L213 216Z" class="body-muscle"/>
+              <path data-muscle="glutes" d="M79 269Q104 254 128 271L124 322Q104 334 84 318Z" class="body-muscle"/>
+              <path data-muscle="glutes" d="M181 269Q156 254 132 271L136 322Q156 334 176 318Z" class="body-muscle"/>
+              <path data-muscle="hamstrings" d="M86 321L124 326L122 370L92 365Z" class="body-muscle"/>
+              <path data-muscle="hamstrings" d="M174 321L136 326L138 370L168 365Z" class="body-muscle"/>
+              <path data-muscle="calves" d="M93 371L122 374L116 488L101 488Z" class="body-muscle"/>
+              <path data-muscle="calves" d="M167 371L138 374L144 488L159 488Z" class="body-muscle"/>
+            </svg>
+          </div>
+        </div>
+        <div id="bodyMapExercises" class="body-map-exercises"></div>
+        <div id="bodyMapMuscles" class="body-map-muscles"></div>
       </div>
     </div>
   </div>
@@ -2692,6 +2780,117 @@ function init() {
       return 'その他';
     }
 
+    const bodyMapMuscleNames = {
+      chest: '胸',
+      frontDelts: '三角筋前部・中部',
+      rearDelts: '三角筋後部',
+      biceps: '上腕二頭筋',
+      triceps: '上腕三頭筋',
+      abs: '腹直筋',
+      obliques: '腹斜筋',
+      traps: '僧帽筋',
+      rhomboids: '菱形筋',
+      infraspinatus: '棘下筋',
+      teres: '大円筋・小円筋',
+      lats: '広背筋',
+      erectors: '脊柱起立筋',
+      quads: '大腿四頭筋',
+      hamstrings: 'ハムストリング',
+      glutes: '臀筋',
+      calves: '下腿'
+    };
+
+    function getPrimaryMusclesForExercise(exName) {
+      const name = String(exName || '').toLowerCase();
+
+      // Hip hinges and unsupported rows include the spinal erectors.
+      if (/ルーマニアン|romanian|\brdl\b/.test(name)) return ['hamstrings', 'glutes', 'erectors'];
+      if (/スティッフ|stiff[\s-]?leg/.test(name)) return ['hamstrings', 'glutes', 'erectors'];
+      if (/ベント[\s・-]?オーバー|bent[\s-]?over|ペンドレイ|pendlay|t[\s-]?bar.*(?:row|ロウ)|バーベル(?:ロウ|ロー)/.test(name)) {
+        return ['lats', 'teres', 'infraspinatus', 'rhomboids', 'traps', 'erectors'];
+      }
+
+      // Supported and upright upper-back work does not automatically mark the erectors.
+      if (/シーテッド.*(?:ロウ|ロー)|ケーブル.*(?:ロウ|ロー)|chest[\s-]?supported|チェストサポート|マシン.*(?:ロウ|ロー)|one[\s-]?arm.*row|ワンハンド.*(?:ロウ|ロー)/.test(name)) {
+        return ['lats', 'teres', 'infraspinatus', 'rhomboids', 'traps'];
+      }
+      if (/ラット.*プル|lat.*pull/.test(name)) return ['lats', 'teres'];
+      if (/チンニング|懸垂|pull[\s-]?up|chin[\s-]?up/.test(name)) {
+        return ['lats', 'teres', 'infraspinatus', 'rhomboids', 'traps'];
+      }
+      if (/シュラッグ|shrug/.test(name)) return ['traps'];
+      if (/デッドリフト|deadlift/.test(name)) return ['erectors', 'glutes', 'hamstrings', 'quads', 'traps', 'lats'];
+
+      if (/ベンチ|チェストプレス|ダンベルプレス|フライ|push[\s-]?up|腕立/.test(name)) {
+        return ['chest', 'frontDelts', 'triceps'];
+      }
+      if (/オーバーヘッド|ショルダープレス|ミリタリー|arnold|アーノルド/.test(name)) {
+        return ['frontDelts', 'rearDelts', 'triceps'];
+      }
+      if (/サイドレイズ|ラテラル|フロントレイズ/.test(name)) return ['frontDelts'];
+      if (/リアレイズ|reverse.*fly|リアデルト/.test(name)) return ['rearDelts', 'infraspinatus'];
+
+      if (/カール|curl/.test(name)) return ['biceps'];
+      if (/プレスダウン|フレンチ|スカル|キックバック|triceps|extension/.test(name)) return ['triceps'];
+
+      if (/スクワット|squat/.test(name)) return ['quads', 'glutes', 'hamstrings'];
+      if (/レッグプレス|leg[\s-]?press/.test(name)) return ['quads', 'glutes'];
+      if (/レッグエクステンション|leg[\s-]?extension/.test(name)) return ['quads'];
+      if (/レッグカール|leg[\s-]?curl/.test(name)) return ['hamstrings'];
+      if (/ヒップスラスト|hip[\s-]?thrust|グルートブリッジ/.test(name)) return ['glutes', 'hamstrings'];
+      if (/カーフ|calf/.test(name)) return ['calves'];
+      if (/アブローラー|クランチ|シットアップ|腹筋|plank|プランク/.test(name)) return ['abs', 'obliques'];
+
+      // Custom exercise names fall back to their registered category.
+      switch (getCategoryForExercise(exName)) {
+        case '胸': return ['chest'];
+        case '肩': return ['frontDelts', 'rearDelts'];
+        case '背中': return ['lats', 'teres', 'infraspinatus', 'rhomboids', 'traps'];
+        case '脚': return ['quads', 'hamstrings', 'glutes', 'calves'];
+        case '二頭筋': return ['biceps'];
+        case '三頭筋': return ['triceps'];
+        case '腹': return ['abs', 'obliques'];
+        default: return [];
+      }
+    }
+
+    function getBodyMapDataForDate(dateStr) {
+      const dayLogs = logs
+        .filter(log => log.date === dateStr)
+        .sort((a, b) => a.id - b.id);
+      const exerciseNames = [...new Set(dayLogs.map(log => log.exercise).filter(Boolean))];
+      const muscles = [...new Set(exerciseNames.flatMap(getPrimaryMusclesForExercise))];
+      return { exerciseNames, muscles };
+    }
+
+    function openBodyMapModal(dateStr = currentDateStr) {
+      const modal = document.getElementById('bodyMapModal');
+      if (!modal) return;
+      const { exerciseNames, muscles } = getBodyMapDataForDate(dateStr);
+      if (!exerciseNames.length) return;
+
+      modal.querySelectorAll('[data-muscle]').forEach(part => {
+        part.classList.toggle('active', muscles.includes(part.dataset.muscle));
+      });
+
+      const date = new Date(`${dateStr}T00:00:00`);
+      document.getElementById('bodyMapTitle').textContent =
+        `${date.getMonth() + 1}月${date.getDate()}日のトレーニング部位`;
+      document.getElementById('bodyMapExercises').innerHTML = exerciseNames
+        .map(name => `<span class="body-map-chip">${escapeHtml(name)}</span>`)
+        .join('');
+      document.getElementById('bodyMapMuscles').textContent = muscles.length
+        ? `主な筋群：${muscles.map(key => bodyMapMuscleNames[key] || key).join('、')}`
+        : '主な筋群を判定できませんでした。種目の部位設定を確認してください。';
+      modal.style.display = 'flex';
+    }
+
+    function closeBodyMapModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const modal = document.getElementById('bodyMapModal');
+      if (modal) modal.style.display = 'none';
+    }
+
     function getExerciseCategoryOptions(selectedCategory) {
       return Object.keys(exercises).map(category =>
         `<option value="${escapeHtml(category)}" ${category === selectedCategory ? 'selected' : ''}>${escapeHtml(category)}</option>`
@@ -3427,7 +3626,7 @@ function init() {
         const isHasLog = dayCats.length > 0 ? 'has-log' : '';
         const isActive = dStr === currentDateStr ? 'active' : '';
         const dotsHtml = dayCats.slice(0, 6).map(cat => `<span class="cal-dot" style="background:${catColors[cat] || catColors['その他']};"></span>`).join('');
-        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" onclick="selectDate('${dStr}')"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
+        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" onclick="selectDate('${dStr}', true)"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
       }
     }
 
@@ -3438,7 +3637,7 @@ function init() {
       renderCalendar();
     }
 
-    function selectDate(dStr) {
+    function selectDate(dStr, showBodyMap = false) {
       currentDateStr = dStr;
       const d = new Date(dStr);
       const isToday = dStr === formatDate(new Date());
@@ -3451,6 +3650,9 @@ function init() {
       renderDailyLogs();
       updateTodayTemplate();
       loadDailyReadiness();
+      if (showBodyMap && logs.some(log => log.date === dStr)) {
+        openBodyMapModal(dStr);
+      }
     }
 
     function renderDailyLogs() {
