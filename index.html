@@ -39,7 +39,7 @@
     .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: 600; font-size: 15px; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
     .cal-day-name { font-size: 12px; color: var(--muted); padding-bottom: 6px; }
-    .cal-day { padding: 5px 0 4px; border-radius: 8px; font-size: 15px; cursor: pointer; border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; box-sizing: border-box; }
+    .cal-day { padding: 5px 0 4px; border-radius: 8px; font-size: 15px; cursor: pointer; border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; box-sizing: border-box; touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
     .cal-day:active { background: var(--surface-3); }
     .cal-day.active { color: var(--text); font-weight: 700; background: transparent; }
     .cal-day-number { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; line-height: 1; }
@@ -672,9 +672,13 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div class="timer-controls">
           <select id="timerMinutes" onchange="changeTimerDuration()">
             <option value="1">1分</option>
+            <option value="1.5">1分30秒</option>
             <option value="2" selected>2分</option>
+            <option value="2.5">2分30秒</option>
             <option value="3">3分</option>
+            <option value="3.5">3分30秒</option>
             <option value="4">4分</option>
+            <option value="4.5">4分30秒</option>
             <option value="5">5分</option>
           </select>
           <button id="timerStartBtn" onclick="toggleIntervalTimer()">スタート</button>
@@ -1416,6 +1420,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     let currentDateStr = formatDate(todayObj);
     let viewYear = todayObj.getFullYear();
     let viewMonth = todayObj.getMonth();
+    let lastKnownTodayStr = currentDateStr;
+    let dateRolloverTimer = null;
 
     let activeCategory = "胸";
     let selectedExercise = "";
@@ -1441,10 +1447,16 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     let intervalTimerActive = false;
     let intervalTimerTwentySecondNotified = false;
     let timerNoticeTimeout = null;
+    const intervalMinuteOptions = ['1','1.5','2','2.5','3','3.5','4','4.5','5'];
 
     function getTimerSelectedSeconds() {
       const select = document.getElementById('timerMinutes');
-      return Math.max(60, Math.min(300, parseInt(select?.value || '2', 10) * 60));
+      return Math.max(60, Math.min(300, Math.round(Number(select?.value || '2') * 60)));
+    }
+
+    function getTimerOptionValue(totalSeconds) {
+      const minutes = Math.max(60, Math.min(300, Number(totalSeconds) || 120)) / 60;
+      return String(Math.round(minutes * 2) / 2);
     }
 
     function formatTimerDuration(totalSeconds) {
@@ -1557,8 +1569,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       const select = document.getElementById('timerMinutes');
       const newValue = select?.value || '2';
       if (intervalTimerActive) {
-        const previousValue = String(Math.max(1, Math.min(5, Math.round(intervalTimerTotal / 60))));
-        if (!confirm(`${newValue}分に変更してタイマーをリセットしますか？`)) {
+        const previousValue = getTimerOptionValue(intervalTimerTotal);
+        if (!confirm(`${formatTimerDuration(Number(newValue) * 60)}に変更してタイマーをリセットしますか？`)) {
           if (select) select.value = previousValue;
           return;
         }
@@ -1614,7 +1626,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       const select = document.getElementById('timerMinutes');
       const saved = localStorage.getItem('ironlog-interval-minutes') || '2';
       localStorage.removeItem('ironlog-timer-alarm');
-      if (select && ['1','2','3','4','5'].includes(saved)) select.value = saved;
+      if (select && intervalMinuteOptions.includes(saved)) select.value = saved;
       try {
         const state = JSON.parse(localStorage.getItem(STORE_INTERVAL_TIMER) || 'null');
         if (state && Number(state.start) > 0 && Number(state.end) > Number(state.start) && Number(state.total) > 0) {
@@ -1623,7 +1635,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           intervalTimerTotal = Number(state.total);
           intervalTimerActive = true;
           intervalTimerTwentySecondNotified = Date.now() >= intervalTimerEnd - 20000;
-          if (select) select.value = String(Math.max(1, Math.min(5, Math.round(intervalTimerTotal / 60))));
+          if (select) select.value = getTimerOptionValue(intervalTimerTotal);
           if (Date.now() >= intervalTimerEnd) {
             completeIntervalTimer();
           } else {
@@ -2437,22 +2449,74 @@ function markCyclePlanCompleted(dateStr) {
   localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, getCurrentCycleSlot());
 }
 
-function syncCycleSlotForToday() {
+function getLatestRecordedCycleCompletion() {
+  const candidates = logs
+    .filter(log => log.planMode === 'cycle' && /^プラン[A-G]$/.test(log.planLabel || ''))
+    .sort((a, b) => a.date.localeCompare(b.date) || Number(a.id || 0) - Number(b.id || 0));
+  if (!candidates.length) return null;
+  const latest = candidates[candidates.length - 1];
+  return { date:latest.date, slot:latest.planLabel.replace('プラン', '') };
+}
+
+function reconcileCycleCompletionState() {
+  const recorded = getLatestRecordedCycleCompletion();
+  const storedDate = localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '';
+  const storedSlot = localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '';
+  if (recorded && (!storedDate || recorded.date > storedDate || !cycleNames.includes(storedSlot))) {
+    localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, recorded.date);
+    localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, recorded.slot);
+    return recorded;
+  }
+  return storedDate && cycleNames.includes(storedSlot)
+    ? { date:storedDate, slot:storedSlot }
+    : recorded;
+}
+
+function syncCycleSlotForDate(targetDateStr) {
   if ((localStorage.getItem(STORE_TMPL_MODE) || 'weekday') !== 'cycle') return;
+  const completion = reconcileCycleCompletionState();
+  if (!completion || completion.date >= targetDateStr) return;
+  const advancedDate = localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '';
+  if (advancedDate === completion.date) return;
+
+  const idx = cycleNames.indexOf(completion.slot);
+  const next = cycleNames[(idx + 1) % cycleNames.length];
+  localStorage.setItem(STORE_CYCLE_SLOT, next);
+  localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, completion.date);
+}
+
+function syncCycleSlotForToday() {
   if (typeof currentDateStr === 'undefined') return;
   const todayStr = formatDate(new Date());
   if (currentDateStr !== todayStr) return;
+  syncCycleSlotForDate(todayStr);
+}
 
-  const completedDate = localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '';
-  const completedSlot = localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '';
-  const advancedDate = localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '';
-  if (!completedDate || completedDate >= todayStr || advancedDate === completedDate) return;
-  if (!cycleNames.includes(completedSlot)) return;
+function syncAppDateAfterResume() {
+  const actualTodayStr = formatDate(new Date());
+  const previousTodayStr = lastKnownTodayStr;
 
-  const idx = cycleNames.indexOf(completedSlot);
-  const next = cycleNames[(idx + 1) % cycleNames.length];
-  localStorage.setItem(STORE_CYCLE_SLOT, next);
-  localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, completedDate);
+  if (actualTodayStr === previousTodayStr) {
+    if (currentDateStr === actualTodayStr) {
+      syncCycleSlotForToday();
+      updateTodayTemplate();
+    }
+    return;
+  }
+
+  lastKnownTodayStr = actualTodayStr;
+  if (currentDateStr === previousTodayStr) {
+    const actualToday = new Date(`${actualTodayStr}T00:00:00`);
+    viewYear = actualToday.getFullYear();
+    viewMonth = actualToday.getMonth();
+    selectDate(actualTodayStr);
+    return;
+  }
+
+  if (currentDateStr === actualTodayStr) {
+    syncCycleSlotForToday();
+    updateTodayTemplate();
+  }
 }
 
 function getPlanCategories(planText) {
@@ -2720,6 +2784,13 @@ function init() {
       initIntervalTimer();
       renderAiButtonIcon();
       loadSetTextColor();
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncAppDateAfterResume();
+      });
+      window.addEventListener('pageshow', syncAppDateAfterResume);
+      window.addEventListener('focus', syncAppDateAfterResume);
+      clearInterval(dateRolloverTimer);
+      dateRolloverTimer = setInterval(syncAppDateAfterResume, 30000);
     }
 
     // --- View Navigation ---
@@ -3622,6 +3693,58 @@ function init() {
       return cats;
     }
 
+    let calendarLongPressTimer = null;
+    let calendarLongPressStartX = 0;
+    let calendarLongPressStartY = 0;
+    let calendarLongPressTriggered = false;
+    let calendarLongPressResetTimer = null;
+
+    function cancelCalendarLongPress() {
+      clearTimeout(calendarLongPressTimer);
+      calendarLongPressTimer = null;
+    }
+
+    function startCalendarLongPress(event, dateStr) {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      cancelCalendarLongPress();
+      clearTimeout(calendarLongPressResetTimer);
+      calendarLongPressTriggered = false;
+      calendarLongPressStartX = event.clientX;
+      calendarLongPressStartY = event.clientY;
+      calendarLongPressTimer = setTimeout(() => {
+        calendarLongPressTimer = null;
+        if (!logs.some(log => log.date === dateStr)) return;
+        calendarLongPressTriggered = true;
+        selectDate(dateStr, false);
+        openBodyMapModal(dateStr);
+        if (navigator.vibrate) navigator.vibrate(25);
+        calendarLongPressResetTimer = setTimeout(() => {
+          calendarLongPressTriggered = false;
+        }, 900);
+      }, 600);
+    }
+
+    function moveCalendarLongPress(event) {
+      if (!calendarLongPressTimer) return;
+      const movedX = Math.abs(event.clientX - calendarLongPressStartX);
+      const movedY = Math.abs(event.clientY - calendarLongPressStartY);
+      if (movedX > 12 || movedY > 12) cancelCalendarLongPress();
+    }
+
+    function endCalendarLongPress() {
+      cancelCalendarLongPress();
+    }
+
+    function handleCalendarDayClick(event, dateStr) {
+      if (calendarLongPressTriggered) {
+        event.preventDefault();
+        event.stopPropagation();
+        calendarLongPressTriggered = false;
+        return;
+      }
+      selectDate(dateStr, false);
+    }
+
     function renderCalendar() {
       document.getElementById('calMonth').textContent = `${viewYear}年${viewMonth+1}月`;
       const grid = document.getElementById('calGrid');
@@ -3639,7 +3762,7 @@ function init() {
         const isHasLog = dayCats.length > 0 ? 'has-log' : '';
         const isActive = dStr === currentDateStr ? 'active' : '';
         const dotsHtml = dayCats.slice(0, 6).map(cat => `<span class="cal-dot" style="background:${catColors[cat] || catColors['その他']};"></span>`).join('');
-        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" onclick="selectDate('${dStr}', true)"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
+        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" data-date="${dStr}" role="button" aria-label="${i}日。タップで日付選択、長押しでトレーニング部位を表示" onpointerdown="startCalendarLongPress(event, '${dStr}')" onpointermove="moveCalendarLongPress(event)" onpointerup="endCalendarLongPress()" onpointercancel="endCalendarLongPress()" onpointerleave="endCalendarLongPress()" oncontextmenu="event.preventDefault()" onclick="handleCalendarDayClick(event, '${dStr}')"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
       }
     }
 
@@ -4911,10 +5034,10 @@ function init() {
     function applyExerciseTimerPreference(exName = selectedExercise) {
       if (intervalTimerActive) return;
       const value = String(getExerciseInputPreference(exName).timerMinutes || '');
-      if (!['1','2','3','4','5'].includes(value)) return;
+      if (!intervalMinuteOptions.includes(value)) return;
       const select = document.getElementById('timerMinutes');
       if (select) select.value = value;
-      intervalTimerTotal = Number(value) * 60;
+      intervalTimerTotal = Math.round(Number(value) * 60);
       intervalTimerRemaining = intervalTimerTotal;
       renderIntervalTimer();
     }
