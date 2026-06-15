@@ -306,6 +306,21 @@
     .ai-option-copy { flex:0 0 auto; min-width:72px; min-height:38px; border:none; border-radius:8px; background:var(--accent-brand); color:#000; font-size:13px; font-weight:800; cursor:pointer; }
     .copy-toast { position:fixed; left:50%; bottom:max(28px, calc(env(safe-area-inset-bottom) + 16px)); transform:translate(-50%, 20px); z-index:300; background:#f4f4f4; color:#111; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; box-shadow:0 8px 24px rgba(0,0,0,.35); }
     .copy-toast.show { opacity:1; transform:translate(-50%, 0); }
+    .timer-notice { position:fixed; left:16px; right:16px; top:max(16px, calc(env(safe-area-inset-top) + 12px)); z-index:420; display:none; align-items:center; justify-content:space-between; gap:12px; padding:15px 16px; border-radius:10px; background:#242529; color:#fff; border:1px solid #55585f; box-shadow:0 12px 34px rgba(0,0,0,.5); font-size:15px; font-weight:800; }
+    .timer-notice.show { display:flex; animation:timerNoticeIn .2s ease-out; }
+    .timer-notice.warning { border-color:var(--accent-brand); color:var(--accent-brand); }
+    .timer-notice.finished { background:var(--accent-brand); border-color:var(--accent-brand); color:#050505; }
+    .timer-notice button { border:none; background:rgba(0,0,0,.18); color:inherit; width:34px; height:34px; border-radius:50%; font-size:18px; font-weight:800; cursor:pointer; }
+    @keyframes timerNoticeIn { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
+    .weight-mode-card { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; margin-bottom:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
+    .weight-mode-title { font-size:13px; font-weight:750; color:var(--text); }
+    .weight-mode-note { margin-top:3px; font-size:10px; line-height:1.45; color:var(--muted); }
+    .weight-mode-buttons { display:flex; flex:0 0 auto; padding:3px; border-radius:9px; background:var(--surface-2); border:1px solid var(--line); }
+    .weight-mode-buttons button { min-height:34px; padding:0 10px; border:none; border-radius:7px; background:transparent; color:var(--muted); font-size:11px; font-weight:750; cursor:pointer; }
+    .weight-mode-buttons button.active { background:var(--accent-brand); color:#050505; }
+    .set-insert-divider { display:flex; align-items:center; justify-content:center; min-height:28px; margin:-3px 0; }
+    .set-insert-divider button { min-height:26px; padding:0 11px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); color:var(--set-secondary-text); font-size:10px; font-weight:700; cursor:pointer; }
+    .reorder-insert-btn { width:100%; min-height:38px; margin:5px 0; border:1px dashed var(--line); border-radius:8px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:750; cursor:pointer; }
     .ex-swipe-main .ex-item { border-bottom: none; }
     .ex-swipe-row.open .ex-swipe-main { transform: translateX(-88px); }
     .ex-add-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 220; backdrop-filter: blur(4px); }
@@ -626,7 +641,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     <!-- Daily Logs -->
     <div class="section-title" style="margin-top: 24px;">
       <h2 id="logTitle">記録</h2>
-      <button id="reorderBtn" onclick="openReorderSheet()" style="display:none; background:transparent; border:none; color:var(--accent-brand); font-size:14px; font-weight:600; cursor:pointer;">並び替え</button>
+      <button id="reorderBtn" onclick="openReorderSheet()" style="display:none; background:transparent; border:none; color:var(--accent-brand); font-size:14px; font-weight:600; cursor:pointer;">並び替え・差し込み</button>
     </div>
     <div id="dailyLogsContainer"></div>
 
@@ -696,10 +711,21 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       </div>
     </div>
 
+    <div class="weight-mode-card">
+      <div style="min-width:0;">
+        <div class="weight-mode-title">左右独立マシンの重量入力</div>
+        <div id="weightModeNote" class="weight-mode-note">通常は「両側合計」。片側の表示重量を入力する場合だけ「片側」を選びます。</div>
+      </div>
+      <div class="weight-mode-buttons" aria-label="重量入力方式">
+        <button id="weightModeTotalBtn" type="button" onclick="setExerciseWeightMode('total')">両側合計</button>
+        <button id="weightModeSingleBtn" type="button" onclick="setExerciseWeightMode('single')">片側</button>
+      </div>
+    </div>
+
     <div class="set-list">
       <div class="set-header">
         <div style="width:44px; text-align:center">セット</div>
-        <div style="flex:1; text-align:center">kg</div>
+        <div id="setWeightHeader" style="flex:1; text-align:center">kg</div>
         <div style="flex:1; text-align:center">回</div>
         <div id="setMetricHeader" style="width:68px; text-align:center">
           <select id="exerciseMetricDefault" class="metric-header-select" onchange="changeExerciseMetricDefault(this.value)" aria-label="この種目の標準入力">
@@ -982,7 +1008,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         </button>
         <button type="button" class="metric-choice" data-metric-choice="PR" onclick="selectSetMetricFromModal('PR')">
           <span class="metric-choice-code">PR</span>
-          <span><span class="metric-choice-title">Partial Reps（パーシャルレップ）</span><span class="metric-choice-description">通常の可動域の後に行った、狭い可動域での追加回数を記録します。例：追加5回ならPRは5です。</span></span>
+          <span><span class="metric-choice-title">Partial Reps（パーシャルレップ）</span><span class="metric-choice-description">回数欄に総回数、PR欄にその内パーシャルだった回数を記録します。例：全20回のうち4回なら「20回・PR4」です。</span></span>
         </button>
         <button type="button" class="metric-choice up" data-metric-choice="UP" onclick="selectSetMetricFromModal('UP')">
           <span class="metric-choice-code">UP</span>
@@ -1139,7 +1165,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
         <div style="margin-top:14px; color:var(--text); font-weight:700;">略語</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">RPE</strong>＝Rating of Perceived Exertion。セット終了時にあと何回できたかを表します。目安はRPE10＝余力0回、9＝あと1回、8＝あと2回、7＝あと3回です。</div>
-        <div style="margin-top:6px;"><strong style="color:var(--text);">PR</strong>＝Partial Reps（パーシャルレップ）。通常の可動域で行った回数の後に、狭い可動域で追加した回数を入力します。例：20回中、最後の5回がパーシャルならPRは5。</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">PR</strong>＝Partial Reps（パーシャルレップ）。回数欄はパーシャルを含む総回数、PR欄はその内パーシャルだった回数です。例：全20回のうち最後の4回なら「20回・PR4」。</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">UP</strong>＝ウォームアップセット。通常種目・レイズ系のどちらでも選択でき、RPEやPRを付けない準備セットとして記録します。</div>
         <div style="margin-top:14px; color:var(--text); font-weight:700;">セット技法</div>
         <div style="margin-top:6px;">各セット下の「技法」から、パーシャル・ドロップ・レストポーズ・フォースト・マイオレップ・スーパーセットを記録できます。RPEは技法とは別に残ります。</div>
@@ -1321,6 +1347,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
   </div>
   <div id="copyToast" class="copy-toast">コピーしました</div>
+  <div id="timerNotice" class="timer-notice" role="status" aria-live="assertive">
+    <span id="timerNoticeText">インターバル終了</span>
+    <button type="button" onclick="hideTimerNotice()" aria-label="閉じる">×</button>
+  </div>
   <script>
     // Data Storage
     const STORE_LOGS = 'ironlog-data-v4'; 
@@ -1377,6 +1407,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     const STORE_PLAN_PRESETS = 'ironlog-plan-presets-v1';
     const STORE_COACH_SETTINGS = 'ironlog-coach-settings-v1';
     const STORE_SET_TEXT_COLOR = 'ironlog-set-text-color-v1';
+    const STORE_DAILY_EXERCISE_ORDER = 'ironlog-daily-exercise-order-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1388,6 +1419,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     let activeCategory = "胸";
     let selectedExercise = "";
+    let pendingExerciseInsertIndex = null;
 
     // Set UI state
     let currentSets = [];
@@ -1407,6 +1439,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     let intervalTimerRemaining = 120;
     let intervalTimerTotal = 120;
     let intervalTimerActive = false;
+    let intervalTimerTwentySecondNotified = false;
+    let timerNoticeTimeout = null;
 
     function getTimerSelectedSeconds() {
       const select = document.getElementById('timerMinutes');
@@ -1434,25 +1468,40 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       }));
     }
 
+    function showTimerNotice(message, type = 'warning', duration = 3000) {
+      const notice = document.getElementById('timerNotice');
+      const text = document.getElementById('timerNoticeText');
+      if (!notice || !text) return;
+      clearTimeout(timerNoticeTimeout);
+      text.textContent = message;
+      notice.className = `timer-notice show ${type}`;
+      if (duration > 0) {
+        timerNoticeTimeout = setTimeout(hideTimerNotice, duration);
+      }
+    }
+
+    function hideTimerNotice() {
+      const notice = document.getElementById('timerNotice');
+      if (notice) notice.className = 'timer-notice';
+      clearTimeout(timerNoticeTimeout);
+      timerNoticeTimeout = null;
+    }
+
     function renderIntervalTimer() {
       const display = document.getElementById('timerDisplay');
       const ring = document.getElementById('timerRing');
       const status = document.getElementById('timerStatus');
       const btn = document.getElementById('timerStartBtn');
       const now = Date.now();
-      let overtime = 0;
 
       if (intervalTimerActive) {
         intervalTimerRemaining = Math.max(0, Math.ceil((intervalTimerEnd - now) / 1000));
-        overtime = Math.max(0, Math.floor((now - intervalTimerEnd) / 1000));
       }
 
       const minutes = Math.floor(intervalTimerRemaining / 60);
       const seconds = intervalTimerRemaining % 60;
       if (display) {
-        display.textContent = overtime > 0
-          ? `+${String(Math.floor(overtime / 60)).padStart(2,'0')}:${String(overtime % 60).padStart(2,'0')}`
-          : `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        display.textContent = `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
       }
       const remainingRatio = intervalTimerTotal > 0 ? intervalTimerRemaining / intervalTimerTotal : 0;
       if (ring) ring.style.setProperty('--timer-progress', `${Math.max(0, Math.min(1, remainingRatio)) * 360}deg`);
@@ -1461,16 +1510,30 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         btn.classList.toggle('reset', intervalTimerActive);
       }
       if (status) {
-        status.classList.toggle('overtime', overtime > 0);
+        status.classList.remove('overtime');
         if (!intervalTimerActive) {
-          status.textContent = 'スタートすると経過時間も表示します';
+          status.textContent = '終了後は自動でリセットされます';
         } else {
           const sinceStart = Math.max(0, Math.floor((now - intervalTimerStart) / 1000));
-          status.textContent = overtime > 0
-            ? `終了から ${formatTimerDuration(overtime)}経過・開始から ${formatTimerDuration(sinceStart)}経過`
+          status.textContent = intervalTimerRemaining <= 20
+            ? `残り ${intervalTimerRemaining}秒`
             : `開始から ${formatTimerDuration(sinceStart)}経過`;
         }
       }
+    }
+
+    function completeIntervalTimer() {
+      clearInterval(intervalTimerId);
+      intervalTimerId = null;
+      intervalTimerActive = false;
+      intervalTimerStart = 0;
+      intervalTimerEnd = 0;
+      intervalTimerTotal = getTimerSelectedSeconds();
+      intervalTimerRemaining = intervalTimerTotal;
+      intervalTimerTwentySecondNotified = false;
+      saveIntervalTimerState();
+      renderIntervalTimer();
+      showTimerNotice('インターバル終了　次のセットを開始できます', 'finished', 5000);
     }
 
     function resetIntervalTimer(askConfirmation = false) {
@@ -1484,6 +1547,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       intervalTimerEnd = 0;
       intervalTimerTotal = getTimerSelectedSeconds();
       intervalTimerRemaining = intervalTimerTotal;
+      intervalTimerTwentySecondNotified = false;
       saveIntervalTimerState();
       renderIntervalTimer();
       return true;
@@ -1510,6 +1574,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       intervalTimerStart = Date.now();
       intervalTimerEnd = intervalTimerStart + intervalTimerTotal * 1000;
       intervalTimerActive = true;
+      intervalTimerTwentySecondNotified = false;
+      hideTimerNotice();
       saveIntervalTimerState();
       clearInterval(intervalTimerId);
       intervalTimerId = setInterval(tickIntervalTimer, 250);
@@ -1526,13 +1592,22 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     function tickIntervalTimer() {
       if (!intervalTimerActive) return;
+      const remaining = Math.ceil((intervalTimerEnd - Date.now()) / 1000);
+      if (remaining <= 0) {
+        completeIntervalTimer();
+        return;
+      }
+      if (remaining <= 20 && !intervalTimerTwentySecondNotified) {
+        intervalTimerTwentySecondNotified = true;
+        showTimerNotice('インターバル終了まであと20秒', 'warning', 2500);
+      }
       renderIntervalTimer();
     }
 
     function syncIntervalTimerAfterResume() {
       if (!intervalTimerActive) return;
-      renderIntervalTimer();
-      if (!intervalTimerId) intervalTimerId = setInterval(tickIntervalTimer, 250);
+      tickIntervalTimer();
+      if (intervalTimerActive && !intervalTimerId) intervalTimerId = setInterval(tickIntervalTimer, 250);
     }
 
     function initIntervalTimer() {
@@ -1547,9 +1622,14 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           intervalTimerEnd = Number(state.end);
           intervalTimerTotal = Number(state.total);
           intervalTimerActive = true;
+          intervalTimerTwentySecondNotified = Date.now() >= intervalTimerEnd - 20000;
           if (select) select.value = String(Math.max(1, Math.min(5, Math.round(intervalTimerTotal / 60))));
-          intervalTimerId = setInterval(tickIntervalTimer, 250);
-          renderIntervalTimer();
+          if (Date.now() >= intervalTimerEnd) {
+            completeIntervalTimer();
+          } else {
+            intervalTimerId = setInterval(tickIntervalTimer, 250);
+            renderIntervalTimer();
+          }
         } else {
           resetIntervalTimer(false);
         }
@@ -1655,73 +1735,46 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     }
 
     function renderReorderList() {
-      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
-      const groups = [];
-      dayLogs.forEach(l => {
-        if(groups.length > 0 && groups[groups.length-1].exercise === l.exercise) {
-          // skip
-        } else {
-          groups.push(l.exercise);
-        }
-      });
-
       const container = document.getElementById('reorderList');
-      if(groups.length <= 1) {
-        container.innerHTML = '<div style="color:var(--muted); text-align:center;">並び替える種目がありません</div>';
+      const groups = getExerciseOrderForDate(currentDateStr);
+      if (!groups.length) {
+        container.innerHTML = `
+          <div style="color:var(--muted); text-align:center; margin-bottom:12px;">本日の種目はまだありません</div>
+          <button class="reorder-insert-btn" onclick="openExerciseInsertAt(0)">＋ 最初の種目を追加</button>`;
         return;
       }
 
-      container.innerHTML = groups.map((ex, idx) => {
+      container.innerHTML = `<button class="reorder-insert-btn" onclick="openExerciseInsertAt(0)">＋ 先頭に種目を差し込む</button>` + groups.map((ex, idx) => {
         const upDisabled = idx === 0 ? 'opacity:0.2; pointer-events:none;' : '';
         const downDisabled = idx === groups.length-1 ? 'opacity:0.2; pointer-events:none;' : '';
         return `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 0; border-bottom:1px solid var(--line);">
-          <div style="font-weight:600; font-size:15px;">${idx+1}. ${ex}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line);">
+          <div style="font-weight:600; font-size:15px;">${idx+1}. ${escapeHtml(ex)}</div>
           <div style="display:flex; gap:12px;">
             <button onclick="moveExercise(${idx}, -1)" style="background:var(--surface-3); border:none; color:#fff; width:44px; height:44px; border-radius:8px; font-size:18px; cursor:pointer; ${upDisabled}">↑</button>
             <button onclick="moveExercise(${idx}, 1)" style="background:var(--surface-3); border:none; color:#fff; width:44px; height:44px; border-radius:8px; font-size:18px; cursor:pointer; ${downDisabled}">↓</button>
           </div>
         </div>
+        <button class="reorder-insert-btn" onclick="openExerciseInsertAt(${idx + 1})">＋ この位置に種目を差し込む</button>
         `;
       }).join('');
     }
 
     function moveExercise(idx, direction) {
-      const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
-      const otherLogs = logs.filter(l => l.date !== currentDateStr);
-
-      const groups = [];
-      dayLogs.forEach(l => {
-        if(groups.length > 0 && groups[groups.length-1].exercise === l.exercise) {
-          groups[groups.length-1].sets.push(l);
-        } else {
-          groups.push({ exercise: l.exercise, sets: [l] });
-        }
-      });
-
+      const groups = getExerciseOrderForDate(currentDateStr);
       const newIdx = idx + direction;
       if(newIdx < 0 || newIdx >= groups.length) return;
-
-      // Swap
       const temp = groups[idx];
       groups[idx] = groups[newIdx];
       groups[newIdx] = temp;
-
-      // Re-assign IDs based on current timestamp to enforce new sorting
-      let baseId = Date.now() - 100000;
-      const newDayLogs = [];
-      groups.forEach((g, gIndex) => {
-        g.sets.forEach((s, sIndex) => {
-          s.id = baseId + (gIndex * 1000) + sIndex;
-          newDayLogs.push(s);
-        });
-      });
-
-      logs = [...otherLogs, ...newDayLogs];
-      localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
-
+      saveDailyExerciseOrder(currentDateStr, groups);
       renderReorderList();
       renderDailyLogs();
+    }
+
+    function openExerciseInsertAt(index) {
+      closeReorderSheet();
+      openExSheet(index);
     }
 
     
@@ -1855,6 +1908,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         aiButtonIcon: localStorage.getItem(STORE_AI_ICON) || '',
         referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
+        dailyExerciseOrder: getDailyExerciseOrders(),
         readiness: getReadinessData(),
         planPresets: getPlanPresets(),
         coachSettings: getCoachSettings(),
@@ -1954,6 +2008,9 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
               }
               if (data.setDrafts) {
                 localStorage.setItem(STORE_DRAFTS, JSON.stringify(data.setDrafts));
+              }
+              if (data.dailyExerciseOrder) {
+                localStorage.setItem(STORE_DAILY_EXERCISE_ORDER, JSON.stringify(data.dailyExerciseOrder));
               }
               if (data.readiness) {
                 localStorage.setItem(STORE_READINESS, JSON.stringify(data.readiness));
@@ -2535,9 +2592,9 @@ function selectWorkoutRecallDate(dateStr) {
 function formatRecallSet(set) {
   const effort = set.isWarmup
     ? 'UP'
-    : (set.partialReps != null ? `PR${set.partialReps}` : `RPE${set.rpe ?? '-'}`);
+    : (set.partialReps != null ? `${set.reps}回中PR${set.partialReps}` : `RPE${set.rpe ?? '-'}`);
   const technique = getTechniqueSummary(set.technique, set);
-  return `${set.weight}kg×${set.reps}回 ${effort}${technique ? `・${technique}` : ''}`;
+  return `${formatRecordedWeight(set, set.exercise)}×${set.reps}回 ${effort}${technique ? `・${technique}` : ''}`;
 }
 
 function renderWorkoutRecallPreview(dateStr, message = '') {
@@ -2610,6 +2667,7 @@ function applyWorkoutRecall() {
     };
   });
   setSetDrafts(drafts);
+  saveDailyExerciseOrder(currentDateStr, groups.map(group => group.exercise));
   closeWorkoutRecallModal();
   renderCalendar();
   renderDailyLogs();
@@ -3081,12 +3139,18 @@ function init() {
 
     function estimateSet1RM(set) {
       const metricType = inferLogMetricType(set, set.exercise);
-      const weight = Number(set.weight);
+      const weight = getCalculationWeight(set, set.exercise);
       const reps = Number(set.reps);
       const rpe = Number(set.rpe);
-      if (metricType !== 'RPE' || !Number.isFinite(weight) || weight <= 0 ||
-          !Number.isFinite(reps) || reps <= 0 || !Number.isFinite(rpe)) return null;
-      const effectiveReps = Math.max(1, reps + (10 - rpe));
+      if (metricType === 'UP' || !Number.isFinite(weight) || weight <= 0 ||
+          !Number.isFinite(reps) || reps <= 0) return null;
+      let effectiveReps = reps;
+      if (metricType === 'RPE') {
+        if (!Number.isFinite(rpe)) return null;
+        effectiveReps = Math.max(1, reps + (10 - rpe));
+      } else if (metricType === 'PR') {
+        effectiveReps = Math.max(1, reps - Math.max(0, Number(set.partialReps) || 0));
+      }
       return effectiveReps <= 1 ? weight : weight * (1 + effectiveReps / 30);
     }
 
@@ -3632,6 +3696,14 @@ function init() {
         }
       });
 
+      const dailyOrder = getExerciseOrderForDate(currentDateStr);
+      groups.sort((a, b) => {
+        const aIndex = dailyOrder.indexOf(a.exercise);
+        const bIndex = dailyOrder.indexOf(b.exercise);
+        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
+               (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+      });
+
       if(groups.length === 0) {
         container.innerHTML = '<div class="empty-msg" style="padding-top:60px;">記録がありません</div>';
         const reorderBtn = document.getElementById('reorderBtn');
@@ -3640,7 +3712,7 @@ function init() {
       }
 
       const reorderBtn = document.getElementById('reorderBtn');
-      if (reorderBtn) reorderBtn.style.display = groups.filter(g => !g.draft).length > 1 ? 'block' : 'none';
+      if (reorderBtn) reorderBtn.style.display = groups.length ? 'block' : 'none';
 
       container.innerHTML = groups.map((g, gIdx) => {
         const displaySets = g.draft ? (g.draftSets || []) : g.sets;
@@ -3651,7 +3723,7 @@ function init() {
           const weight = parseFloat(s.weight || 0);
           const reps = parseInt(s.reps || 0);
           if (weight > maxWeight) maxWeight = weight;
-          if (!isNaN(weight) && !isNaN(reps)) totalVol += calculateSetVolume(s);
+          if (!isNaN(weight) && !isNaN(reps)) totalVol += calculateSetVolume({ ...s, exercise:g.exercise });
         });
         const summaryText = g.draft
           ? (g.recalledFrom ? `${getRecallDateLabel(g.recalledFrom)}から呼び出し` : '入力途中') + (completedDraftSets.length ? `・${completedDraftSets.length}セット入力済み` : '')
@@ -3682,16 +3754,18 @@ function init() {
               ${displaySets.map((s, idx) => {
                 const metricType = inferLogMetricType(s, g.exercise);
                 const tag = metricType === 'PR'
-                  ? `PR ${s.partialReps ?? '-'}`
+                  ? `内PR ${s.partialReps ?? '-'}`
                   : (metricType === 'UP' ? 'UP' : `RPE ${s.rpe}`);
-                const weightText = s.weight !== '' && s.weight != null ? s.weight : '-';
+                const weightText = s.weight !== '' && s.weight != null
+                  ? formatRecordedWeight({ ...s, exercise:g.exercise }, g.exercise)
+                  : '-kg';
                 const repsText = s.reps !== '' && s.reps != null ? s.reps : '-';
                 const techniqueText = getTechniqueSummary(s.technique, s);
                 return `
                 <div style="border-bottom:1px solid var(--line);">
                   <div class="log-row" style="background:transparent; border-bottom:none;">
                     <div style="width:30px; color:var(--muted)">${idx+1}</div>
-                    <div style="flex:1; font-weight:600;">${weightText}kg × ${repsText}回</div>
+                    <div style="flex:1; font-weight:600;">${weightText} × ${repsText}回</div>
                     <div class="tag">${tag}</div>
                   </div>
                   ${techniqueText ? `<div style="padding:0 16px 8px 46px; color:var(--accent-brand); font-size:10px;">${escapeHtml(techniqueText)}</div>` : ''}
@@ -3792,7 +3866,8 @@ function init() {
 
 
     // --- Sheet ---
-    function openExSheet() {
+    function openExSheet(insertIndex = null) {
+      pendingExerciseInsertIndex = insertIndex !== null && Number.isFinite(Number(insertIndex)) ? Number(insertIndex) : null;
       document.getElementById('sheetOverlay').style.display = 'block';
       setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
       document.getElementById('exSheet').style.transform = 'translateY(0)';
@@ -4068,6 +4143,12 @@ function init() {
           delete metricPreferences[oldName];
           localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(metricPreferences));
         }
+        const inputPreferences = getExerciseInputPreferences();
+        if (inputPreferences[oldName]) {
+          inputPreferences[cleanName] = inputPreferences[oldName];
+          delete inputPreferences[oldName];
+          localStorage.setItem(STORE_EXERCISE_INPUT_PREFS, JSON.stringify(inputPreferences));
+        }
         saveExercises();
         renderSheetExList();
       }
@@ -4088,6 +4169,7 @@ function init() {
     // --- Exercise Entry Flow ---
     
     function editExercise(eName) {
+      pendingExerciseInsertIndex = null;
       selectedExercise = eName;
       document.getElementById('headerTitle').textContent = eName;
       loadPrevSets();
@@ -4096,21 +4178,57 @@ function init() {
     }
 
     function chooseEx(eName) {
+      const insertIndex = pendingExerciseInsertIndex;
       selectedExercise = eName;
       document.getElementById('headerTitle').textContent = eName;
       closeExSheet();
       loadPrevSets();
       loadReferenceVideo();
       saveCurrentDraft();
+      if (insertIndex !== null) {
+        placeExerciseAtIndex(currentDateStr, eName, insertIndex);
+        pendingExerciseInsertIndex = null;
+      }
       switchView('view-exercise');
+    }
+
+    function getDailyExerciseOrders() {
+      try { return JSON.parse(localStorage.getItem(STORE_DAILY_EXERCISE_ORDER) || '{}'); }
+      catch (e) { return {}; }
+    }
+
+    function saveDailyExerciseOrder(dateStr, order) {
+      const all = getDailyExerciseOrders();
+      all[dateStr] = [...new Set(order.filter(Boolean))];
+      localStorage.setItem(STORE_DAILY_EXERCISE_ORDER, JSON.stringify(all));
+      const drafts = getSetDrafts();
+      all[dateStr].forEach((name, index) => {
+        const key = getDraftKey(dateStr, name);
+        if (drafts[key]) drafts[key].orderIndex = index;
+      });
+      setSetDrafts(drafts);
     }
 
     function getExerciseOrderForDate(dateStr) {
       const dayLogs = logs.filter(l => l.date === dateStr).sort((a,b) => a.id - b.id);
-      const order = [];
-      dayLogs.forEach(l => { if (!order.includes(l.exercise)) order.push(l.exercise); });
-      getDraftGroupsForDate(dateStr).forEach(d => { if (!order.includes(d.exercise)) order.push(d.exercise); });
+      const existing = [];
+      dayLogs.forEach(l => { if (!existing.includes(l.exercise)) existing.push(l.exercise); });
+      getDraftGroupsForDate(dateStr).forEach(d => { if (!existing.includes(d.exercise)) existing.push(d.exercise); });
+      const saved = getDailyExerciseOrders()[dateStr] || [];
+      const order = saved.filter(name => existing.includes(name));
+      existing.forEach(name => { if (!order.includes(name)) order.push(name); });
+      if (order.length && JSON.stringify(order) !== JSON.stringify(saved)) {
+        saveDailyExerciseOrder(dateStr, order);
+      }
       return order;
+    }
+
+    function placeExerciseAtIndex(dateStr, exName, index) {
+      const order = getExerciseOrderForDate(dateStr).filter(name => name !== exName);
+      const safeIndex = Math.max(0, Math.min(order.length, Number(index) || 0));
+      order.splice(safeIndex, 0, exName);
+      saveDailyExerciseOrder(dateStr, order);
+      renderDailyLogs();
     }
 
     // 指定日にその種目が何種目目だったか（1始まり、未実施は0）
@@ -4411,6 +4529,7 @@ function init() {
         updatedAt: Date.now()
       };
       setSetDrafts(drafts);
+      getExerciseOrderForDate(currentDateStr);
     }
 
     function loadCurrentDraft() {
@@ -4470,7 +4589,12 @@ function init() {
       if (data.type === 'none') return '';
       if (data.type === 'partial') {
         const reps = Number(set?.partialReps);
-        return Number.isFinite(reps) && reps > 0 ? `パーシャル ${reps}回` : 'パーシャル（結果はPR欄）';
+        const totalReps = Number(set?.reps);
+        return Number.isFinite(reps) && reps > 0
+          ? (Number.isFinite(totalReps) && totalReps > 0
+              ? `全${totalReps}回のうち${reps}回がパーシャル`
+              : `うち${reps}回がパーシャル`)
+          : 'パーシャル（全回数の内訳をPR欄へ入力）';
       }
       if (data.type === 'forced') {
         const reps = Number(data.assistedReps);
@@ -4493,16 +4617,15 @@ function init() {
     }
 
     function calculateSetVolume(set) {
-      const weight = Number(set.weight) || 0;
+      const weight = getCalculationWeight(set, set.exercise) || 0;
+      const weightFactor = getExerciseWeightFactor(set.exercise || selectedExercise);
       const reps = Number(set.reps) || 0;
       let volume = weight * reps;
       const technique = normalizeTechnique(set.technique);
       if (technique.type === 'drop') {
-        volume += technique.stages.reduce((sum, item) => sum + (Number(item.weight) || 0) * (Number(item.reps) || 0), 0);
+        volume += technique.stages.reduce((sum, item) => sum + (Number(item.weight) || 0) * weightFactor * (Number(item.reps) || 0), 0);
       } else if (['restPause','myo'].includes(technique.type)) {
         volume += weight * technique.clusters.reduce((sum, item) => sum + (Number(item.reps) || 0), 0);
-      } else if (technique.type === 'partial') {
-        volume += weight * (Number(set.partialReps) || 0);
       } else if (technique.type === 'forced') {
         volume += weight * (Number(technique.assistedReps) || 0);
       }
@@ -4578,7 +4701,7 @@ function init() {
       if (type === 'none') {
         form.innerHTML = '<div style="color:var(--muted); font-size:12px; line-height:1.6;">通常のセットとして、重量・回数・RPEを記録します。</div>';
       } else if (type === 'partial') {
-        form.innerHTML = `<div style="color:var(--text); font-size:12px; line-height:1.65;"><strong>入力欄をPRへ自動変更します。</strong><br><span style="color:var(--muted);">パーシャル回数はセット終了後の結果として記録します。実際に行った追加回数をセット表のPR欄へ入力してください。</span></div>`;
+        form.innerHTML = `<div style="color:var(--text); font-size:12px; line-height:1.65;"><strong>入力欄をPRへ自動変更します。</strong><br><span style="color:var(--muted);">回数欄にはパーシャルを含む総回数、PR欄にはその内パーシャルだった回数を入力してください。例：全20回のうち4回なら、回数20・PR4です。</span></div>`;
       } else if (type === 'forced') {
         form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>限界後の補助反復としてRPE10へ自動設定します。</strong><br><span style="color:var(--muted);">実施後、補助を受けて追加した回数を記録してください。</span></div><label>実施後のフォーストレップ回数</label><input type="number" inputmode="numeric" min="0" placeholder="結果を入力" value="${editingTechniqueDraft.assistedReps ?? ''}" oninput="updateTechniqueField('assistedReps',this.value)">`;
       } else if (type === 'drop') {
@@ -4733,6 +4856,58 @@ function init() {
       localStorage.setItem(STORE_EXERCISE_INPUT_PREFS, JSON.stringify(preferences));
     }
 
+    function getExerciseWeightMode(exName = selectedExercise) {
+      return getExerciseInputPreference(exName).weightMode === 'single' ? 'single' : 'total';
+    }
+
+    function getExerciseWeightFactor(exName = selectedExercise) {
+      return getExerciseWeightMode(exName) === 'single' ? 2 : 1;
+    }
+
+    function getCalculationWeight(set, exName = set?.exercise || selectedExercise) {
+      const entered = Number(set?.weight);
+      return Number.isFinite(entered) ? entered * getExerciseWeightFactor(exName) : NaN;
+    }
+
+    function formatRecordedWeight(set, exName = set?.exercise || selectedExercise) {
+      const entered = Number(set?.weight);
+      if (!Number.isFinite(entered)) return '-kg';
+      if (getExerciseWeightMode(exName) === 'single') {
+        const total = entered * 2;
+        return `片側${entered}kg（両側合計${total}kg）`;
+      }
+      return `${entered}kg`;
+    }
+
+    function renderWeightModeControl() {
+      const mode = getExerciseWeightMode();
+      const totalBtn = document.getElementById('weightModeTotalBtn');
+      const singleBtn = document.getElementById('weightModeSingleBtn');
+      const note = document.getElementById('weightModeNote');
+      const header = document.getElementById('setWeightHeader');
+      totalBtn?.classList.toggle('active', mode === 'total');
+      singleBtn?.classList.toggle('active', mode === 'single');
+      if (header) header.textContent = mode === 'single' ? 'kg／片側' : 'kg';
+      if (note) {
+        note.textContent = mode === 'single'
+          ? '入力値を片側重量として保存し、ボリューム・推定1RM・AI相談では2倍した両側合計重量を使います。過去記録にも反映します。'
+          : '入力値を両側合計重量として、そのまま計算とAI相談に使います。';
+      }
+    }
+
+    function setExerciseWeightMode(mode) {
+      if (!selectedExercise || !['total', 'single'].includes(mode)) return;
+      saveExerciseInputPreference(selectedExercise, { weightMode:mode });
+      renderWeightModeControl();
+      renderSetRows();
+      calcAdvice();
+      renderDailyLogs();
+      if (document.getElementById('view-report')?.classList.contains('active')) renderReport();
+      showCopyToast(mode === 'single'
+        ? '片側入力に変更しました。計算は両側合計です'
+        : '両側合計入力に変更しました');
+    }
+
     function applyExerciseTimerPreference(exName = selectedExercise) {
       if (intervalTimerActive) return;
       const value = String(getExerciseInputPreference(exName).timerMinutes || '');
@@ -4752,8 +4927,9 @@ function init() {
 
     function inferLogMetricType(set, exName = selectedExercise) {
       if (set?.metricType === 'UP' || set?.isWarmup || set?.isForm || set?.rpe === 'UP') return 'UP';
-      if (set?.metricType === 'PR' || set?.partialReps != null) return 'PR';
+      if (set?.metricType === 'PR') return 'PR';
       if (set?.metricType === 'RPE') return 'RPE';
+      if (set?.partialReps != null && set?.partialReps !== '') return 'PR';
       return isRaiseExercise(exName) && set?.rpe == null ? 'PR' : 'RPE';
     }
 
@@ -4861,6 +5037,7 @@ function init() {
 
     function loadPrevSets() {
       applyExerciseTimerPreference(selectedExercise);
+      renderWeightModeControl();
       const exLogs = logs.filter(l => l.exercise === selectedExercise && l.date <= currentDateStr)
                          .sort((a,b) => b.id - a.id);
 
@@ -4951,7 +5128,7 @@ function init() {
       const metricDefaultSelect = document.getElementById('exerciseMetricDefault');
       const metricHelp = document.getElementById('setMetricHelp');
       if (metricDefaultSelect) metricDefaultSelect.value = metricDefault;
-      if (metricHelp) metricHelp.textContent = 'RPE＝通常反復部分の余力・強度。PR＝実際のパーシャル回数。技法の追加回数・重量・休憩は実施後に「技法」へ結果を入力します。';
+      if (metricHelp) metricHelp.textContent = 'RPE＝余力・強度。PR＝総回数の内、パーシャルだった回数です（20回中4回ならPR4）。';
       container.innerHTML = currentSets.map((s, i) => {
         normalizeCurrentSetMetric(s);
         const isDone = s.done ? 'is-done' : '';
@@ -5006,6 +5183,9 @@ function init() {
             <button type="button" class="set-technique-btn ${technique.type !== 'none' ? 'active' : ''}" onclick="openTechniqueModal(${i})">${technique.type === 'none' ? '＋ 技法' : setTechniqueTypes[technique.type]}</button>
             <div class="set-technique-summary">${escapeHtml(techniqueSummary)}</div>
           </div>
+          <div class="set-insert-divider">
+            <button type="button" onclick="insertSetRow(${i + 1})">＋ この下にセットを差し込む</button>
+          </div>
         </div>
       `}).join('');
 
@@ -5034,18 +5214,27 @@ function init() {
       const prevReps = Number(set.prevReps);
       if (set.weight !== '' && set.prevWeight !== '') parts.push(formatSetDifference('重量', weight, prevWeight, 1, 'kg'));
       if (set.reps !== '' && set.prevReps !== '') parts.push(formatSetDifference('回数', reps, prevReps, 0, '回'));
-      if (set.metricType === 'RPE' && set.weight !== '' && set.reps !== '' &&
-          set.prevWeight !== '' && set.prevReps !== '' && set.prevMetricType === 'RPE') {
-        const currentEstimate = estimateSet1RM({ exercise:selectedExercise, weight, reps, rpe:set.rpe, metricType:'RPE' });
+      if (set.weight !== '' && set.reps !== '') {
+        const currentEstimate = estimateSet1RM({ ...set, exercise:selectedExercise, weight, reps });
+        if (currentEstimate != null) {
+          parts.push(`<span class="same">推定1RM ${currentEstimate.toFixed(1)}kg</span>`);
+        } else if (set.metricType === 'UP') {
+          parts.push('<span class="same">UPは推定1RM対象外</span>');
+        }
+      }
+      if (set.weight !== '' && set.reps !== '' &&
+          set.prevWeight !== '' && set.prevReps !== '') {
+        const currentEstimate = estimateSet1RM({ ...set, exercise:selectedExercise, weight, reps });
         const previousEstimate = estimateSet1RM({
           exercise:selectedExercise,
           weight:prevWeight,
           reps:prevReps,
           rpe:set.prevRpe,
-          metricType:'RPE'
+          partialReps:set.prevPartialReps,
+          metricType:set.prevMetricType
         });
         if (currentEstimate != null && previousEstimate != null) {
-          parts.push(formatSetDifference('推定1RM', currentEstimate, previousEstimate, 1, 'kg'));
+          parts.push(formatSetDifference('前回比', currentEstimate, previousEstimate, 1, 'kg'));
         }
       }
       return parts.filter(Boolean).join('');
@@ -5056,17 +5245,28 @@ function init() {
       if (container && currentSets[idx]) container.innerHTML = getSetComparisonHtml(currentSets[idx]);
     }
 
-    function addSetRow() {
-      if(currentSets.length > 0) {
-        const last = currentSets[currentSets.length-1];
-        const isReady = (last.weight !== '' && last.reps !== '');
-        currentSets.push({...last, done: isReady}); // Clone fully and keep checked if valid
-      } else {
-        currentSets.push({prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, weight: '', reps: '', rpe: 8, partialReps: '', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false});
-      }
+    function createBlankSet() {
+      return {
+        prevWeight:'', prevReps:'', prevRpe:8, prevPartialReps:'',
+        prevMetricType:getExerciseMetricDefault(), prevTechnique:{type:'none'},
+        weight:'', reps:'', rpe:8, partialReps:'',
+        metricType:getExerciseMetricDefault(), technique:{type:'none'}, done:false
+      };
+    }
+
+    function insertSetRow(index) {
+      const safeIndex = Math.max(0, Math.min(currentSets.length, Number(index) || 0));
+      currentSets.splice(safeIndex, 0, createBlankSet());
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
+      setTimeout(() => {
+        document.querySelector(`#set-row-${safeIndex} .input-box input`)?.focus();
+      }, 50);
+    }
+
+    function addSetRow() {
+      insertSetRow(currentSets.length);
     }
 
     function removeSetRow() {
@@ -5320,7 +5520,8 @@ function init() {
 
       currentSets.forEach(s => {
         normalizeCurrentSetMetric(s);
-        const w = parseFloat(s.weight !== '' ? s.weight : (s.done ? s.prevWeight : NaN));
+        const enteredWeight = s.weight !== '' ? s.weight : (s.done ? s.prevWeight : NaN);
+        const w = getCalculationWeight({ ...s, weight:enteredWeight, exercise:selectedExercise }, selectedExercise);
         const r = parseInt(s.reps !== '' ? s.reps : (s.done ? s.prevReps : NaN));
         const rpeVal = s.rpe;
 
@@ -5357,11 +5558,28 @@ function init() {
     let aiSheetSource = 'exercise';
     function getExerciseNamesForDate(dateStr) { const names = []; logs.filter(function(l){ return l.date === dateStr; }).sort(function(a,b){ return a.id - b.id; }).forEach(function(l){ if (!names.includes(l.exercise)) names.push(l.exercise); }); return names; }
     function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP', technique: normalizeTechnique(s.technique) }; }); }
-    function getAllTodayForAi() { const unsaved = getCurrentUnsavedAiSets(selectedExercise); const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); }); return saved.concat(unsaved).sort(function(a,b){ return a.id - b.id; }); }
+    function getAllTodayForAi() {
+      const unsaved = getCurrentUnsavedAiSets(selectedExercise);
+      const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); });
+      const order = getExerciseOrderForDate(currentDateStr);
+      return saved.concat(unsaved).sort(function(a,b){
+        const exerciseDiff = order.indexOf(a.exercise) - order.indexOf(b.exercise);
+        return exerciseDiff || a.id - b.id;
+      });
+    }
     function getAiExerciseName() { const picker = document.getElementById('aiExercisePicker'); if (picker && picker.value) return picker.value; return selectedExercise; }
     function getAiExerciseSets(exName) { const unsaved = getCurrentUnsavedAiSets(exName); if (unsaved.length) return unsaved; return logs.filter(function(l){ return l.date === currentDateStr && l.exercise === exName; }).sort(function(a,b){ return a.id - b.id; }); }
     function populateAiExercisePicker() { const wrap = document.getElementById('aiExercisePickerWrap'); const picker = document.getElementById('aiExercisePicker'); if (!wrap || !picker) return; const names = getExerciseNamesForDate(currentDateStr); if (selectedExercise && !names.includes(selectedExercise)) names.push(selectedExercise); if (names.length === 0) { wrap.style.display = 'none'; picker.innerHTML = ''; return; } const defaultName = selectedExercise && names.includes(selectedExercise) ? selectedExercise : names[names.length - 1]; picker.innerHTML = names.map(function(name){ return '<option value="' + escapeHtml(name) + '" ' + (name === defaultName ? 'selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join(''); wrap.style.display = 'block'; }
-    function formatAiSetLine(s, index) { const metricType = inferLogMetricType(s, s.exercise); const effort = metricType === 'UP' ? 'アップ' : (metricType === 'PR' ? 'PR ' + (s.partialReps ?? 0) + '回' : 'RPE ' + s.rpe); const technique = getTechniqueSummary(s.technique, s); return (index + 1) + 'セット目: ' + s.weight + 'kg × ' + s.reps + '回 (' + effort + (technique && metricType !== 'PR' ? '・' + technique : '') + ')'; }
+    function formatAiSetLine(s, index) {
+      const metricType = inferLogMetricType(s, s.exercise);
+      const effort = metricType === 'UP'
+        ? 'アップ'
+        : (metricType === 'PR'
+            ? `${s.reps}回のうち${s.partialReps ?? 0}回がパーシャル`
+            : `RPE ${s.rpe}`);
+      const technique = getTechniqueSummary(s.technique, s);
+      return `${index + 1}セット目: ${formatRecordedWeight(s, s.exercise)} × ${s.reps}回 (${effort}${technique && metricType !== 'PR' ? `・${technique}` : ''})`;
+    }
     function getAssistNote(exName) {
       if (/アシスト|assist/i.test(exName || '')) {
         return '\n[アシスト種目の見方]\n記録のkgは、体重 − アシスト重量で算出した実際の負荷として扱ってください。\n';
@@ -5417,10 +5635,10 @@ function init() {
     function formatSimpleAiSet(s) {
       const metricType = inferLogMetricType(s, s.exercise);
       const effort = metricType === 'PR'
-        ? `パーシャル${s.partialReps ?? 0}回`
+        ? `（${s.reps}回のうち${s.partialReps ?? 0}回がパーシャル）`
         : (metricType === 'UP' ? 'UP' : `RPE${s.rpe}`);
       const technique = getTechniqueSummary(s.technique, s);
-      return `${s.weight}kg ${s.reps}回 ${effort}${technique && metricType !== 'PR' ? ` ${technique}` : ''}`;
+      return `${formatRecordedWeight(s, s.exercise)} ${s.reps}回 ${effort}${technique && metricType !== 'PR' ? ` ${technique}` : ''}`;
     }
 
     function showCopyToast(message) {
@@ -5549,14 +5767,14 @@ function init() {
       if (type === 'lastSet') {
         const last = exerciseSets[exerciseSets.length - 1];
         if (!last) return showCopyToast('セット記録がありません');
-        text = formatSimpleAiSet(last);
+        text = `${exerciseSets.length}セット目: ${formatSimpleAiSet(last)}`;
       } else if (type === 'exerciseSets') {
         if (!exerciseSets.length) return showCopyToast('セット記録がありません');
-        text = exerciseSets.map(formatSimpleAiSet).join('\n');
+        text = exerciseSets.map((set, index) => `${index + 1}セット目: ${formatSimpleAiSet(set)}`).join('\n');
       } else if (type === 'nextSet') {
         if (!aiExercise) return showCopyToast('種目を選択してください');
         const lines = [planLine, aiExercise].filter(Boolean);
-        if (exerciseSets.length) lines.push(...exerciseSets.map(formatSimpleAiSet));
+        if (exerciseSets.length) lines.push(...exerciseSets.map((set, index) => `${index + 1}セット目: ${formatSimpleAiSet(set)}`));
         text = lines.join('\n');
       } else if (type === 'exercise') {
         if (!allToday.length) return showCopyToast('本日の記録がありません');
@@ -5599,10 +5817,10 @@ function detectPersonalRecords(exercise, dateStr, sets) {
       if (!historical.length) return [];
       const candidates = sets.filter(set => set.metricType !== 'UP');
       if (!candidates.length) return [];
-      const bestHistoricalWeight = Math.max(...historical.map(set => Number(set.weight) || 0));
+      const bestHistoricalWeight = Math.max(...historical.map(set => getCalculationWeight(set, exercise) || 0));
       const bestHistoricalVolume = Math.max(...historical.map(calculateSetVolume));
       const historicalEstimates = historical.map(estimateSet1RM).filter(value => value != null);
-      const bestCurrentWeight = Math.max(...candidates.map(set => Number(set.weight) || 0));
+      const bestCurrentWeight = Math.max(...candidates.map(set => getCalculationWeight(set, exercise) || 0));
       const bestCurrentVolume = Math.max(...candidates.map(calculateSetVolume));
       const currentEstimates = candidates.map(estimateSet1RM).filter(value => value != null);
       const records = [];
