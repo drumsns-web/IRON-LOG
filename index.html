@@ -133,11 +133,34 @@
     .check-btn { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-3); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 16px; font-weight: bold; transition: 0.2s;}
     .check-btn.checked { background: var(--accent-2); color: #000; }
 
-    .set-controls { display: flex; gap: 12px; padding: 12px 16px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px;}
+    .set-controls { display: flex; gap: 8px; padding: 12px 10px; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px;}
     .set-controls button { height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 10px; font-weight: bold;}
-    .set-add-btn { flex: 1; background: var(--surface-2); border: none; color: #fff; font-size: 18px; }
+    .set-add-btn { flex: 1; background: var(--surface-2); border: none; color: #fff; font-size: 15px; white-space:nowrap; }
     .set-bulk-btn { flex:0 0 74px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:14px; }
+    .set-copy-btn { flex:0 0 76px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:13px; }
     .set-remove-btn { flex: 0 0 82px; background: transparent; border: 1px solid rgba(255, 107, 107, 0.5); color: #ff8b8b; font-size: 13px; }
+    .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
+    .draft-status-row .saving { color:var(--accent-brand); }
+    .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
+    .exercise-quick-bar { position:fixed; z-index:180; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(8px, env(safe-area-inset-bottom)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translateX(-50%); }
+    .exercise-quick-bar.visible { display:grid; }
+    .exercise-quick-info { min-width:0; }
+    .exercise-quick-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-size:13px; font-weight:800; }
+    .exercise-quick-meta { margin-top:3px; color:var(--muted); font-size:11px; font-weight:700; }
+    .exercise-quick-timer { min-width:58px; min-height:42px; padding:0 7px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--accent-brand); font-size:13px; font-weight:850; font-variant-numeric:tabular-nums; cursor:pointer; }
+    .exercise-quick-icon { width:42px; height:42px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:20px; font-weight:800; cursor:pointer; }
+    .exercise-quick-icon.primary { border-color:var(--accent-brand); background:var(--accent-brand); color:#000; }
+    #view-exercise.active { padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
+    .history-list { display:grid; gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); overflow-y:auto; }
+    .history-item { padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2); }
+    .history-item-head { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--text); font-size:13px; font-weight:800; }
+    .history-item-summary { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+    .history-item button { min-height:34px; padding:0 11px; border:1px solid var(--accent-brand); border-radius:7px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:800; cursor:pointer; }
+    @media (max-width:360px) {
+      .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto; }
+      .exercise-quick-timer { grid-row:1; }
+      .exercise-quick-icon.copy { display:none; }
+    }
     .interval-timer { display:flex; align-items:center; gap:12px; padding:12px; margin-bottom:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
     .timer-ring { --timer-progress:0deg; width:58px; height:58px; border-radius:50%; flex:0 0 auto; background:conic-gradient(var(--accent-brand) var(--timer-progress), var(--surface-3) 0); display:grid; place-items:center; }
     .timer-ring::after { content:''; width:48px; height:48px; border-radius:50%; background:var(--surface); }
@@ -661,6 +684,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <h1 id="headerTitle">種目名</h1>
       <button class="back-btn" style="font-size:13px; font-weight:700; background:var(--surface-3); color:var(--text);" onclick="openRmSheet()">RM</button>
     </div>
+    <div class="draft-status-row">
+      <span id="draftSaveStatus">入力内容は自動保存されます</span>
+      <button type="button" class="draft-history-btn" onclick="openDraftHistoryModal()">入力履歴</button>
+    </div>
 
     <div class="interval-timer">
       <div class="timer-ring-wrap">
@@ -747,6 +774,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     <div class="set-controls">
       <button class="set-add-btn" onclick="addSetRow()">＋ セット追加</button>
+      <button class="set-copy-btn" onclick="duplicatePreviousSet()">⧉ 複製</button>
       <button class="set-bulk-btn" onclick="openSetBulkModal()">一括</button>
       <button class="set-remove-btn" onclick="removeSetRow()">− 削除</button>
     </div>
@@ -770,6 +798,16 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
       前回記録が自動で入力・チェックされています。<br>変更がある部分だけ上書きしてください。
     </div>
+  </div>
+
+  <div id="exerciseQuickBar" class="exercise-quick-bar">
+    <div class="exercise-quick-info">
+      <div id="quickExerciseTitle" class="exercise-quick-title">種目</div>
+      <div id="quickSetStatus" class="exercise-quick-meta">セット入力</div>
+    </div>
+    <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="toggleIntervalTimer()" title="タイマーを開始・リセット">02:00</button>
+    <button type="button" class="exercise-quick-icon copy" onclick="duplicatePreviousSet()" title="直前セットを複製" aria-label="直前セットを複製">⧉</button>
+    <button type="button" class="exercise-quick-icon primary" onclick="addSetRow()" title="セットを追加" aria-label="セットを追加">＋</button>
   </div>
 
   <!-- Bottom Sheet: Exercise Selection -->
@@ -1039,6 +1077,17 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
   </div>
 
+  <div class="technique-modal" id="draftHistoryModal" onclick="closeDraftHistoryModal(event)">
+    <div class="technique-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button type="button" onclick="closeDraftHistoryModal()">閉じる</button>
+        <h3>入力履歴</h3>
+        <div style="width:56px;"></div>
+      </div>
+      <div id="draftHistoryList" class="history-list"></div>
+    </div>
+  </div>
+
   <div class="technique-modal" id="techniqueModal" onclick="closeTechniqueModal(event)">
     <div class="technique-dialog" onclick="event.stopPropagation()">
       <div class="video-dialog-header">
@@ -1258,6 +1307,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
       <div style="font-size:13px; color:var(--muted); margin-bottom:12px;">データのバックアップ・復元</div>
       <div style="display:flex; flex-direction:column; gap:12px;">
+        <button onclick="createLocalBackup('手動保存')" style="background:var(--accent-brand); border:none; color:#000; padding:16px; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer;">
+          現在の状態を端末内に保存
+        </button>
+        <div id="localBackupList" style="display:grid; gap:8px;"></div>
         <button onclick="exportData()" style="background:var(--surface-3); border:1px solid var(--line); color:#fff; padding:16px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
           バックアップを保存 (JSON)
         </button>
@@ -1268,7 +1321,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
       </div>
       <div style="font-size:12px; color:var(--muted); margin-top:16px; line-height:1.5;">
-        ※現在のデータはブラウザ（SafariやChrome）内に保存されています。機種変更時や、ブラウザの履歴を削除するとデータが消えるため、定期的なバックアップをおすすめします。
+        端末内には直近5件を保存します。ブラウザの履歴を削除すると端末内バックアップも消えるため、機種変更前などはJSON保存もご利用ください。
       </div>
     </div>
   </div>
@@ -1412,6 +1465,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     const STORE_COACH_SETTINGS = 'ironlog-coach-settings-v1';
     const STORE_SET_TEXT_COLOR = 'ironlog-set-text-color-v1';
     const STORE_DAILY_EXERCISE_ORDER = 'ironlog-daily-exercise-order-v1';
+    const STORE_DRAFT_HISTORY = 'ironlog-draft-history-v1';
+    const STORE_LOCAL_BACKUPS = 'ironlog-local-backups-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1429,6 +1484,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     // Set UI state
     let currentSets = [];
+    let draftSaveStatusTimer = null;
 
     // Utils
     function formatDate(d) {
@@ -1532,6 +1588,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
             : `開始から ${formatTimerDuration(sinceStart)}経過`;
         }
       }
+      updateExerciseQuickBar();
     }
 
     function completeIntervalTimer() {
@@ -1799,6 +1856,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       renderAiButtonIcon();
       renderPlanPresets();
       loadCoachSettings();
+      renderLocalBackups();
     }
 
     const setTextColorThemes = {
@@ -1902,8 +1960,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       }, 300);
     }
 
-        function exportData() {
-      const data = {
+    function buildBackupData(includeAiIcon = true) {
+      return {
         logs: logs,
         exercises: exercises,
         catColors: catColors,
@@ -1917,15 +1975,20 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         intervalMinutes: localStorage.getItem('ironlog-interval-minutes') || '2',
         metricPreferences: getMetricPreferences(),
         exerciseInputPreferences: getExerciseInputPreferences(),
-        aiButtonIcon: localStorage.getItem(STORE_AI_ICON) || '',
+        aiButtonIcon: includeAiIcon ? (localStorage.getItem(STORE_AI_ICON) || '') : undefined,
         referenceVideos: getReferenceVideos(),
         setDrafts: getSetDrafts(),
         dailyExerciseOrder: getDailyExerciseOrders(),
         readiness: getReadinessData(),
         planPresets: getPlanPresets(),
         coachSettings: getCoachSettings(),
+        setTextColor: localStorage.getItem(STORE_SET_TEXT_COLOR) || 'white',
         exportDate: new Date().toISOString()
       };
+    }
+
+    function exportData() {
+      const data = buildBackupData(true);
       const jsonStr = JSON.stringify(data, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const filename = `ironlog_backup_${currentDateStr}.json`;
@@ -1964,6 +2027,116 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function applyBackupData(data) {
+      if (!data || !Array.isArray(data.logs)) throw new Error('Invalid backup');
+      localStorage.setItem(STORE_LOGS, JSON.stringify(data.logs));
+      if (data.exercises) localStorage.setItem(STORE_EX, JSON.stringify(data.exercises));
+      if (data.catColors) localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(data.catColors));
+      localStorage.setItem(STORE_TMPL, JSON.stringify(data.weekdayTemplates || {}));
+      localStorage.setItem(STORE_TMPL_MODE, data.templateMode === 'cycle' ? 'cycle' : 'weekday');
+      localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(data.cycleTemplates || {}));
+      data.cycleSlot ? localStorage.setItem(STORE_CYCLE_SLOT, data.cycleSlot) : localStorage.removeItem(STORE_CYCLE_SLOT);
+      data.cycleCompletedDate ? localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, data.cycleCompletedDate) : localStorage.removeItem(STORE_CYCLE_COMPLETED_DATE);
+      data.cycleCompletedSlot ? localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, data.cycleCompletedSlot) : localStorage.removeItem(STORE_CYCLE_COMPLETED_SLOT);
+      data.cycleAdvancedDate ? localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, data.cycleAdvancedDate) : localStorage.removeItem(STORE_CYCLE_ADVANCED_DATE);
+      if (data.intervalMinutes) localStorage.setItem('ironlog-interval-minutes', data.intervalMinutes);
+      localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(data.metricPreferences || {}));
+      localStorage.setItem(STORE_EXERCISE_INPUT_PREFS, JSON.stringify(data.exerciseInputPreferences || {}));
+      if (typeof data.aiButtonIcon === 'string' && data.aiButtonIcon) localStorage.setItem(STORE_AI_ICON, data.aiButtonIcon);
+      else if (typeof data.aiButtonIcon === 'string' && data.aiButtonIcon === '') localStorage.removeItem(STORE_AI_ICON);
+      localStorage.setItem(STORE_REFERENCE_VIDEOS, JSON.stringify(data.referenceVideos || {}));
+      localStorage.setItem(STORE_DRAFTS, JSON.stringify(data.setDrafts || {}));
+      localStorage.setItem(STORE_DAILY_EXERCISE_ORDER, JSON.stringify(data.dailyExerciseOrder || {}));
+      localStorage.setItem(STORE_READINESS, JSON.stringify(data.readiness || {}));
+      localStorage.setItem(STORE_PLAN_PRESETS, JSON.stringify(Array.isArray(data.planPresets) ? data.planPresets : []));
+      localStorage.setItem(STORE_COACH_SETTINGS, JSON.stringify(data.coachSettings || {}));
+      if (data.setTextColor) localStorage.setItem(STORE_SET_TEXT_COLOR, data.setTextColor);
+    }
+
+    function getLocalBackups() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORE_LOCAL_BACKUPS) || '[]');
+        return Array.isArray(data) ? data : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveLocalBackupItems(items) {
+      let candidates = items.slice(0, 5);
+      while (candidates.length) {
+        try {
+          localStorage.setItem(STORE_LOCAL_BACKUPS, JSON.stringify(candidates));
+          return candidates;
+        } catch (e) {
+          candidates = candidates.slice(0, -1);
+        }
+      }
+      return [];
+    }
+
+    function createLocalBackup(label = '手動保存', dailyKey = '') {
+      const items = getLocalBackups();
+      if (dailyKey && items.some(item => item.dailyKey === dailyKey)) {
+        renderLocalBackups();
+        return;
+      }
+      const backup = {
+        id: Date.now(),
+        createdAt: new Date().toISOString(),
+        label,
+        dailyKey,
+        data: buildBackupData(false)
+      };
+      const saved = saveLocalBackupItems([backup, ...items.filter(item => item.id !== backup.id)]);
+      renderLocalBackups();
+      if (!dailyKey) showCopyToast(saved.length ? '端末内バックアップを保存しました' : '保存容量が不足しています');
+    }
+
+    function createDailyLocalBackup() {
+      const hasData = logs.length > 0 || Object.keys(getSetDrafts()).length > 0;
+      if (!hasData) return;
+      const today = formatDate(new Date());
+      createLocalBackup('自動保存', today);
+    }
+
+    function renderLocalBackups() {
+      const container = document.getElementById('localBackupList');
+      if (!container) return;
+      const items = getLocalBackups();
+      container.innerHTML = items.length
+        ? items.map(item => {
+            const date = new Date(item.createdAt || item.id);
+            const label = date.toLocaleString('ja-JP', { year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+            return `<div style="padding:11px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2);">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <div><div style="font-size:13px; font-weight:750;">${escapeHtml(item.label || 'バックアップ')}</div><div style="margin-top:3px; color:var(--muted); font-size:11px;">${label}</div></div>
+                <div style="display:flex; gap:6px;">
+                  <button type="button" onclick="restoreLocalBackup(${Number(item.id)})" style="min-height:34px; padding:0 10px; border:1px solid var(--accent-brand); border-radius:7px; background:transparent; color:var(--accent-brand); font-weight:750;">復元</button>
+                  <button type="button" onclick="deleteLocalBackup(${Number(item.id)})" style="min-height:34px; padding:0 9px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--muted);">削除</button>
+                </div>
+              </div>
+            </div>`;
+          }).join('')
+        : '<div style="padding:12px; color:var(--muted); font-size:12px; text-align:center;">端末内バックアップはまだありません。</div>';
+    }
+
+    function restoreLocalBackup(id) {
+      const item = getLocalBackups().find(backup => Number(backup.id) === Number(id));
+      if (!item?.data) return;
+      if (!confirm('選択したバックアップの状態へ戻しますか？現在の状態も復元前バックアップとして残します。')) return;
+      createLocalBackup('復元前');
+      applyBackupData(item.data);
+      alert('バックアップを復元しました。画面を再読み込みします。');
+      location.reload();
+    }
+
+    function deleteLocalBackup(id) {
+      if (!confirm('この端末内バックアップを削除しますか？')) return;
+      saveLocalBackupItems(getLocalBackups().filter(item => Number(item.id) !== Number(id)));
+      renderLocalBackups();
+    }
+
     function importData(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -1974,65 +2147,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           const data = JSON.parse(e.target.result);
           if (data.logs && Array.isArray(data.logs)) {
             if (confirm('現在のデータは上書きされます。復元してもよろしいですか？')) {
-              localStorage.setItem(STORE_LOGS, JSON.stringify(data.logs));
-              if (data.exercises) {
-                localStorage.setItem(STORE_EX, JSON.stringify(data.exercises));
-              }
-              if (data.catColors) {
-                localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(data.catColors));
-              }
-              if (data.weekdayTemplates) {
-                localStorage.setItem(STORE_TMPL, JSON.stringify(data.weekdayTemplates));
-              }
-              if (data.templateMode) {
-                localStorage.setItem(STORE_TMPL_MODE, data.templateMode);
-              }
-              if (data.cycleTemplates) {
-                localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(data.cycleTemplates));
-              }
-              if (data.cycleSlot) {
-                localStorage.setItem(STORE_CYCLE_SLOT, data.cycleSlot);
-              }
-              if (data.cycleCompletedDate) {
-                localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, data.cycleCompletedDate);
-              }
-              if (data.cycleCompletedSlot) {
-                localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, data.cycleCompletedSlot);
-              }
-              if (data.cycleAdvancedDate) {
-                localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, data.cycleAdvancedDate);
-              }
-              if (data.intervalMinutes) {
-                localStorage.setItem('ironlog-interval-minutes', data.intervalMinutes);
-              }
-              if (data.metricPreferences) {
-                localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(data.metricPreferences));
-              }
-              if (data.exerciseInputPreferences) {
-                localStorage.setItem(STORE_EXERCISE_INPUT_PREFS, JSON.stringify(data.exerciseInputPreferences));
-              }
-              if (typeof data.aiButtonIcon === 'string') {
-                if (data.aiButtonIcon) localStorage.setItem(STORE_AI_ICON, data.aiButtonIcon);
-                else localStorage.removeItem(STORE_AI_ICON);
-              }
-              if (data.referenceVideos) {
-                localStorage.setItem(STORE_REFERENCE_VIDEOS, JSON.stringify(data.referenceVideos));
-              }
-              if (data.setDrafts) {
-                localStorage.setItem(STORE_DRAFTS, JSON.stringify(data.setDrafts));
-              }
-              if (data.dailyExerciseOrder) {
-                localStorage.setItem(STORE_DAILY_EXERCISE_ORDER, JSON.stringify(data.dailyExerciseOrder));
-              }
-              if (data.readiness) {
-                localStorage.setItem(STORE_READINESS, JSON.stringify(data.readiness));
-              }
-              if (Array.isArray(data.planPresets)) {
-                localStorage.setItem(STORE_PLAN_PRESETS, JSON.stringify(data.planPresets));
-              }
-              if (data.coachSettings) {
-                localStorage.setItem(STORE_COACH_SETTINGS, JSON.stringify(data.coachSettings));
-              }
+              createLocalBackup('ファイル復元前');
+              applyBackupData(data);
               alert('データを復元しました。画面を再読み込みします。');
               location.reload();
             }
@@ -2784,6 +2900,8 @@ function init() {
       initIntervalTimer();
       renderAiButtonIcon();
       loadSetTextColor();
+      createDailyLocalBackup();
+      renderLocalBackups();
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) syncAppDateAfterResume();
       });
@@ -2798,6 +2916,7 @@ function init() {
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       const target = document.getElementById(viewId);
       if (target) target.classList.add('active');
+      document.getElementById('exerciseQuickBar')?.classList.toggle('visible', viewId === 'view-exercise');
 
       document.querySelectorAll('.floating-nav-btn').forEach(i => i.classList.remove('active'));
       if (viewId === 'view-daily' || viewId === 'view-exercise') {
@@ -4634,25 +4753,83 @@ function init() {
       localStorage.setItem(STORE_DRAFTS, JSON.stringify(drafts));
     }
 
+    function getDraftHistories() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORE_DRAFT_HISTORY) || '{}');
+        return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function getDraftComparable(draft) {
+      if (!draft) return '';
+      return JSON.stringify({ sets:draft.sets || [], memo:draft.memo || '' });
+    }
+
+    function rememberDraftVersion(draftKey, draft) {
+      if (!draft || !Array.isArray(draft.sets)) return;
+      const histories = getDraftHistories();
+      const list = Array.isArray(histories[draftKey]) ? histories[draftKey] : [];
+      const snapshot = JSON.parse(JSON.stringify(draft));
+      const signature = getDraftComparable(snapshot);
+      if (list[0]?.signature === signature) return;
+      list.unshift({
+        id: Date.now(),
+        savedAt: Date.now(),
+        signature,
+        draft: snapshot
+      });
+      histories[draftKey] = list.slice(0, 5);
+      try {
+        localStorage.setItem(STORE_DRAFT_HISTORY, JSON.stringify(histories));
+      } catch (e) {
+        histories[draftKey] = list.slice(0, 3);
+        try { localStorage.setItem(STORE_DRAFT_HISTORY, JSON.stringify(histories)); }
+        catch (ignored) {}
+      }
+    }
+
+    function setDraftSaveStatus(text, saving = false) {
+      const status = document.getElementById('draftSaveStatus');
+      if (status) {
+        status.textContent = text;
+        status.classList.toggle('saving', saving);
+      }
+      const quick = document.getElementById('quickSetStatus');
+      if (quick && saving) quick.textContent = text;
+    }
+
     function saveCurrentDraft() {
       if (!selectedExercise || !Array.isArray(currentSets) || currentSets.length === 0) return;
+      setDraftSaveStatus('保存中…', true);
       currentSets.forEach(set => normalizeCurrentSetMetric(set));
       const memoEl = document.getElementById('sessionMemo');
       const drafts = getSetDrafts();
       const draftKey = getDraftKey();
       const recalledFrom = drafts[draftKey]?.recalledFrom || '';
       const orderIndex = drafts[draftKey]?.orderIndex;
-      drafts[draftKey] = {
+      const nextDraft = {
         date: currentDateStr,
         exercise: selectedExercise,
-        sets: currentSets,
+        sets: JSON.parse(JSON.stringify(currentSets)),
         memo: memoEl ? memoEl.value : '',
         recalledFrom: recalledFrom,
         ...(Number.isFinite(orderIndex) ? { orderIndex } : {}),
         updatedAt: Date.now()
       };
+      if (drafts[draftKey] && getDraftComparable(drafts[draftKey]) !== getDraftComparable(nextDraft)) {
+        rememberDraftVersion(draftKey, drafts[draftKey]);
+      }
+      drafts[draftKey] = nextDraft;
       setSetDrafts(drafts);
       getExerciseOrderForDate(currentDateStr);
+      clearTimeout(draftSaveStatusTimer);
+      draftSaveStatusTimer = setTimeout(() => {
+        const time = new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+        setDraftSaveStatus(`自動保存済み ${time}`);
+        updateExerciseQuickBar();
+      }, 120);
     }
 
     function loadCurrentDraft() {
@@ -4665,6 +4842,69 @@ function init() {
       const drafts = getSetDrafts();
       delete drafts[getDraftKey()];
       setSetDrafts(drafts);
+      setDraftSaveStatus('記録へ保存済み');
+    }
+
+    function formatDraftHistorySummary(draft) {
+      const sets = Array.isArray(draft?.sets) ? draft.sets : [];
+      const lines = sets.slice(0, 4).map((set, index) => {
+        const weight = set.weight !== '' ? set.weight : (set.prevWeight || '-');
+        const reps = set.reps !== '' ? set.reps : (set.prevReps || '-');
+        const metric = set.metricType === 'UP'
+          ? 'UP'
+          : set.metricType === 'PR'
+            ? `PR${set.partialReps || '-'}`
+            : `RPE${set.rpe ?? '-'}`;
+        return `${index + 1}: ${weight}kg × ${reps}回 ${metric}`;
+      });
+      if (sets.length > 4) lines.push(`ほか${sets.length - 4}セット`);
+      return lines.join(' / ') || '入力なし';
+    }
+
+    function openDraftHistoryModal() {
+      const modal = document.getElementById('draftHistoryModal');
+      const listEl = document.getElementById('draftHistoryList');
+      if (!modal || !listEl) return;
+      const histories = getDraftHistories();
+      const list = histories[getDraftKey()] || [];
+      listEl.innerHTML = list.length
+        ? list.map((item, index) => {
+            const date = new Date(item.savedAt || item.id);
+            const time = date.toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+            return `<div class="history-item">
+              <div class="history-item-head"><span>${time}</span><button type="button" onclick="restoreDraftVersion(${index})">この状態に戻す</button></div>
+              <div class="history-item-summary">${escapeHtml(formatDraftHistorySummary(item.draft))}</div>
+            </div>`;
+          }).join('')
+        : '<div class="empty-msg">まだ戻せる入力履歴はありません。</div>';
+      modal.style.display = 'flex';
+    }
+
+    function closeDraftHistoryModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const modal = document.getElementById('draftHistoryModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function restoreDraftVersion(index) {
+      const draftKey = getDraftKey();
+      const histories = getDraftHistories();
+      const item = histories[draftKey]?.[index];
+      if (!item?.draft) return;
+      const drafts = getSetDrafts();
+      if (drafts[draftKey]) rememberDraftVersion(draftKey, drafts[draftKey]);
+      const restored = JSON.parse(JSON.stringify(item.draft));
+      restored.updatedAt = Date.now();
+      drafts[draftKey] = restored;
+      setSetDrafts(drafts);
+      currentSets = (restored.sets || []).map(set => normalizeCurrentSetMetric(set));
+      const memoEl = document.getElementById('sessionMemo');
+      if (memoEl) memoEl.value = restored.memo || '';
+      renderSetRows();
+      calcAdvice();
+      setDraftSaveStatus('入力履歴から復元しました');
+      closeDraftHistoryModal();
+      showCopyToast('以前の入力に戻しました');
     }
 
     function isAssistExercise(exName = selectedExercise) {
@@ -5238,6 +5478,10 @@ function init() {
         currentSets = draft.sets.map(set => normalizeCurrentSetMetric(set));
         const memoEl = document.getElementById('sessionMemo');
         if (memoEl) memoEl.value = draft.memo || '';
+        const time = new Date(draft.updatedAt || Date.now()).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+        setDraftSaveStatus(`自動保存済み ${time}`);
+      } else {
+        setDraftSaveStatus('入力内容は自動保存されます');
       }
 
       renderSetRows();
@@ -5318,6 +5562,7 @@ function init() {
         el.addEventListener('blur', () => el.parentElement.classList.remove('focus-within'));
       });
       renderSupersetPartnerBox();
+      updateExerciseQuickBar();
     }
 
     function formatSetDifference(label, current, previous, digits = 0, suffix = '') {
@@ -5375,6 +5620,54 @@ function init() {
         weight:'', reps:'', rpe:8, partialReps:'',
         metricType:getExerciseMetricDefault(), technique:{type:'none'}, done:false
       };
+    }
+
+    function updateExerciseQuickBar() {
+      const title = document.getElementById('quickExerciseTitle');
+      const status = document.getElementById('quickSetStatus');
+      const timer = document.getElementById('quickTimerButton');
+      if (title) title.textContent = selectedExercise || '種目';
+      if (status) {
+        const entered = currentSets.filter(set => set.weight !== '' || set.reps !== '').length;
+        const nextIndex = currentSets.findIndex(set => set.weight === '' && set.reps === '');
+        const currentLabel = nextIndex >= 0 ? nextIndex + 1 : Math.max(1, currentSets.length);
+        status.textContent = `${currentLabel}セット目・入力 ${entered}/${currentSets.length}`;
+      }
+      if (timer) {
+        const minutes = Math.floor(intervalTimerRemaining / 60);
+        const seconds = intervalTimerRemaining % 60;
+        timer.textContent = `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+        timer.title = intervalTimerActive ? 'タイマーをリセット' : 'タイマーを開始';
+      }
+    }
+
+    function duplicatePreviousSet() {
+      let sourceIndex = -1;
+      for (let index = currentSets.length - 1; index >= 0; index--) {
+        if (currentSets[index].weight !== '' || currentSets[index].reps !== '' || currentSets[index].done) {
+          sourceIndex = index;
+          break;
+        }
+      }
+      if (sourceIndex < 0) {
+        showCopyToast('複製できる入力済みセットがありません');
+        return;
+      }
+      const source = currentSets[sourceIndex];
+      const copied = JSON.parse(JSON.stringify(source));
+      copied.prevWeight = source.weight !== '' ? source.weight : source.prevWeight;
+      copied.prevReps = source.reps !== '' ? source.reps : source.prevReps;
+      copied.prevRpe = source.rpe;
+      copied.prevPartialReps = source.partialReps ?? '';
+      copied.prevMetricType = source.metricType;
+      copied.prevTechnique = normalizeTechnique(source.technique);
+      copied.done = false;
+      currentSets.splice(sourceIndex + 1, 0, copied);
+      renderSetRows();
+      calcAdvice();
+      saveCurrentDraft();
+      document.getElementById(`set-row-${sourceIndex + 1}`)?.scrollIntoView({ behavior:'smooth', block:'center' });
+      showCopyToast(`セット${sourceIndex + 1}を複製しました`);
     }
 
     function insertSetRow(index) {
@@ -6025,6 +6318,7 @@ function saveWorkout() {
       });
 
       localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
+      createDailyLocalBackup();
       markCyclePlanCompleted(currentDateStr);
       clearCurrentDraft();
 
