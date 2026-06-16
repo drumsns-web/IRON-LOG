@@ -341,6 +341,12 @@
     .weight-mode-buttons { display:flex; flex:0 0 auto; padding:3px; border-radius:9px; background:var(--surface-2); border:1px solid var(--line); }
     .weight-mode-buttons button { min-height:34px; padding:0 10px; border:none; border-radius:7px; background:transparent; color:var(--muted); font-size:11px; font-weight:750; cursor:pointer; }
     .weight-mode-buttons button.active { background:var(--accent-brand); color:#050505; }
+    .comparison-control { display:flex; align-items:center; gap:8px; width:100%; margin-bottom:9px; }
+    .comparison-control label { flex:0 0 auto; color:var(--muted); font-size:12px; font-weight:750; }
+    .comparison-control select,
+    .comparison-control input { min-height:36px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); padding:0 9px; font-size:13px; font-weight:700; outline:none; }
+    .comparison-control select { flex:1; min-width:0; }
+    .comparison-control input { flex:0 0 136px; }
     .set-insert-divider { display:flex; align-items:center; justify-content:center; min-height:28px; margin:-3px 0; }
     .set-insert-divider button { min-height:26px; padding:0 11px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); color:var(--set-secondary-text); font-size:10px; font-weight:700; cursor:pointer; }
     .reorder-insert-btn { width:100%; min-height:38px; margin:5px 0; border:1px dashed var(--line); border-radius:8px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:750; cursor:pointer; }
@@ -780,6 +786,18 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
 
     <div class="card" style="padding:12px; margin-bottom:16px; background:var(--surface-2); border:1px solid var(--line);">
+      <div class="comparison-control">
+        <label for="comparisonModeSelect">比較対象</label>
+        <select id="comparisonModeSelect" onchange="setExerciseComparisonMode(this.value)">
+          <option value="auto">自動</option>
+          <option value="latest">直近</option>
+          <option value="sameWeekday">同曜日</option>
+          <option value="samePlan">同プラン</option>
+          <option value="sameOrder">同順番</option>
+          <option value="date">日付指定</option>
+        </select>
+        <input id="comparisonDateInput" type="date" onchange="setExerciseComparisonDate(this.value)" style="display:none;">
+      </div>
       <div style="display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <div id="prevOrderBox" style="font-size:12px; color:var(--accent-brand); font-weight:600; display:none;"></div>
         <div id="prevMemoBox" style="font-size:12px; color:var(--muted); display:none;"></div>
@@ -4493,11 +4511,64 @@ function init() {
       return `${d.getMonth() + 1}/${d.getDate()}（${dayNames[d.getDay()]}）`;
     }
 
-    function getExerciseComparisonSession(exName, targetDateStr, includeCurrentDate = false) {
+    function getExerciseComparisonPreference(exName = selectedExercise) {
+      const pref = getExerciseInputPreference(exName);
+      const mode = ['auto', 'latest', 'sameWeekday', 'samePlan', 'sameOrder', 'date'].includes(pref.comparisonMode)
+        ? pref.comparisonMode
+        : 'auto';
+      return { mode, date: pref.comparisonDate || '' };
+    }
+
+    function renderComparisonControl() {
+      const pref = getExerciseComparisonPreference();
+      const select = document.getElementById('comparisonModeSelect');
+      const dateInput = document.getElementById('comparisonDateInput');
+      if (select) select.value = pref.mode;
+      if (dateInput) {
+        dateInput.value = pref.date || '';
+        dateInput.max = currentDateStr;
+        dateInput.style.display = pref.mode === 'date' ? 'block' : 'none';
+      }
+    }
+
+    function setExerciseComparisonMode(mode) {
+      if (!selectedExercise || !['auto', 'latest', 'sameWeekday', 'samePlan', 'sameOrder', 'date'].includes(mode)) return;
+      saveCurrentDraft();
+      saveExerciseInputPreference(selectedExercise, { comparisonMode: mode });
+      if (mode === 'date' && !getExerciseComparisonPreference().date) {
+        const latest = logs
+          .filter(set => set.exercise === selectedExercise && set.date < currentDateStr)
+          .map(set => set.date)
+          .sort((a, b) => b.localeCompare(a))[0] || '';
+        if (latest) saveExerciseInputPreference(selectedExercise, { comparisonDate: latest });
+      }
+      loadPrevSets();
+    }
+
+    function setExerciseComparisonDate(dateStr) {
+      if (!selectedExercise) return;
+      saveCurrentDraft();
+      saveExerciseInputPreference(selectedExercise, { comparisonMode: 'date', comparisonDate: dateStr || '' });
+      loadPrevSets();
+    }
+
+    function getComparisonEmptyMessage(session) {
+      if (!session || !session.empty) return '';
+      if (session.matchType === 'samePlan') return '同プランの過去記録がありません';
+      if (session.matchType === 'sameWeekday') return '同曜日の過去記録がありません';
+      if (session.matchType === 'sameOrder') return '同じ種目順の過去記録がありません';
+      if (session.matchType === 'date') return session.date ? `指定日（${formatComparisonDateLabel(session.date)}）にこの種目の記録がありません` : '比較する日付を選んでください';
+      return '比較できる過去記録がありません';
+    }
+
+    function getExerciseComparisonSession(exName, targetDateStr, includeCurrentDate = false, requestedMode = 'auto', requestedDate = '') {
       const setsOnDate = date => logs
         .filter(set => set.exercise === exName && set.date === date)
         .sort((a, b) => a.id - b.id);
-      if (includeCurrentDate) {
+      const normalizedMode = ['auto', 'latest', 'sameWeekday', 'samePlan', 'sameOrder', 'date'].includes(requestedMode)
+        ? requestedMode
+        : 'auto';
+      if (includeCurrentDate && normalizedMode === 'auto') {
         const todaySets = setsOnDate(targetDateStr);
         if (todaySets.length) {
           const order = getExOrderOnDate(targetDateStr, exName);
@@ -4513,54 +4584,97 @@ function init() {
         }
       }
 
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const planInfo = getActivePlanInfo();
+      const targetDay = new Date(targetDateStr + 'T00:00:00').getDay();
+      const currentOrder = getTodayPlannedOrder(exName);
+      const labels = {
+        samePlan: '同プラン',
+        sameWeekday: '同曜日',
+        sameOrder: '同順番',
+        latest: '直近',
+        date: '指定日'
+      };
+      const longLabels = {
+        samePlan: `前回の${planInfo.label}`,
+        sameWeekday: '前回の同じ曜日',
+        sameOrder: '前回の同じ種目順',
+        latest: '直近の前回',
+        date: '指定日'
+      };
+
+      if (normalizedMode === 'date') {
+        const exactDate = requestedDate || '';
+        if (!exactDate) return { date:'', order:0, sameOrder:false, sets:[], matchType:'date', shortLabel:'指定日', label:'指定日', empty:true };
+        const exactSets = setsOnDate(exactDate);
+        const order = exactSets.length ? getExOrderOnDate(exactDate, exName) : 0;
+        return {
+          date: exactDate,
+          order,
+          sameOrder: order === currentOrder,
+          sets: exactSets,
+          matchType: 'date',
+          shortLabel: '指定日',
+          label: '指定日',
+          empty: exactSets.length === 0
+        };
+      }
+
       const candidateDates = [...new Set(logs
         .filter(set => set.exercise === exName && set.date < targetDateStr)
         .map(set => set.date))]
         .sort((a, b) => b.localeCompare(a));
       if (!candidateDates.length) return null;
 
-      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
-      const planInfo = getActivePlanInfo();
-      const targetDay = new Date(targetDateStr + 'T00:00:00').getDay();
-      const currentOrder = getTodayPlannedOrder(exName);
       const hasSamePlan = date => setsOnDate(date).some(set =>
         set.planMode === 'cycle' && set.planLabel === planInfo.label
       );
       const hasSameWeekday = date => new Date(date + 'T00:00:00').getDay() === targetDay;
       const hasSameOrder = date => getExOrderOnDate(date, exName) === currentOrder;
+      const findDateForMode = compareMode => {
+        if (compareMode === 'latest') return candidateDates[0] || '';
+        if (compareMode === 'samePlan') return mode === 'cycle' ? (candidateDates.find(hasSamePlan) || '') : '';
+        if (compareMode === 'sameWeekday') return candidateDates.find(hasSameWeekday) || '';
+        if (compareMode === 'sameOrder') return candidateDates.find(hasSameOrder) || '';
+        return '';
+      };
 
       let matchType = '';
       let matchedDate = '';
-      if (mode === 'cycle') {
+      if (normalizedMode !== 'auto') {
+        matchedDate = findDateForMode(normalizedMode);
+        matchType = normalizedMode;
+      } else if (mode === 'cycle') {
         matchedDate = candidateDates.find(hasSamePlan) || '';
         if (matchedDate) matchType = 'samePlan';
       }
-      if (!matchedDate) {
+      if (normalizedMode === 'auto' && !matchedDate) {
         matchedDate = candidateDates.find(hasSameWeekday) || '';
         if (matchedDate) matchType = 'sameWeekday';
       }
-      if (!matchedDate) {
+      if (normalizedMode === 'auto' && !matchedDate) {
         matchedDate = candidateDates.find(hasSameOrder) || '';
         if (matchedDate) matchType = 'sameOrder';
       }
-      if (!matchedDate) {
+      if (normalizedMode === 'auto' && !matchedDate) {
         matchedDate = candidateDates[0];
         matchType = 'latest';
       }
 
+      if (!matchedDate) {
+        return {
+          date: '',
+          order: 0,
+          sameOrder: false,
+          sets: [],
+          matchType,
+          shortLabel: labels[matchType] || '前回',
+          label: longLabels[matchType] || '前回',
+          empty: true
+        };
+      }
+
       const order = getExOrderOnDate(matchedDate, exName);
-      const labels = {
-        samePlan: '同プラン',
-        sameWeekday: '同曜日',
-        sameOrder: '同順番',
-        latest: '直近'
-      };
-      const longLabels = {
-        samePlan: `前回の${planInfo.label}`,
-        sameWeekday: '前回の同じ曜日',
-        sameOrder: '前回の同じ種目順',
-        latest: '直近の前回'
-      };
       return {
         date: matchedDate,
         order,
@@ -5305,7 +5419,12 @@ function init() {
     }
 
     function getExerciseWeightMode(exName = selectedExercise) {
-      return getExerciseInputPreference(exName).weightMode === 'single' ? 'single' : 'total';
+      const preferred = getExerciseInputPreference(exName).weightMode;
+      if (preferred === 'single' || preferred === 'total') return preferred;
+      const latest = logs
+        .filter(set => set.exercise === exName && (set.weightMode === 'single' || set.weightMode === 'total'))
+        .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
+      return latest?.weightMode === 'single' ? 'single' : 'total';
     }
 
     function getExerciseWeightFactor(exName = selectedExercise) {
@@ -5488,7 +5607,15 @@ function init() {
     function loadPrevSets() {
       applyExerciseTimerPreference(selectedExercise);
       renderWeightModeControl();
-      const comparisonSession = getExerciseComparisonSession(selectedExercise, currentDateStr, true);
+      renderComparisonControl();
+      const comparisonPreference = getExerciseComparisonPreference();
+      const comparisonSession = getExerciseComparisonSession(
+        selectedExercise,
+        currentDateStr,
+        comparisonPreference.mode === 'auto',
+        comparisonPreference.mode,
+        comparisonPreference.date
+      );
       const prevSets = comparisonSession ? comparisonSession.sets : [];
 
       currentSets = [];
@@ -5528,7 +5655,14 @@ function init() {
           prevOrderBox.style.display = 'block';
         }
       } else {
-        prevOrderBox.style.display = 'none';
+        const emptyMessage = getComparisonEmptyMessage(comparisonSession);
+        if (emptyMessage) {
+          prevOrderBox.textContent = emptyMessage;
+          prevOrderBox.style.color = 'var(--muted)';
+          prevOrderBox.style.display = 'block';
+        } else {
+          prevOrderBox.style.display = 'none';
+        }
       }
 
       if (prevSets.length > 0) {
@@ -5556,9 +5690,25 @@ function init() {
         }
       }
 
+      const comparisonTemplateSets = currentSets.map(set => ({
+        prevWeight:set.prevWeight,
+        prevReps:set.prevReps,
+        prevRpe:set.prevRpe,
+        prevPartialReps:set.prevPartialReps,
+        prevMetricType:set.prevMetricType,
+        prevTechnique:set.prevTechnique,
+        prevComparisonLabel:set.prevComparisonLabel,
+        prevComparisonDate:set.prevComparisonDate
+      }));
+
       const draft = loadCurrentDraft();
       if (draft && Array.isArray(draft.sets)) {
-        currentSets = draft.sets.map(set => normalizeCurrentSetMetric(set));
+        currentSets = draft.sets.map((set, idx) => {
+          const normalized = normalizeCurrentSetMetric(set);
+          const freshComparison = comparisonTemplateSets[idx];
+          if (freshComparison) Object.assign(normalized, freshComparison);
+          return normalized;
+        });
         const memoEl = document.getElementById('sessionMemo');
         if (memoEl) memoEl.value = draft.memo || '';
         const time = new Date(draft.updatedAt || Date.now()).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
@@ -5916,8 +6066,50 @@ function init() {
       saveCurrentDraft();
     }
 
+    function getExerciseSessionBestEstimates(exName, beforeDate, limit = 3) {
+      const dates = [...new Set(logs
+        .filter(set => set.exercise === exName && set.date < beforeDate)
+        .map(set => set.date))]
+        .sort((a, b) => b.localeCompare(a));
+      return dates.map(date => {
+        const estimates = logs
+          .filter(set => set.exercise === exName && set.date === date)
+          .map(estimateSet1RM)
+          .filter(value => value != null);
+        return estimates.length ? { date, best: Math.max(...estimates) } : null;
+      }).filter(Boolean).slice(0, limit);
+    }
+
+    function getPerformanceTrendWarning(exName, currentBest, beforeDate) {
+      if (!Number.isFinite(currentBest) || currentBest <= 0) return null;
+      const history = getExerciseSessionBestEstimates(exName, beforeDate, 3);
+      if (history.length < 2) return null;
+      const latest = history[0];
+      const previous = history[1];
+      if (!latest?.best || !previous?.best) return null;
+      const currentDrop = (currentBest - latest.best) / latest.best;
+      const previousDrop = (latest.best - previous.best) / previous.best;
+      if (currentDrop <= -0.03 && previousDrop <= -0.02) {
+        return {
+          title: '伸び悩み・疲労サイン',
+          reason: `推定1RMが今回${currentBest.toFixed(1)}kg、前回${latest.best.toFixed(1)}kg、前々回${previous.best.toFixed(1)}kgと連続して低下気味です。重量を追うより、睡眠・疲労・種目順を見て維持か軽めも候補です。`,
+          warn: true
+        };
+      }
+      const average = (latest.best + previous.best) / 2;
+      if (currentBest <= average * 0.94) {
+        return {
+          title: '今日は無理に更新しない候補',
+          reason: `今回の推定1RMが直近2回平均より約${Math.abs(((currentBest - average) / average) * 100).toFixed(1)}%低めです。入力ミスでなければ、疲労やコンディションの影響を疑います。`,
+          warn: true
+        };
+      }
+      return null;
+    }
+
     function getPreviousExerciseSession(exName, beforeDate) {
-      return getExerciseComparisonSession(exName, beforeDate, false);
+      const preference = getExerciseComparisonPreference(exName);
+      return getExerciseComparisonSession(exName, beforeDate, false, preference.mode, preference.date);
     }
 
     function getExerciseIncrement(exName) {
@@ -5986,6 +6178,11 @@ function init() {
         items.push({ title:'追加技法の連続使用を慎重に', reason:`直前は${setTechniqueTypes[lastTechnique]}です。通常セット以上に局所疲労が残りやすいため、次セットの質を確認します。`, warn:true });
       }
 
+      const trendWarning = getPerformanceTrendWarning(selectedExercise, best1RM, currentDateStr);
+      if (trendWarning) {
+        items.splice(Math.min(1, items.length), 0, trendWarning);
+      }
+
       const previousSession = getPreviousExerciseSession(selectedExercise, currentDateStr);
       if (previousSession) {
         const previousEstimates = previousSession.sets.map(estimateSet1RM).filter(value => value != null);
@@ -6049,7 +6246,7 @@ function init() {
     
     let aiSheetSource = 'exercise';
     function getExerciseNamesForDate(dateStr) { const names = []; logs.filter(function(l){ return l.date === dateStr; }).sort(function(a,b){ return a.id - b.id; }).forEach(function(l){ if (!names.includes(l.exercise)) names.push(l.exercise); }); return names; }
-    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP', technique: normalizeTechnique(s.technique) }; }); }
+    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP', technique: normalizeTechnique(s.technique), weightMode: getExerciseWeightMode(selectedExercise) }; }); }
     function getAllTodayForAi() {
       const unsaved = getCurrentUnsavedAiSets(selectedExercise);
       const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); });
@@ -6355,10 +6552,12 @@ function saveWorkout() {
       const memoText = document.getElementById('sessionMemo').value.trim();
       const planInfo = getActivePlanInfo();
       const planMode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const weightMode = getExerciseWeightMode(selectedExercise);
       validSets.forEach(normalizeCurrentSetMetric);
       const recordCandidates = validSets.map(s => ({
         exercise: selectedExercise,
         weight: Number(s.weight),
+        weightMode: weightMode,
         reps: Number(s.reps),
         metricType: s.metricType,
         rpe: s.metricType === 'RPE' ? Number(s.rpe) : null,
@@ -6380,6 +6579,7 @@ function saveWorkout() {
           date: currentDateStr,
           exercise: selectedExercise,
           weight: parseFloat(s.weight),
+          weightMode: weightMode,
           reps: parseInt(s.reps),
           metricType: s.metricType,
           rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null,
