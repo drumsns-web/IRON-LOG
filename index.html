@@ -724,11 +724,11 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div id="bodyweightCalcTitle" style="font-size:13px; color:var(--accent-brand); font-weight:700; margin-bottom:10px;">自重種目の負荷計算</div>
       <div style="display:flex; gap:10px; margin-bottom:10px;">
         <div class="input-box" style="background:var(--surface-2);">
-          <input type="number" inputmode="decimal" id="assistBodyWeight" placeholder="体重" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
+          <input type="number" inputmode="decimal" id="assistBodyWeight" placeholder="体重" onfocus="this.select()" onclick="this.select()" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
           <span>kg</span>
         </div>
         <div class="input-box" style="background:var(--surface-2);">
-          <input type="number" inputmode="decimal" id="assistWeight" placeholder="追加重量" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
+          <input type="number" inputmode="decimal" id="assistWeight" placeholder="追加重量" onfocus="this.select()" onclick="this.select()" oninput="updateAssistLoadPreview()" style="text-align:right; font-size:16px;">
           <span>kg</span>
         </div>
       </div>
@@ -4487,6 +4487,91 @@ function init() {
 
 
 
+    function formatComparisonDateLabel(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      if (Number.isNaN(d.getTime())) return dateStr || '';
+      return `${d.getMonth() + 1}/${d.getDate()}（${dayNames[d.getDay()]}）`;
+    }
+
+    function getExerciseComparisonSession(exName, targetDateStr, includeCurrentDate = false) {
+      const setsOnDate = date => logs
+        .filter(set => set.exercise === exName && set.date === date)
+        .sort((a, b) => a.id - b.id);
+      if (includeCurrentDate) {
+        const todaySets = setsOnDate(targetDateStr);
+        if (todaySets.length) {
+          const order = getExOrderOnDate(targetDateStr, exName);
+          return {
+            date: targetDateStr,
+            order,
+            sameOrder: true,
+            sets: todaySets,
+            matchType: 'today',
+            shortLabel: '保存値',
+            label: '本日の保存値'
+          };
+        }
+      }
+
+      const candidateDates = [...new Set(logs
+        .filter(set => set.exercise === exName && set.date < targetDateStr)
+        .map(set => set.date))]
+        .sort((a, b) => b.localeCompare(a));
+      if (!candidateDates.length) return null;
+
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const planInfo = getActivePlanInfo();
+      const targetDay = new Date(targetDateStr + 'T00:00:00').getDay();
+      const currentOrder = getTodayPlannedOrder(exName);
+      const hasSamePlan = date => setsOnDate(date).some(set =>
+        set.planMode === 'cycle' && set.planLabel === planInfo.label
+      );
+      const hasSameWeekday = date => new Date(date + 'T00:00:00').getDay() === targetDay;
+      const hasSameOrder = date => getExOrderOnDate(date, exName) === currentOrder;
+
+      let matchType = '';
+      let matchedDate = '';
+      if (mode === 'cycle') {
+        matchedDate = candidateDates.find(hasSamePlan) || '';
+        if (matchedDate) matchType = 'samePlan';
+      }
+      if (!matchedDate) {
+        matchedDate = candidateDates.find(hasSameWeekday) || '';
+        if (matchedDate) matchType = 'sameWeekday';
+      }
+      if (!matchedDate) {
+        matchedDate = candidateDates.find(hasSameOrder) || '';
+        if (matchedDate) matchType = 'sameOrder';
+      }
+      if (!matchedDate) {
+        matchedDate = candidateDates[0];
+        matchType = 'latest';
+      }
+
+      const order = getExOrderOnDate(matchedDate, exName);
+      const labels = {
+        samePlan: '同プラン',
+        sameWeekday: '同曜日',
+        sameOrder: '同順番',
+        latest: '直近'
+      };
+      const longLabels = {
+        samePlan: `前回の${planInfo.label}`,
+        sameWeekday: '前回の同じ曜日',
+        sameOrder: '前回の同じ種目順',
+        latest: '直近の前回'
+      };
+      return {
+        date: matchedDate,
+        order,
+        sameOrder: order === currentOrder,
+        sets: setsOnDate(matchedDate),
+        matchType,
+        shortLabel: labels[matchType] || '前回',
+        label: longLabels[matchType] || '前回'
+      };
+    }
+
     function getDraftKey(dateStr = currentDateStr, exName = selectedExercise) {
       return dateStr + '::' + exName;
     }
@@ -5304,6 +5389,8 @@ function init() {
       if (set.partialReps == null) set.partialReps = '';
       set.technique = normalizeTechnique(set.technique);
       if (set.metricType === 'PR' && set.technique.type === 'none') set.technique = { type:'partial' };
+      if (!set.prevComparisonLabel) set.prevComparisonLabel = '前回';
+      if (set.prevComparisonDate == null) set.prevComparisonDate = '';
       return set;
     }
 
@@ -5401,21 +5488,15 @@ function init() {
     function loadPrevSets() {
       applyExerciseTimerPreference(selectedExercise);
       renderWeightModeControl();
-      const exLogs = logs.filter(l => l.exercise === selectedExercise && l.date <= currentDateStr)
-                         .sort((a,b) => b.id - a.id);
-
-      let prevSets = [];
-      if (exLogs.length > 0) {
-        const lastDate = exLogs[0].date;
-        prevSets = exLogs.filter(l => l.date === lastDate).sort((a,b) => a.id - b.id);
-      }
+      const comparisonSession = getExerciseComparisonSession(selectedExercise, currentDateStr, true);
+      const prevSets = comparisonSession ? comparisonSession.sets : [];
 
       currentSets = [];
 
       const prevMemoBox = document.getElementById('prevMemoBox');
       const prevMemoSet = prevSets.find(s => s.memo);
       if (prevMemoSet && prevMemoSet.memo) {
-        prevMemoBox.textContent = `前回のメモ: ${prevMemoSet.memo}`;
+        prevMemoBox.textContent = `${comparisonSession?.shortLabel || '前回'}のメモ: ${prevMemoSet.memo}`;
         prevMemoBox.style.display = 'block';
       } else {
         prevMemoBox.style.display = 'none';
@@ -5426,17 +5507,17 @@ function init() {
       // 前回・今回が何種目目かを表示（疲労条件の差を可視化）
       const prevOrderBox = document.getElementById('prevOrderBox');
       if (prevSets.length > 0) {
-        const lastDate = prevSets[0].date;
+        const lastDate = comparisonSession.date;
         if (lastDate !== currentDateStr) {
           const prevPos = getExOrderOnDate(lastDate, selectedExercise);
           const todayPos = getTodayPlannedOrder(selectedExercise);
-          const d = new Date(lastDate);
-          const dLabel = `${d.getMonth()+1}/${d.getDate()}`;
+          const dLabel = formatComparisonDateLabel(lastDate);
+          const compareLabel = comparisonSession.label || '前回';
           if (prevPos !== todayPos) {
-            prevOrderBox.innerHTML = `前回(${dLabel})は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回は${todayPos}種目目 <span style="color:var(--accent);">⚠ 順番が違うため扱える重量が変わる可能性があります</span>`;
+            prevOrderBox.innerHTML = `${compareLabel}（${dLabel}）は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回は${todayPos}種目目 <span style="color:var(--accent);">⚠ 順番が違うため扱える重量が変わる可能性があります</span>`;
             prevOrderBox.style.color = 'var(--accent)';
           } else {
-            prevOrderBox.innerHTML = `前回(${dLabel})は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回も${todayPos}種目目（同じ順番）`;
+            prevOrderBox.innerHTML = `${compareLabel}（${dLabel}）は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回も${todayPos}種目目（同じ順番）`;
             prevOrderBox.style.color = 'var(--accent-brand)';
           }
           prevOrderBox.style.display = 'block';
@@ -5461,6 +5542,8 @@ function init() {
             prevWeight: s.weight, prevReps: s.reps, prevRpe: rStr, 
             prevPartialReps: s.partialReps ?? '', prevMetricType: metricType,
             prevTechnique: normalizeTechnique(s.technique),
+            prevComparisonLabel: comparisonSession.shortLabel || '前回',
+            prevComparisonDate: comparisonSession.date || '',
             weight: '', reps: '', rpe: rStr, partialReps: '', metricType: metricType,
             technique: { type:'none' },
             done: false 
@@ -5469,7 +5552,7 @@ function init() {
       } else {
         // Default 3 sets if no history
         for(let i=0; i<3; i++) {
-          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, weight: '', reps: '', rpe: 8, partialReps: '', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false });
+          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, prevComparisonLabel:'前回', prevComparisonDate:'', weight: '', reps: '', rpe: 8, partialReps: '', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false });
         }
       }
 
@@ -5602,7 +5685,7 @@ function init() {
           metricType:set.prevMetricType
         });
         if (currentEstimate != null && previousEstimate != null) {
-          parts.push(formatSetDifference('前回比', currentEstimate, previousEstimate, 1, 'kg'));
+          parts.push(formatSetDifference(`${set.prevComparisonLabel || '前回'}比`, currentEstimate, previousEstimate, 1, 'kg'));
         }
       }
       return parts.filter(Boolean).join('');
@@ -5617,6 +5700,7 @@ function init() {
       return {
         prevWeight:'', prevReps:'', prevRpe:8, prevPartialReps:'',
         prevMetricType:getExerciseMetricDefault(), prevTechnique:{type:'none'},
+        prevComparisonLabel:'前回', prevComparisonDate:'',
         weight:'', reps:'', rpe:8, partialReps:'',
         metricType:getExerciseMetricDefault(), technique:{type:'none'}, done:false
       };
@@ -5833,17 +5917,7 @@ function init() {
     }
 
     function getPreviousExerciseSession(exName, beforeDate) {
-      const dates = [...new Set(logs.filter(set => set.exercise === exName && set.date < beforeDate).map(set => set.date))]
-        .sort((a, b) => b.localeCompare(a));
-      if (!dates.length) return null;
-      const currentOrder = getTodayPlannedOrder(exName);
-      const matchingDate = dates.find(date => getExOrderOnDate(date, exName) === currentOrder) || dates[0];
-      return {
-        date: matchingDate,
-        order: getExOrderOnDate(matchingDate, exName),
-        sameOrder: getExOrderOnDate(matchingDate, exName) === currentOrder,
-        sets: logs.filter(set => set.exercise === exName && set.date === matchingDate).sort((a, b) => a.id - b.id)
-      };
+      return getExerciseComparisonSession(exName, beforeDate, false);
     }
 
     function getExerciseIncrement(exName) {
@@ -5918,7 +5992,9 @@ function init() {
         if (previousEstimates.length && best1RM > 0) {
           const previousBest = Math.max(...previousEstimates);
           const change = (best1RM - previousBest) / previousBest;
-          const condition = previousSession.sameOrder ? '同じ種目順' : `前回${previousSession.order}種目目・今回${getTodayPlannedOrder(selectedExercise)}種目目`;
+          const baseLabel = previousSession.shortLabel || '前回';
+          const orderLabel = previousSession.sameOrder ? '同じ種目順' : `前回${previousSession.order}種目目・今回${getTodayPlannedOrder(selectedExercise)}種目目`;
+          const condition = `${baseLabel}・${orderLabel}`;
           if (change >= 0.02) items.push({ title:'前回よりパフォーマンス向上', reason:`${condition}で推定1RMが約${(change*100).toFixed(1)}%上昇しています。` });
           else if (change <= -0.05) items.push({ title:'前回比だけで重量を追わない', reason:`${condition}で推定1RMが約${Math.abs(change*100).toFixed(1)}%低下。順番・睡眠・疲労も含めて判断します。`, warn:true });
         }
