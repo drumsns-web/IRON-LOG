@@ -5807,6 +5807,12 @@ function init() {
       return `<span class="${className}">${label} ${sign}${rounded.toFixed(digits)}${suffix}</span>`;
     }
 
+    function formatVolumeNumber(value) {
+      if (!Number.isFinite(value)) return '';
+      const rounded = Math.round(value * 10) / 10;
+      return Number.isInteger(rounded) ? rounded.toLocaleString() : rounded.toLocaleString(undefined, { maximumFractionDigits: 1 });
+    }
+
     function getSetComparisonHtml(set) {
       const parts = [];
       const weight = Number(set.weight);
@@ -5816,6 +5822,10 @@ function init() {
       if (set.weight !== '' && set.prevWeight !== '') parts.push(formatSetDifference('重量', weight, prevWeight, 1, 'kg'));
       if (set.reps !== '' && set.prevReps !== '') parts.push(formatSetDifference('回数', reps, prevReps, 0, '回'));
       if (set.weight !== '' && set.reps !== '') {
+        const volume = calculateSetVolume({ ...set, exercise:selectedExercise, weight, reps });
+        if (Number.isFinite(volume) && volume > 0) {
+          parts.push(`<span class="same">ボリューム ${formatVolumeNumber(volume)}kg</span>`);
+        }
         const currentEstimate = estimateSet1RM({ ...set, exercise:selectedExercise, weight, reps });
         if (currentEstimate != null) {
           parts.push(`<span class="same">推定1RM ${currentEstimate.toFixed(1)}kg</span>`);
@@ -5856,6 +5866,64 @@ function init() {
       };
     }
 
+    function applyPreviousValuesToSet(set) {
+      if (!set) return set;
+      if (set.weight === '' && set.prevWeight !== '' && set.prevWeight != null) set.weight = set.prevWeight;
+      if (set.reps === '' && set.prevReps !== '' && set.prevReps != null) set.reps = set.prevReps;
+      if (set.metricType === 'UP') {
+        set.rpe = 'UP';
+        set.partialReps = '';
+      } else if (set.metricType === 'PR') {
+        if ((set.partialReps === '' || set.partialReps == null) && set.prevPartialReps !== '' && set.prevPartialReps != null) {
+          set.partialReps = set.prevPartialReps;
+        }
+        if (normalizeTechnique(set.technique).type === 'none') {
+          set.technique = normalizeTechnique(set.prevTechnique);
+        }
+        if (normalizeTechnique(set.technique).type === 'none') set.technique = { type:'partial' };
+      } else {
+        if ((set.rpe === '' || set.rpe == null || set.rpe === 'UP') && set.prevRpe !== '' && set.prevRpe != null) {
+          set.rpe = set.prevRpe;
+        }
+        if (normalizeTechnique(set.technique).type === 'none') {
+          set.technique = normalizeTechnique(set.prevTechnique);
+        }
+      }
+      return normalizeCurrentSetMetric(set);
+    }
+
+    function createSetCopyFromSource(source, fillActual = true) {
+      if (!source) return createBlankSet();
+      const normalizedSource = normalizeCurrentSetMetric(JSON.parse(JSON.stringify(source)));
+      const sourceWeight = normalizedSource.weight !== '' ? normalizedSource.weight : (normalizedSource.prevWeight ?? '');
+      const sourceReps = normalizedSource.reps !== '' ? normalizedSource.reps : (normalizedSource.prevReps ?? '');
+      const sourceMetricType = normalizedSource.metricType || normalizedSource.prevMetricType || getExerciseMetricDefault();
+      const sourceRpe = sourceMetricType === 'UP' ? 'UP' : (normalizedSource.rpe !== '' && normalizedSource.rpe != null ? normalizedSource.rpe : normalizedSource.prevRpe);
+      const sourcePartial = normalizedSource.partialReps !== '' && normalizedSource.partialReps != null
+        ? normalizedSource.partialReps
+        : (normalizedSource.prevPartialReps ?? '');
+      const sourceTechnique = normalizeTechnique(normalizedSource.technique);
+      const copied = {
+        ...JSON.parse(JSON.stringify(normalizedSource)),
+        prevWeight: sourceWeight,
+        prevReps: sourceReps,
+        prevRpe: sourceRpe,
+        prevPartialReps: sourcePartial,
+        prevMetricType: sourceMetricType,
+        prevTechnique: sourceTechnique,
+        prevComparisonLabel: '前セット',
+        prevComparisonDate: currentDateStr,
+        weight: fillActual ? sourceWeight : '',
+        reps: fillActual ? sourceReps : '',
+        rpe: fillActual ? sourceRpe : (sourceMetricType === 'UP' ? 'UP' : 8),
+        partialReps: fillActual && sourceMetricType === 'PR' ? sourcePartial : '',
+        metricType: sourceMetricType,
+        technique: sourceTechnique,
+        done: false
+      };
+      return normalizeCurrentSetMetric(copied);
+    }
+
     function updateExerciseQuickBar() {
       const title = document.getElementById('quickExerciseTitle');
       const status = document.getElementById('quickSetStatus');
@@ -5888,14 +5956,7 @@ function init() {
         return;
       }
       const source = currentSets[sourceIndex];
-      const copied = JSON.parse(JSON.stringify(source));
-      copied.prevWeight = source.weight !== '' ? source.weight : source.prevWeight;
-      copied.prevReps = source.reps !== '' ? source.reps : source.prevReps;
-      copied.prevRpe = source.rpe;
-      copied.prevPartialReps = source.partialReps ?? '';
-      copied.prevMetricType = source.metricType;
-      copied.prevTechnique = normalizeTechnique(source.technique);
-      copied.done = false;
+      const copied = createSetCopyFromSource(source, true);
       currentSets.splice(sourceIndex + 1, 0, copied);
       renderSetRows();
       calcAdvice();
@@ -5916,7 +5977,14 @@ function init() {
     }
 
     function addSetRow() {
-      insertSetRow(currentSets.length);
+      const source = currentSets[currentSets.length - 1];
+      currentSets.push(source ? createSetCopyFromSource(source, true) : createBlankSet());
+      renderSetRows();
+      calcAdvice();
+      saveCurrentDraft();
+      setTimeout(() => {
+        document.querySelector(`#set-row-${currentSets.length - 1} .input-box input`)?.focus();
+      }, 50);
     }
 
     function removeSetRow() {
@@ -6057,8 +6125,7 @@ function init() {
 
       // Auto-fill from placeholder if empty and marking as done
       if (s.done) {
-        if (s.weight === '' && s.prevWeight) s.weight = s.prevWeight;
-        if (s.reps === '' && s.prevReps) s.reps = s.prevReps;
+        applyPreviousValuesToSet(s);
       }
 
       renderSetRows();
@@ -6120,6 +6187,37 @@ function init() {
         : preset.bigIncrement;
     }
 
+    function roundWeightForSuggestion(weight, increment) {
+      const step = Number(increment) > 0 ? Number(increment) : 2.5;
+      const rounded = Math.round(weight / step) * step;
+      return Math.round(rounded * 10) / 10;
+    }
+
+    function getVolumeDownshiftSuggestion(lastValidSet, increment) {
+      if (!lastValidSet || lastValidSet.rpeNum < 9 || lastValidSet.r > 8) return null;
+      const currentVolume = lastValidSet.w * lastValidSet.r;
+      if (!Number.isFinite(currentVolume) || currentVolume <= 0) return null;
+      const candidates = [
+        { ratio:0.9, extraLow:2, extraHigh:3 },
+        { ratio:0.95, extraLow:1, extraHigh:2 },
+        { ratio:0.85, extraLow:3, extraHigh:5 }
+      ];
+      for (const option of candidates) {
+        const candidateWeight = roundWeightForSuggestion(lastValidSet.w * option.ratio, increment);
+        const lowReps = Math.max(1, lastValidSet.r + option.extraLow);
+        const highReps = Math.max(lowReps, lastValidSet.r + option.extraHigh);
+        const lowVolume = candidateWeight * lowReps;
+        const highVolume = candidateWeight * highReps;
+        if (candidateWeight > 0 && candidateWeight < lastValidSet.w && highVolume > currentVolume * 1.08) {
+          return {
+            title: 'ボリューム狙いなら少し下げる候補',
+            reason: `直前は${formatVolumeNumber(lastValidSet.w)}kg×${lastValidSet.r}回（${formatVolumeNumber(currentVolume)}kg）でRPE${lastValidSet.rpeNum}。${formatVolumeNumber(candidateWeight)}kgで${lowReps}〜${highReps}回できるなら${formatVolumeNumber(lowVolume)}〜${formatVolumeNumber(highVolume)}kgになり、同重量を無理に重ねるより総量を稼ぎやすいです。`
+          };
+        }
+      }
+      return null;
+    }
+
     function buildExerciseCoachAdvice(validSets, lastValidSet, best1RM) {
       const goalKey = getCoachSettings().goal;
       const preset = getEffectiveCoachPreset(goalKey);
@@ -6153,6 +6251,9 @@ function init() {
       } else {
         items.push({ title:`次セットは${lastValidSet.w}kgを維持`, reason:`直前のRPE${lastValidSet.rpeNum}は${preset.name}の狙いに近い範囲です。` });
       }
+
+      const volumeSuggestion = getVolumeDownshiftSuggestion(lastValidSet, increment);
+      if (volumeSuggestion) items.push(volumeSuggestion);
 
       if (validSets.length >= 2) {
         const previous = validSets[validSets.length - 2];
