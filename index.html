@@ -42,6 +42,9 @@
     .cal-day { padding: 5px 0 4px; border-radius: 8px; font-size: 15px; cursor: pointer; border: 1px solid transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; box-sizing: border-box; touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
     .cal-day:active { background: var(--surface-3); }
     .cal-day.active { color: var(--text); font-weight: 700; background: transparent; }
+    .cal-day.today-marker { background: rgba(208,253,62,.10); border-color: rgba(208,253,62,.30); box-shadow: inset 0 0 0 1px rgba(208,253,62,.10); }
+    .cal-day.today-marker:not(.active) .cal-day-number { color: var(--accent-brand); font-weight: 800; }
+    .cal-day.today-marker.active { background: rgba(208,253,62,.08); }
     .cal-day-number { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; line-height: 1; }
     .cal-day.active .cal-day-number { color: #000; background: var(--accent-brand); }
     .cal-day.has-log { position: relative; }
@@ -329,6 +332,10 @@
     .ai-option-copy { flex:0 0 auto; min-width:72px; min-height:38px; border:none; border-radius:8px; background:var(--accent-brand); color:#000; font-size:13px; font-weight:800; cursor:pointer; }
     .copy-toast { position:fixed; left:50%; bottom:max(28px, calc(env(safe-area-inset-bottom) + 16px)); transform:translate(-50%, 20px); z-index:300; background:#f4f4f4; color:#111; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; box-shadow:0 8px 24px rgba(0,0,0,.35); }
     .copy-toast.show { opacity:1; transform:translate(-50%, 0); }
+    .undo-toast { position:fixed; left:16px; right:16px; bottom:max(84px, calc(env(safe-area-inset-bottom) + 72px)); z-index:340; display:none; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:10px; background:#242529; color:#fff; border:1px solid #4a4c52; box-shadow:0 12px 30px rgba(0,0,0,.5); font-size:13px; font-weight:700; }
+    .undo-toast.show { display:flex; animation:timerNoticeIn .18s ease-out; }
+    .undo-toast button { flex:0 0 auto; border:none; border-radius:8px; padding:8px 12px; background:var(--accent-brand); color:#050505; font-weight:900; cursor:pointer; }
+    .carryover-advice { display:block; margin-top:6px; color:var(--text); font-size:12px; line-height:1.45; }
     .timer-notice { position:fixed; left:16px; right:16px; top:max(16px, calc(env(safe-area-inset-top) + 12px)); z-index:420; display:none; align-items:center; justify-content:space-between; gap:12px; padding:15px 16px; border-radius:10px; background:#242529; color:#fff; border:1px solid #55585f; box-shadow:0 12px 34px rgba(0,0,0,.5); font-size:15px; font-weight:800; }
     .timer-notice.show { display:flex; animation:timerNoticeIn .2s ease-out; }
     .timer-notice.warning { border-color:var(--accent-brand); color:var(--accent-brand); }
@@ -650,8 +657,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     <!-- Backup Prompt -->
     <div id="backupPrompt" class="card" style="display:none; background:rgba(208, 253, 62, 0.1); border:1px solid rgba(208, 253, 62, 0.3); padding:16px; margin-bottom:16px;">
-      <div style="font-size:14px; font-weight:600; color:var(--accent-brand); margin-bottom:8px;">月初のバックアップのおすすめ</div>
-      <div style="font-size:13px; color:var(--text); margin-bottom:12px; line-height:1.4;">新しい月になりました。大切な記録を守るため、データの保存（JSON出力）をおすすめします。</div>
+      <div id="backupPromptTitle" style="font-size:14px; font-weight:600; color:var(--accent-brand); margin-bottom:8px;">月初のバックアップのおすすめ</div>
+      <div id="backupPromptText" style="font-size:13px; color:var(--text); margin-bottom:12px; line-height:1.4;">新しい月になりました。大切な記録を守るため、データの保存（JSON出力）をおすすめします。</div>
       <div style="display:flex; gap:12px;">
         <button onclick="doPromptBackup()" style="flex:1; background:var(--accent-brand); color:#000; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">💾 保存する</button>
         <button onclick="dismissBackupPrompt()" style="width:80px; background:var(--surface-3); color:var(--text); border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer;">あとで</button>
@@ -1422,6 +1429,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
   </div>
   <div id="copyToast" class="copy-toast">コピーしました</div>
+  <div id="undoToast" class="undo-toast" role="status" aria-live="polite">
+    <span id="undoToastText">変更しました</span>
+    <button type="button" onclick="undoLastSetEdit()">元に戻す</button>
+  </div>
   <div id="timerNotice" class="timer-notice" role="status" aria-live="assertive">
     <span id="timerNoticeText">インターバル終了</span>
     <button type="button" onclick="hideTimerNotice()" aria-label="閉じる">×</button>
@@ -1485,6 +1496,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     const STORE_DAILY_EXERCISE_ORDER = 'ironlog-daily-exercise-order-v1';
     const STORE_DRAFT_HISTORY = 'ironlog-draft-history-v1';
     const STORE_LOCAL_BACKUPS = 'ironlog-local-backups-v1';
+    const STORE_JSON_BACKUP_DATE = 'ironlog-last-json-backup-date-v1';
+    const STORE_BACKUP_REMINDER_DATE = 'ironlog-backup-reminder-date-v1';
     let exSortMode = localStorage.getItem(STORE_SORT) || 'freq';
 
 
@@ -1503,6 +1516,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     // Set UI state
     let currentSets = [];
     let draftSaveStatusTimer = null;
+    let lastSetEditSnapshot = null;
+    let activeSetEditKey = '';
+    let activeSetEditStartedAt = 0;
+    let lastInputWarningSignature = '';
 
     // Utils
     function formatDate(d) {
@@ -1510,6 +1527,18 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       const m = String(d.getMonth()+1).padStart(2,'0');
       const day = String(d.getDate()).padStart(2,'0');
       return `${y}-${m}-${day}`;
+    }
+
+    function parseLocalDate(dateStr) {
+      if (!dateStr) return null;
+      return new Date(`${dateStr}T00:00:00`);
+    }
+
+    function daysBetweenDateStrings(fromStr, toStr = formatDate(new Date())) {
+      const from = parseLocalDate(fromStr);
+      const to = parseLocalDate(toStr);
+      if (!from || Number.isNaN(from.getTime()) || !to || Number.isNaN(to.getTime())) return null;
+      return Math.floor((to - from) / (1000 * 60 * 60 * 24));
     }
 
     const STORE_INTERVAL_TIMER = 'ironlog-interval-timer-v2';
@@ -2013,6 +2042,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
       // Mark prompt as dismissed
       const d = new Date();
+      localStorage.setItem(STORE_JSON_BACKUP_DATE, formatDate(d));
+      localStorage.setItem(STORE_BACKUP_REMINDER_DATE, formatDate(d));
       localStorage.setItem('ironlog-backup-prompt', `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
       const promptEl = document.getElementById('backupPrompt');
       if (promptEl) promptEl.style.display = 'none';
@@ -2186,12 +2217,31 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     
     function checkBackupPrompt() {
       const d = new Date();
+      const todayStr = formatDate(d);
       const yyyyMm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       const lastPrompt = localStorage.getItem('ironlog-backup-prompt');
+      const lastJsonBackup = localStorage.getItem(STORE_JSON_BACKUP_DATE);
+      const lastReminder = localStorage.getItem(STORE_BACKUP_REMINDER_DATE);
+      const promptEl = document.getElementById('backupPrompt');
+      if (!promptEl) return;
+      const titleEl = document.getElementById('backupPromptTitle');
+      const textEl = document.getElementById('backupPromptText');
+      const hasData = logs.length > 0 || Object.keys(getSetDrafts()).length > 0;
+      const daysSinceBackup = daysBetweenDateStrings(lastJsonBackup, todayStr);
+      const daysSinceReminder = daysBetweenDateStrings(lastReminder, todayStr);
 
       // 毎月1日〜7日の間に、まだその月にバックアップや「あとで」を選択していない場合に表示
       if (d.getDate() <= 7 && lastPrompt !== yyyyMm) {
-        document.getElementById('backupPrompt').style.display = 'block';
+        if (titleEl) titleEl.textContent = '月初のバックアップのおすすめ';
+        if (textEl) textEl.textContent = '新しい月になりました。大切な記録を守るため、データの保存（JSON出力）をおすすめします。';
+        promptEl.style.display = 'block';
+        return;
+      }
+
+      if (hasData && (daysSinceBackup == null || daysSinceBackup >= 7) && (daysSinceReminder == null || daysSinceReminder >= 7)) {
+        if (titleEl) titleEl.textContent = '定期バックアップのおすすめ';
+        if (textEl) textEl.textContent = '前回のJSON保存から日数が空いています。機種変更やブラウザ履歴削除に備えて、バックアップ保存をおすすめします。';
+        promptEl.style.display = 'block';
       }
     }
 
@@ -2199,6 +2249,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       const d = new Date();
       const yyyyMm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       localStorage.setItem('ironlog-backup-prompt', yyyyMm);
+      localStorage.setItem(STORE_BACKUP_REMINDER_DATE, formatDate(d));
       document.getElementById('backupPrompt').style.display = 'none';
     }
 
@@ -3315,6 +3366,27 @@ function init() {
       content.innerHTML = items.slice(0, 3).join('');
     }
 
+    function buildWeeklyReviewSummary(stats, categories, preset) {
+      const totalStimulus = categories.reduce((sum, category) => sum + (stats[category]?.stimulus || 0), 0);
+      const totalHard = categories.reduce((sum, category) => sum + (stats[category]?.hardSets || 0), 0);
+      const topCategory = categories
+        .map(category => ({ category, stimulus: stats[category]?.stimulus || 0 }))
+        .sort((a, b) => b.stimulus - a.stimulus)[0];
+      const targetCategories = getPlanTargetCategories();
+      const missedTargets = targetCategories.filter(category => !stats[category] || stats[category].sets <= 0);
+      const highCategories = categories.filter(category => (stats[category]?.stimulus || 0) >= preset.weeklyMax);
+      const notes = [];
+      if (topCategory) notes.push(`一番刺激が多い部位は${topCategory.category}（刺激${topCategory.stimulus}）`);
+      if (highCategories.length) notes.push(`${highCategories.join('・')}は疲労が残りやすい週`);
+      if (missedTargets.length) notes.push(`予定部位で未実施: ${missedTargets.slice(0, 3).join('・')}`);
+      if (totalHard >= 10) notes.push('高努力セットが多めなので次回は関節・睡眠を優先して判断');
+      if (!notes.length) notes.push('大きな偏りは少なく、次週も同じ流れで比較しやすい状態');
+      return `<div class="report-insight" style="margin-bottom:10px;">
+        <strong>週レビュー</strong><br>
+        合計刺激${totalStimulus}・高努力${totalHard}セット。${notes.join('。')}
+      </div>`;
+    }
+
     function renderWeeklyCoachReport() {
       const container = document.getElementById('weeklyCoachReport');
       if (!container) return;
@@ -3329,7 +3401,8 @@ function init() {
         container.innerHTML = '<div class="report-insight">この週の記録がありません。</div>';
         return;
       }
-      container.innerHTML = categories.map(category => {
+      const summaryHtml = buildWeeklyReviewSummary(stats, categories, preset);
+      container.innerHTML = summaryHtml + categories.map(category => {
         const stat = stats[category];
         let status = '蓄積中';
         let color = 'var(--muted)';
@@ -3898,8 +3971,9 @@ function init() {
         const dayCats = getCategoriesForDate(dStr);
         const isHasLog = dayCats.length > 0 ? 'has-log' : '';
         const isActive = dStr === currentDateStr ? 'active' : '';
+        const isActualToday = dStr === formatDate(new Date()) ? 'today-marker' : '';
         const dotsHtml = dayCats.slice(0, 6).map(cat => `<span class="cal-dot" style="background:${catColors[cat] || catColors['その他']};"></span>`).join('');
-        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive}" data-date="${dStr}" role="button" aria-label="${i}日。タップで日付選択、長押しでトレーニング部位を表示" onpointerdown="startCalendarLongPress(event, '${dStr}')" onpointermove="moveCalendarLongPress(event)" onpointerup="endCalendarLongPress()" onpointercancel="endCalendarLongPress()" onpointerleave="endCalendarLongPress()" oncontextmenu="event.preventDefault()" onclick="handleCalendarDayClick(event, '${dStr}')"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
+        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive} ${isActualToday}" data-date="${dStr}" role="button" aria-label="${i}日。タップで日付選択、長押しでトレーニング部位を表示" onpointerdown="startCalendarLongPress(event, '${dStr}')" onpointermove="moveCalendarLongPress(event)" onpointerup="endCalendarLongPress()" onpointercancel="endCalendarLongPress()" onpointerleave="endCalendarLongPress()" oncontextmenu="event.preventDefault()" onclick="handleCalendarDayClick(event, '${dStr}')"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
       }
     }
 
@@ -5586,22 +5660,56 @@ function init() {
       let idx = currentSets.findIndex(s => !s.done || s.weight === '');
       if (idx === -1) idx = currentSets.length - 1;
       if (idx < 0) return;
+      captureSetEditUndo('負荷を入力');
       currentSets[idx].weight = String(load);
       renderSetRows();
       updateAssistCalcVisibility();
       renderSupersetPartnerBox();
       calcAdvice();
       saveCurrentDraft();
+      showUndoToast('負荷を入力');
     }
 
     function applyAssistLoadToAllSets() {
       const load = updateAssistLoadPreview();
       if (load === null) return alert(isAssistExercise() ? '体重とアシスト重量を入力してください。' : '体重と追加重量を入力してください。');
+      captureSetEditUndo('全セットへ負荷入力');
       currentSets.forEach(s => { s.weight = String(load); });
       renderSetRows();
       updateAssistCalcVisibility();
       calcAdvice();
       saveCurrentDraft();
+      showUndoToast('全セットへ負荷入力');
+    }
+
+    function getNextSessionCarryoverAdvice(prevSets, comparisonSession) {
+      if (!prevSets || !prevSets.length || !comparisonSession || comparisonSession.date === currentDateStr) return '';
+      const validSets = prevSets
+        .filter(set => inferLogMetricType(set, selectedExercise) !== 'UP')
+        .filter(set => Number(set.weight) > 0 && Number(set.reps) > 0);
+      if (!validSets.length) return '';
+      const last = validSets[validSets.length - 1];
+      const metricType = inferLogMetricType(last, selectedExercise);
+      const weight = Number(last.weight);
+      const reps = Number(last.reps);
+      const rpe = Number(last.rpe);
+      const notes = [];
+      if (metricType === 'RPE' && Number.isFinite(rpe)) {
+        if (rpe >= 9.5) {
+          const down = Math.max(0, Math.round((weight * 0.95) * 2) / 2);
+          notes.push(`前回ラストがRPE${rpe}なので、今日は${weight}kg維持か${formatVolumeNumber(down)}kg前後で回数を確保`);
+        } else if (rpe <= 7 && reps >= 5) {
+          const up = Math.round((weight * 1.025) * 2) / 2;
+          notes.push(`前回ラストに余力あり。フォームが同じなら${formatVolumeNumber(up)}kg前後、または+1回を候補`);
+        }
+      }
+      if (metricType === 'PR' && Number(last.partialReps) > 0) {
+        notes.push(`前回は${reps}回のうち${last.partialReps}回がパーシャル。まずフル可動域の回数を優先`);
+      }
+      const estimate = estimateSet1RM({ ...last, exercise:selectedExercise });
+      if (estimate != null) notes.push(`前回ラスト推定1RMは約${estimate.toFixed(1)}kg`);
+      if (!notes.length) return '';
+      return `<span class="carryover-advice">次回反映メモ: ${notes.slice(0, 2).join('。')}</span>`;
     }
 
     function loadPrevSets() {
@@ -5647,6 +5755,8 @@ function init() {
             prevOrderBox.innerHTML = `${compareLabel}（${dLabel}）は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回も${todayPos}種目目（同じ順番）`;
             prevOrderBox.style.color = 'var(--accent-brand)';
           }
+          const carryoverAdvice = getNextSessionCarryoverAdvice(prevSets, comparisonSession);
+          if (carryoverAdvice) prevOrderBox.innerHTML += carryoverAdvice;
           prevOrderBox.style.display = 'block';
         } else {
           const pos = getExOrderOnDate(currentDateStr, selectedExercise);
@@ -5943,6 +6053,101 @@ function init() {
       }
     }
 
+    function cloneCurrentSetsForUndo() {
+      return JSON.parse(JSON.stringify(currentSets || []));
+    }
+
+    function getSetFieldLabel(key) {
+      return ({ weight:'重量', reps:'回数', rpe:'RPE', partialReps:'パーシャル', metricType:'入力方式' })[key] || 'セット';
+    }
+
+    function captureSetEditUndo(label, editKey = '') {
+      if (!Array.isArray(currentSets)) return false;
+      const now = Date.now();
+      if (editKey && lastSetEditSnapshot && activeSetEditKey === editKey && now - activeSetEditStartedAt < 2500) {
+        return false;
+      }
+      activeSetEditKey = editKey;
+      activeSetEditStartedAt = now;
+      lastSetEditSnapshot = {
+        date: currentDateStr,
+        exercise: selectedExercise,
+        label: label || '変更',
+        sets: cloneCurrentSetsForUndo(),
+        memo: document.getElementById('sessionMemo')?.value || '',
+        at: now
+      };
+      return true;
+    }
+
+    function showUndoToast(label) {
+      if (!lastSetEditSnapshot) return;
+      const toast = document.getElementById('undoToast');
+      const text = document.getElementById('undoToastText');
+      if (!toast || !text) return;
+      text.textContent = `${label || lastSetEditSnapshot.label || '変更'}しました`;
+      toast.classList.add('show');
+      clearTimeout(window.undoToastTimer);
+      window.undoToastTimer = setTimeout(() => toast.classList.remove('show'), 5200);
+    }
+
+    function hideUndoToast() {
+      const toast = document.getElementById('undoToast');
+      if (toast) toast.classList.remove('show');
+      clearTimeout(window.undoToastTimer);
+    }
+
+    function undoLastSetEdit() {
+      const snapshot = lastSetEditSnapshot;
+      if (!snapshot) return;
+      if (snapshot.date !== currentDateStr || snapshot.exercise !== selectedExercise) {
+        showCopyToast('この画面では元に戻せません');
+        return;
+      }
+      currentSets = snapshot.sets.map(set => normalizeCurrentSetMetric(set));
+      const memoEl = document.getElementById('sessionMemo');
+      if (memoEl) memoEl.value = snapshot.memo || '';
+      lastSetEditSnapshot = null;
+      activeSetEditKey = '';
+      renderSetRows();
+      updateAssistCalcVisibility();
+      renderSupersetPartnerBox();
+      calcAdvice();
+      saveCurrentDraft();
+      hideUndoToast();
+      showCopyToast('元に戻しました');
+    }
+
+    function getInputWarningForSet(idx, key, val) {
+      if (!['weight', 'reps'].includes(key)) return '';
+      const set = currentSets[idx];
+      const value = Number(val);
+      if (!set || val === '' || !Number.isFinite(value) || value <= 0) return '';
+      if (key === 'weight') {
+        const prevWeight = Number(set.prevWeight);
+        if (value >= 500) return '重量の桁が大きいかもしれません';
+        if (Number.isFinite(prevWeight) && prevWeight > 0) {
+          if (value >= prevWeight * 2.5) return '前回より重量が大きく増えています';
+          if (value <= prevWeight * 0.35) return '前回より重量が大きく下がっています';
+        }
+      }
+      if (key === 'reps') {
+        const prevReps = Number(set.prevReps);
+        if (value >= 80) return '回数の桁が大きいかもしれません';
+        if (Number.isFinite(prevReps) && prevReps > 0 && value >= prevReps * 3) return '前回より回数が大きく増えています';
+      }
+      return '';
+    }
+
+    function maybeShowSetInputWarning(idx, key, val) {
+      const warning = getInputWarningForSet(idx, key, val);
+      if (!warning) return;
+      const signature = `${idx}:${key}:${val}:${warning}`;
+      if (signature === lastInputWarningSignature) return;
+      lastInputWarningSignature = signature;
+      showCopyToast(warning);
+    }
+
     function duplicatePreviousSet() {
       let sourceIndex = -1;
       for (let index = currentSets.length - 1; index >= 0; index--) {
@@ -5957,20 +6162,24 @@ function init() {
       }
       const source = currentSets[sourceIndex];
       const copied = createSetCopyFromSource(source, true);
+      captureSetEditUndo('セット複製');
       currentSets.splice(sourceIndex + 1, 0, copied);
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
       document.getElementById(`set-row-${sourceIndex + 1}`)?.scrollIntoView({ behavior:'smooth', block:'center' });
       showCopyToast(`セット${sourceIndex + 1}を複製しました`);
+      showUndoToast('セット複製');
     }
 
     function insertSetRow(index) {
       const safeIndex = Math.max(0, Math.min(currentSets.length, Number(index) || 0));
+      captureSetEditUndo('セット差し込み');
       currentSets.splice(safeIndex, 0, createBlankSet());
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
+      showUndoToast('セット差し込み');
       setTimeout(() => {
         document.querySelector(`#set-row-${safeIndex} .input-box input`)?.focus();
       }, 50);
@@ -5978,10 +6187,12 @@ function init() {
 
     function addSetRow() {
       const source = currentSets[currentSets.length - 1];
+      captureSetEditUndo('セット追加');
       currentSets.push(source ? createSetCopyFromSource(source, true) : createBlankSet());
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
+      showUndoToast('セット追加');
       setTimeout(() => {
         document.querySelector(`#set-row-${currentSets.length - 1} .input-box input`)?.focus();
       }, 50);
@@ -5990,14 +6201,19 @@ function init() {
     function removeSetRow() {
       if(currentSets.length > 1) {
         if (!confirm('最後のセットを削除しますか？')) return;
+        captureSetEditUndo('セット削除');
         currentSets.pop();
         renderSetRows();
         calcAdvice();
         saveCurrentDraft();
+        showUndoToast('セット削除');
       }
     }
 
-    function updateSet(idx, key, val) {
+    function updateSet(idx, key, val, options = {}) {
+      if (!currentSets[idx]) return;
+      const changed = currentSets[idx][key] !== val;
+      if (changed && !options.skipUndo) captureSetEditUndo(`セット${idx + 1}の${getSetFieldLabel(key)}`, `set:${idx}:${key}`);
       currentSets[idx][key] = val;
       const s = currentSets[idx];
 
@@ -6019,13 +6235,21 @@ function init() {
       updateSetComparison(idx);
       calcAdvice();
       saveCurrentDraft();
+      if (changed && !options.skipUndo) {
+        maybeShowSetInputWarning(idx, key, val);
+        showUndoToast(`セット${idx + 1}の${getSetFieldLabel(key)}`);
+      }
     }
 
     function updatePartialReps(idx, val) {
+      if (!currentSets[idx]) return;
+      const changed = currentSets[idx].partialReps !== val || currentSets[idx].metricType !== 'PR';
+      if (changed) captureSetEditUndo(`セット${idx + 1}のパーシャル`, `set:${idx}:partialReps`);
       currentSets[idx].metricType = 'PR';
       currentSets[idx].rpe = 8;
       currentSets[idx].technique = { type:'partial' };
-      updateSet(idx, 'partialReps', val);
+      updateSet(idx, 'partialReps', val, { skipUndo:true });
+      if (changed) showUndoToast(`セット${idx + 1}のパーシャル`);
     }
 
     let editingMetricSetIndex = -1;
@@ -6085,20 +6309,25 @@ function init() {
       if (!first) return;
       if (action === 'weight') {
         if (first.weight === '') return showCopyToast('セット1の重量を入力してください');
+        captureSetEditUndo('一括反映');
         currentSets.forEach(set => { set.weight = first.weight; });
       } else if (action === 'reps') {
         if (first.reps === '') return showCopyToast('セット1の回数を入力してください');
+        captureSetEditUndo('一括反映');
         currentSets.forEach(set => { set.reps = first.reps; });
       } else if (action === 'metric') {
+        captureSetEditUndo('一括反映');
         currentSets.forEach(set => applyMetricTypeToSet(set, first.metricType));
       } else if (action === 'technique') {
         const technique = normalizeTechnique(first.technique);
         if (technique.type === 'none') return showCopyToast('セット1の技法を設定してください');
+        captureSetEditUndo('一括反映');
         currentSets.forEach(set => {
           set.technique = normalizeTechnique(technique);
           applyTechniqueMetricRules(set);
         });
       } else if (action === 'up') {
+        captureSetEditUndo('一括反映');
         currentSets.forEach(set => applyMetricTypeToSet(set, 'UP'));
       }
       currentSets.forEach(set => {
@@ -6109,18 +6338,25 @@ function init() {
       saveCurrentDraft();
       closeSetBulkModal();
       showCopyToast('全セットへ反映しました');
+      showUndoToast('一括反映');
     }
 
     function updateSetMetricType(idx, type) {
       const s = currentSets[idx];
+      if (!s) return;
+      const changed = s.metricType !== type;
+      if (changed) captureSetEditUndo(`セット${idx + 1}の入力方式`);
       applyMetricTypeToSet(s, type);
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
+      if (changed) showUndoToast(`セット${idx + 1}の入力方式`);
     }
 
     function toggleDone(idx) {
       const s = currentSets[idx];
+      if (!s) return;
+      captureSetEditUndo(`セット${idx + 1}のチェック`);
       s.done = !s.done;
 
       // Auto-fill from placeholder if empty and marking as done
@@ -6131,6 +6367,7 @@ function init() {
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
+      showUndoToast(`セット${idx + 1}のチェック`);
     }
 
     function getExerciseSessionBestEstimates(exName, beforeDate, limit = 3) {
