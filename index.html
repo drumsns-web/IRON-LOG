@@ -145,7 +145,7 @@
     .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
     .draft-status-row .saving { color:var(--accent-brand); }
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
-    .exercise-quick-bar { position:fixed; z-index:180; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(8px, env(safe-area-inset-bottom)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translateX(-50%); }
+    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(72px, calc(env(safe-area-inset-bottom) + 64px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
     .exercise-quick-info { min-width:0; }
     .exercise-quick-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-size:13px; font-weight:800; }
@@ -153,14 +153,15 @@
     .exercise-quick-timer { min-width:58px; min-height:42px; padding:0 7px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--accent-brand); font-size:13px; font-weight:850; font-variant-numeric:tabular-nums; cursor:pointer; }
     .exercise-quick-icon { width:42px; height:42px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:20px; font-weight:800; cursor:pointer; }
     .exercise-quick-icon.primary { border-color:var(--accent-brand); background:var(--accent-brand); color:#000; }
-    #view-exercise.active { padding-bottom:calc(92px + env(safe-area-inset-bottom)); }
+    .exercise-quick-icon.ai { color:var(--accent-brand); font-size:12px; font-weight:950; letter-spacing:0; }
+    #view-exercise.active { padding-bottom:calc(164px + env(safe-area-inset-bottom)); }
     .history-list { display:grid; gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); overflow-y:auto; }
     .history-item { padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2); }
     .history-item-head { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--text); font-size:13px; font-weight:800; }
     .history-item-summary { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
     .history-item button { min-height:34px; padding:0 11px; border:1px solid var(--accent-brand); border-radius:7px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:800; cursor:pointer; }
     @media (max-width:360px) {
-      .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto; }
+      .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto auto; }
       .exercise-quick-timer { grid-row:1; }
       .exercise-quick-icon.copy { display:none; }
     }
@@ -332,7 +333,7 @@
     .ai-option-copy { flex:0 0 auto; min-width:72px; min-height:38px; border:none; border-radius:8px; background:var(--accent-brand); color:#000; font-size:13px; font-weight:800; cursor:pointer; }
     .copy-toast { position:fixed; left:50%; bottom:max(28px, calc(env(safe-area-inset-bottom) + 16px)); transform:translate(-50%, 20px); z-index:300; background:#f4f4f4; color:#111; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; box-shadow:0 8px 24px rgba(0,0,0,.35); }
     .copy-toast.show { opacity:1; transform:translate(-50%, 0); }
-    .undo-toast { position:fixed; left:16px; right:16px; bottom:max(84px, calc(env(safe-area-inset-bottom) + 72px)); z-index:340; display:none; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:10px; background:#242529; color:#fff; border:1px solid #4a4c52; box-shadow:0 12px 30px rgba(0,0,0,.5); font-size:13px; font-weight:700; }
+    .undo-toast { position:fixed; left:16px; right:16px; top:max(86px, calc(env(safe-area-inset-top) + 72px)); z-index:430; display:none; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:10px; background:#242529; color:#fff; border:1px solid #4a4c52; box-shadow:0 12px 30px rgba(0,0,0,.5); font-size:13px; font-weight:700; }
     .undo-toast.show { display:flex; animation:timerNoticeIn .18s ease-out; }
     .undo-toast button { flex:0 0 auto; border:none; border-radius:8px; padding:8px 12px; background:var(--accent-brand); color:#050505; font-weight:900; cursor:pointer; }
     .carryover-advice { display:block; margin-top:6px; color:var(--text); font-size:12px; line-height:1.45; }
@@ -356,6 +357,7 @@
     .comparison-control input { flex:0 0 136px; }
     .set-insert-divider { display:flex; align-items:center; justify-content:center; min-height:28px; margin:-3px 0; }
     .set-insert-divider button { min-height:26px; padding:0 11px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); color:var(--set-secondary-text); font-size:10px; font-weight:700; cursor:pointer; }
+    .set-row-delete { flex:0 0 auto; min-height:30px; padding:0 10px; border:1px solid rgba(255,69,58,.42); border-radius:7px; background:transparent; color:#ff9b94; font-size:11px; font-weight:800; cursor:pointer; }
     .reorder-insert-btn { width:100%; min-height:38px; margin:5px 0; border:1px dashed var(--line); border-radius:8px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:750; cursor:pointer; }
     .ex-swipe-main .ex-item { border-bottom: none; }
     .ex-swipe-row.open .ex-swipe-main { transform: translateX(-88px); }
@@ -757,8 +759,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     <div class="weight-mode-card">
       <div style="min-width:0;">
-        <div class="weight-mode-title">左右独立マシンの重量入力</div>
-        <div id="weightModeNote" class="weight-mode-note">通常は「両側合計」。片側の表示重量を入力する場合だけ「片側」を選びます。</div>
+        <div class="weight-mode-title">ダンベル／左右独立マシンの重量入力</div>
+        <div id="weightModeNote" class="weight-mode-note">通常は「両側合計」。ダンベルや左右独立マシンを片側重量で入力する場合だけ「片側」を選びます。</div>
       </div>
       <div class="weight-mode-buttons" aria-label="重量入力方式">
         <button id="weightModeTotalBtn" type="button" onclick="setExerciseWeightMode('total')">両側合計</button>
@@ -833,6 +835,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="toggleIntervalTimer()" title="タイマーを開始・リセット">02:00</button>
     <button type="button" class="exercise-quick-icon copy" onclick="duplicatePreviousSet()" title="直前セットを複製" aria-label="直前セットを複製">⧉</button>
     <button type="button" class="exercise-quick-icon primary" onclick="addSetRow()" title="セットを追加" aria-label="セットを追加">＋</button>
+    <button type="button" class="exercise-quick-icon ai" onclick="openAiSheet()" title="AIに相談" aria-label="AIに相談">AI</button>
   </div>
 
   <!-- Bottom Sheet: Exercise Selection -->
@@ -1424,6 +1427,20 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
             <div style="font-size:11px; color:var(--muted);">日別の種目・セット・ボリュームをコピー</div>
           </div>
           <button class="ai-option-copy" onclick="copyAiOption('periodSummary')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">前回の同曜日／同プラン</div>
+            <div style="font-size:11px; color:var(--muted);">前週や前回A〜G日の全種目をコピー</div>
+          </div>
+          <button class="ai-option-copy" onclick="copyAiOption('previousComparableDay')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">同種目の前回記録</div>
+            <div style="font-size:11px; color:var(--muted);">比較対象にしている前回セットをコピー</div>
+          </div>
+          <button class="ai-option-copy" onclick="copyAiOption('previousExercise')">コピー</button>
         </div>
       </div>
     </div>
@@ -5531,8 +5548,8 @@ function init() {
       if (header) header.textContent = mode === 'single' ? 'kg／片側' : 'kg';
       if (note) {
         note.textContent = mode === 'single'
-          ? '入力値を片側重量として保存し、ボリューム・推定1RM・AI相談では2倍した両側合計重量を使います。過去記録にも反映します。'
-          : '入力値を両側合計重量として、そのまま計算とAI相談に使います。';
+          ? 'ダンベルや左右独立マシンの片側重量として保存し、ボリューム・推定1RM・AI相談では2倍した両側合計重量を使います。過去記録にも反映します。'
+          : 'ダンベル・マシンを含め、入力値を両側合計重量としてそのまま計算とAI相談に使います。';
       }
     }
 
@@ -5545,7 +5562,7 @@ function init() {
       renderDailyLogs();
       if (document.getElementById('view-report')?.classList.contains('active')) renderReport();
       showCopyToast(mode === 'single'
-        ? '片側入力に変更しました。計算は両側合計です'
+        ? 'ダンベル／左右独立マシンの片側入力に変更しました。計算は両側合計です'
         : '両側合計入力に変更しました');
     }
 
@@ -5584,6 +5601,7 @@ function init() {
       if (set.metricType === 'PR' && set.technique.type === 'none') set.technique = { type:'partial' };
       if (!set.prevComparisonLabel) set.prevComparisonLabel = '前回';
       if (set.prevComparisonDate == null) set.prevComparisonDate = '';
+      if (set.manualCheckRequired == null) set.manualCheckRequired = false;
       return set;
     }
 
@@ -5697,17 +5715,17 @@ function init() {
       if (metricType === 'RPE' && Number.isFinite(rpe)) {
         if (rpe >= 9.5) {
           const down = Math.max(0, Math.round((weight * 0.95) * 2) / 2);
-          notes.push(`前回ラストがRPE${rpe}なので、今日は${weight}kg維持か${formatVolumeNumber(down)}kg前後で回数を確保`);
+          notes.push(`前回ラストがRPE${rpe}なので、今日は${formatRecordedWeight(last, selectedExercise)}維持か${formatRecordedWeight({ ...last, weight:down }, selectedExercise)}前後で回数を確保`);
         } else if (rpe <= 7 && reps >= 5) {
           const up = Math.round((weight * 1.025) * 2) / 2;
-          notes.push(`前回ラストに余力あり。フォームが同じなら${formatVolumeNumber(up)}kg前後、または+1回を候補`);
+          notes.push(`前回ラストに余力あり。フォームが同じなら${formatRecordedWeight({ ...last, weight:up }, selectedExercise)}前後、または+1回を候補`);
         }
       }
       if (metricType === 'PR' && Number(last.partialReps) > 0) {
         notes.push(`前回は${reps}回のうち${last.partialReps}回がパーシャル。まずフル可動域の回数を優先`);
       }
       const estimate = estimateSet1RM({ ...last, exercise:selectedExercise });
-      if (estimate != null) notes.push(`前回ラスト推定1RMは約${estimate.toFixed(1)}kg`);
+      if (estimate != null) notes.push(`前回ラスト推定1RMは約${formatEstimatedLoadLabel(estimate, selectedExercise)}`);
       if (!notes.length) return '';
       return `<span class="carryover-advice">次回反映メモ: ${notes.slice(0, 2).join('。')}</span>`;
     }
@@ -5892,6 +5910,7 @@ function init() {
           <div class="set-technique-line">
             <button type="button" class="set-technique-btn ${technique.type !== 'none' ? 'active' : ''}" onclick="openTechniqueModal(${i})">${technique.type === 'none' ? '＋ 技法' : setTechniqueTypes[technique.type]}</button>
             <div class="set-technique-summary">${escapeHtml(techniqueSummary)}</div>
+            <button type="button" class="set-row-delete" onclick="removeSetAt(${i})">削除</button>
           </div>
           <div class="set-insert-divider">
             <button type="button" onclick="insertSetRow(${i + 1})">＋ この下にセットを差し込む</button>
@@ -5923,6 +5942,14 @@ function init() {
       return Number.isInteger(rounded) ? rounded.toLocaleString() : rounded.toLocaleString(undefined, { maximumFractionDigits: 1 });
     }
 
+    function formatEstimatedLoadLabel(value, exName = selectedExercise) {
+      if (!Number.isFinite(value)) return '--';
+      if (getExerciseWeightMode(exName) === 'single') {
+        return `片側${formatVolumeNumber(value / 2)}kg換算`;
+      }
+      return `${formatVolumeNumber(value)}kg`;
+    }
+
     function getSetComparisonHtml(set) {
       const parts = [];
       const weight = Number(set.weight);
@@ -5936,9 +5963,23 @@ function init() {
         if (Number.isFinite(volume) && volume > 0) {
           parts.push(`<span class="same">ボリューム ${formatVolumeNumber(volume)}kg</span>`);
         }
+        if (set.prevWeight !== '' && set.prevReps !== '') {
+          const prevVolume = calculateSetVolume({
+            exercise:selectedExercise,
+            weight:prevWeight,
+            reps:prevReps,
+            metricType:set.prevMetricType,
+            rpe:set.prevRpe,
+            partialReps:set.prevPartialReps,
+            technique:set.prevTechnique
+          });
+          if (Number.isFinite(prevVolume) && prevVolume > 0) {
+            parts.push(formatSetDifference('ボリューム比', volume, prevVolume, 0, 'kg'));
+          }
+        }
         const currentEstimate = estimateSet1RM({ ...set, exercise:selectedExercise, weight, reps });
         if (currentEstimate != null) {
-          parts.push(`<span class="same">推定1RM ${currentEstimate.toFixed(1)}kg</span>`);
+          parts.push(`<span class="same">推定1RM ${formatEstimatedLoadLabel(currentEstimate, selectedExercise)}</span>`);
         } else if (set.metricType === 'UP') {
           parts.push('<span class="same">UPは推定1RM対象外</span>');
         }
@@ -5972,7 +6013,8 @@ function init() {
         prevMetricType:getExerciseMetricDefault(), prevTechnique:{type:'none'},
         prevComparisonLabel:'前回', prevComparisonDate:'',
         weight:'', reps:'', rpe:8, partialReps:'',
-        metricType:getExerciseMetricDefault(), technique:{type:'none'}, done:false
+        metricType:getExerciseMetricDefault(), technique:{type:'none'}, done:false,
+        manualCheckRequired:false
       };
     }
 
@@ -6029,7 +6071,8 @@ function init() {
         partialReps: fillActual && sourceMetricType === 'PR' ? sourcePartial : '',
         metricType: sourceMetricType,
         technique: sourceTechnique,
-        done: false
+        done: false,
+        manualCheckRequired: true
       };
       return normalizeCurrentSetMetric(copied);
     }
@@ -6210,6 +6253,21 @@ function init() {
       }
     }
 
+    function removeSetAt(idx) {
+      if (!currentSets[idx]) return;
+      if (currentSets.length <= 1) {
+        showCopyToast('最後の1セットは削除できません');
+        return;
+      }
+      if (!confirm(`セット${idx + 1}を削除して、後ろのセットを繰り上げますか？`)) return;
+      captureSetEditUndo(`セット${idx + 1}削除`);
+      currentSets.splice(idx, 1);
+      renderSetRows();
+      calcAdvice();
+      saveCurrentDraft();
+      showUndoToast(`セット${idx + 1}削除`);
+    }
+
     function updateSet(idx, key, val, options = {}) {
       if (!currentSets[idx]) return;
       const changed = currentSets[idx][key] !== val;
@@ -6221,13 +6279,15 @@ function init() {
       if (!row) return;
       const btn = row.querySelector('.check-btn');
 
-      if (s.weight !== '' && s.reps !== '') {
+      const hasMainValues = s.weight !== '' && s.reps !== '';
+      const shouldMarkDone = hasMainValues && (s.done || !s.manualCheckRequired);
+      if (shouldMarkDone) {
         s.done = true;
         row.classList.add('is-done');
         btn.classList.add('checked');
         btn.textContent = '✔';
       } else {
-        s.done = false;
+        if (!hasMainValues) s.done = false;
         row.classList.remove('is-done');
         btn.classList.remove('checked');
         btn.textContent = '';
@@ -6362,6 +6422,7 @@ function init() {
       // Auto-fill from placeholder if empty and marking as done
       if (s.done) {
         applyPreviousValuesToSet(s);
+        s.manualCheckRequired = false;
       }
 
       renderSetRows();
@@ -6396,7 +6457,7 @@ function init() {
       if (currentDrop <= -0.03 && previousDrop <= -0.02) {
         return {
           title: '伸び悩み・疲労サイン',
-          reason: `推定1RMが今回${currentBest.toFixed(1)}kg、前回${latest.best.toFixed(1)}kg、前々回${previous.best.toFixed(1)}kgと連続して低下気味です。重量を追うより、睡眠・疲労・種目順を見て維持か軽めも候補です。`,
+          reason: `推定1RMが今回${formatEstimatedLoadLabel(currentBest, selectedExercise)}、前回${formatEstimatedLoadLabel(latest.best, selectedExercise)}、前々回${formatEstimatedLoadLabel(previous.best, selectedExercise)}と連続して低下気味です。重量を追うより、睡眠・疲労・種目順を見て維持か軽めも候補です。`,
           warn: true
         };
       }
@@ -6430,6 +6491,14 @@ function init() {
       return Math.round(rounded * 10) / 10;
     }
 
+    function formatCoachLoad(weight, exName = selectedExercise) {
+      if (!Number.isFinite(Number(weight))) return '--kg';
+      if (getExerciseWeightMode(exName) === 'single') {
+        return `片側${formatVolumeNumber(Number(weight) / 2)}kg`;
+      }
+      return `${formatVolumeNumber(Number(weight))}kg`;
+    }
+
     function getVolumeDownshiftSuggestion(lastValidSet, increment) {
       if (!lastValidSet || lastValidSet.rpeNum < 9 || lastValidSet.r > 8) return null;
       const currentVolume = lastValidSet.w * lastValidSet.r;
@@ -6448,7 +6517,7 @@ function init() {
         if (candidateWeight > 0 && candidateWeight < lastValidSet.w && highVolume > currentVolume * 1.08) {
           return {
             title: 'ボリューム狙いなら少し下げる候補',
-            reason: `直前は${formatVolumeNumber(lastValidSet.w)}kg×${lastValidSet.r}回（${formatVolumeNumber(currentVolume)}kg）でRPE${lastValidSet.rpeNum}。${formatVolumeNumber(candidateWeight)}kgで${lowReps}〜${highReps}回できるなら${formatVolumeNumber(lowVolume)}〜${formatVolumeNumber(highVolume)}kgになり、同重量を無理に重ねるより総量を稼ぎやすいです。`
+            reason: `直前は${formatCoachLoad(lastValidSet.w)}×${lastValidSet.r}回（総量${formatVolumeNumber(currentVolume)}kg）でRPE${lastValidSet.rpeNum}。${formatCoachLoad(candidateWeight)}で${lowReps}〜${highReps}回できるなら総量${formatVolumeNumber(lowVolume)}〜${formatVolumeNumber(highVolume)}kgになり、同重量を無理に重ねるより総量を稼ぎやすいです。`
           };
         }
       }
@@ -6477,16 +6546,16 @@ function init() {
         items.push({ title:nextAction, reason:`睡眠${Number.isFinite(sleep) ? sleep : '-'}/5・疲労${Number.isFinite(fatigue) ? fatigue : '-'}/5を反映しました。`, warn:true });
       } else if (lastValidSet.rpeNum >= 9.5) {
         nextWeight = Math.max(0, lastValidSet.w - increment);
-        nextAction = `次セットは${nextWeight}kg前後、または終了`;
+        nextAction = `次セットは${formatCoachLoad(nextWeight)}前後、または終了`;
         items.push({ title:nextAction, reason:`直前はRPE${lastValidSet.rpeNum}。限界セットを重ねるより質を保つ提案です。`, warn:true });
       } else if (lastValidSet.rpeNum <= 6) {
-        items.push({ title:`${lastValidSet.w}kgを維持、または小幅増量`, reason:`RPE${lastValidSet.rpeNum}は限界から遠く、余力回数の誤差が大きくなりやすいため急な増量は避けます。` });
+        items.push({ title:`${formatCoachLoad(lastValidSet.w)}を維持、または小幅増量`, reason:`RPE${lastValidSet.rpeNum}は限界から遠く、余力回数の誤差が大きくなりやすいため急な増量は避けます。` });
       } else if (lastValidSet.rpeNum <= preset.rpeMin && lastValidSet.r >= preset.repMin) {
         nextWeight = lastValidSet.w + increment;
-        nextAction = `次セットは${nextWeight}kgを試す候補`;
+        nextAction = `次セットは${formatCoachLoad(nextWeight)}を試す候補`;
         items.push({ title:nextAction, reason:`直前はRPE${lastValidSet.rpeNum}で、${preset.name}の目安より余力があります。` });
       } else {
-        items.push({ title:`次セットは${lastValidSet.w}kgを維持`, reason:`直前のRPE${lastValidSet.rpeNum}は${preset.name}の狙いに近い範囲です。` });
+        items.push({ title:`次セットは${formatCoachLoad(lastValidSet.w)}を維持`, reason:`直前のRPE${lastValidSet.rpeNum}は${preset.name}の狙いに近い範囲です。` });
       }
 
       const volumeSuggestion = getVolumeDownshiftSuggestion(lastValidSet, increment);
@@ -6577,7 +6646,7 @@ function init() {
       advBox.style.color = 'var(--text)';
       advBox.innerHTML = `<div class="coach-title"><span>ローカルコーチ</span><span class="coach-goal">${getEffectiveCoachPreset().name}</span></div>
         ${adviceItems.map(item => coachItem(item.title, item.reason, item.warn)).join('')}
-        <div style="margin-top:8px; color:var(--muted); font-size:10px;">最高推定1RM ${best1RM.toFixed(1)}kg。フォームと痛みの有無を最優先してください。</div>`;
+        <div style="margin-top:8px; color:var(--muted); font-size:10px;">最高推定1RM ${formatEstimatedLoadLabel(best1RM, selectedExercise)}。フォームと痛みの有無を最優先してください。</div>`;
     }
 
     
@@ -6783,6 +6852,75 @@ function init() {
       return lines.join('\n');
     }
 
+    function buildWorkoutDaySummaryText(dateStr, titlePrefix = '') {
+      const dayLogs = logs
+        .filter(l => l.date === dateStr)
+        .sort((a, b) => a.id - b.id);
+      if (!dayLogs.length) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      const weekdayLong = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
+      const planLabel = dayLogs.find(l => l.planLabel)?.planLabel || '';
+      const planText = dayLogs.find(l => l.planText)?.planText || '';
+      const categories = [...new Set(dayLogs.map(l => getCategoryForExercise(l.exercise)))];
+      const lines = [`${titlePrefix}${d.getMonth()+1}月${d.getDate()}日 ${weekdayLong[d.getDay()]}${planLabel ? ` ${planLabel}` : ''}${planText ? ` ${planText}` : ''}`.trim()];
+      lines.push(`部位: ${categories.join('・')}`);
+      const grouped = {};
+      const order = [];
+      dayLogs.forEach(l => {
+        if (!grouped[l.exercise]) {
+          grouped[l.exercise] = [];
+          order.push(l.exercise);
+        }
+        grouped[l.exercise].push(l);
+      });
+      let totalVolume = 0;
+      let totalSets = 0;
+      order.forEach(name => {
+        const sets = grouped[name];
+        lines.push('', `${name} ${sets.length}セット`);
+        sets.forEach((set, index) => {
+          lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set)}`);
+          totalVolume += calculateSetVolume(set);
+          totalSets += 1;
+        });
+      });
+      lines.push('', `合計: ${totalSets}セット ${Math.round(totalVolume).toLocaleString()}kg`);
+      return lines.join('\n');
+    }
+
+    function findPreviousComparableWorkoutDate() {
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const dates = [...new Set(logs.filter(l => l.date < currentDateStr).map(l => l.date))]
+        .sort((a, b) => b.localeCompare(a));
+      if (!dates.length) return '';
+      if (mode === 'cycle') {
+        const plan = getActivePlanInfo();
+        const samePlanDate = dates.find(date => logs.some(l => l.date === date && l.planMode === 'cycle' && l.planLabel === plan.label));
+        if (samePlanDate) return samePlanDate;
+      }
+      const targetDay = new Date(currentDateStr + 'T00:00:00').getDay();
+      return dates.find(date => new Date(date + 'T00:00:00').getDay() === targetDay) || dates[0] || '';
+    }
+
+    function buildPreviousComparableDayText() {
+      const date = findPreviousComparableWorkoutDate();
+      if (!date) return '';
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const prefix = mode === 'cycle' ? '前回同プラン: ' : '前回同曜日: ';
+      return buildWorkoutDaySummaryText(date, prefix);
+    }
+
+    function buildPreviousExerciseText(exName) {
+      if (!exName) return '';
+      const preference = getExerciseComparisonPreference(exName);
+      const session = getExerciseComparisonSession(exName, currentDateStr, false, preference.mode, preference.date);
+      if (!session || !session.sets || !session.sets.length) return '';
+      const dateLabel = session.date ? formatComparisonDateLabel(session.date) : '';
+      const lines = [`${session.label || session.shortLabel || '前回'} ${dateLabel}`, exName];
+      session.sets.forEach((set, index) => lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set)}`));
+      return lines.join('\n');
+    }
+
     function copyAiOption(type) {
       const goal = document.getElementById('aiGoal').value;
       const aiExercise = getAiExerciseName();
@@ -6831,6 +6969,12 @@ function init() {
       } else if (type === 'periodSummary') {
         text = buildPeriodSummaryText();
         if (!text) return showCopyToast('期間内の記録がありません');
+      } else if (type === 'previousComparableDay') {
+        text = buildPreviousComparableDayText();
+        if (!text) return showCopyToast('前回の同曜日／同プラン記録がありません');
+      } else if (type === 'previousExercise') {
+        text = buildPreviousExerciseText(aiExercise);
+        if (!text) return showCopyToast('同種目の前回記録がありません');
       }
       if (text) copyTextQuietly(text);
     }
