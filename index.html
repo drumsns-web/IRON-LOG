@@ -1258,8 +1258,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div style="margin-top:6px;"><strong style="color:var(--text);">PR</strong>＝Partial Reps（パーシャルレップ）。回数欄はパーシャルを含む総回数、PR欄はその内パーシャルだった回数です。例：全20回のうち最後の4回なら「20回・PR4」。</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">UP</strong>＝ウォームアップセット。通常種目・レイズ系のどちらでも選択でき、RPEやPRを付けない準備セットとして記録します。</div>
         <div style="margin-top:14px; color:var(--text); font-weight:700;">セット技法</div>
-        <div style="margin-top:6px;">各セット下の「技法」から、パーシャル・ドロップ・レストポーズ・フォースト・マイオレップ・スーパーセットを記録できます。RPEは技法とは別に残ります。</div>
-        <div style="margin-top:6px;">ドロップは段階ごとの重量と回数、レストポーズとマイオレップは休憩ごとの追加回数、スーパーセットは相手種目を記録します。</div>
+        <div style="margin-top:6px;">各セット下の「技法」から、パーシャル・ドロップ・ディセンディング・メカニカルドロップ・レストポーズ・フォースト・マイオレップ・スーパーセット・ポーズ・テンポを記録できます。RPEは技法とは別に残ります。</div>
+        <div style="margin-top:6px;">ドロップとディセンディングは段階ごとの重量と回数、メカニカルドロップは姿勢や角度を変えた追加回数、レストポーズとマイオレップは休憩ごとの追加回数、ポーズとテンポは秒数を記録します。</div>
       </div>
     </details>
 
@@ -3283,8 +3283,8 @@ function init() {
         effort = metricType === 'RPE' && rpe >= 5 && rpe <= 7.5 ? 1 : 0.6;
       }
       const techniqueType = normalizeTechnique(set.technique).type;
-      const techniqueFactor = ['drop','restPause','myo','forced'].includes(techniqueType) ? 1.15
-        : (techniqueType === 'partial' ? 1.08 : 1);
+      const techniqueFactor = ['drop','descending','mechanicalDrop','restPause','myo','forced'].includes(techniqueType) ? 1.15
+        : (['partial','pause','tempo'].includes(techniqueType) ? 1.08 : 1);
       return Math.round(Math.min(1.25, effort * repFit * techniqueFactor) * 100) / 100;
     }
 
@@ -3295,6 +3295,10 @@ function init() {
         partial:1.15,
         superset:1.1,
         drop:1.35,
+        descending:1.3,
+        mechanicalDrop:1.3,
+        pause:1.08,
+        tempo:1.08,
         myo:1.35,
         restPause:1.4,
         forced:1.5
@@ -3381,7 +3385,7 @@ function init() {
       const todayHard = todaySets.filter(set =>
         (inferLogMetricType(set, set.exercise) === 'RPE' && Number(set.rpe) >= 9) ||
         (inferLogMetricType(set, set.exercise) === 'PR' && Number(set.partialReps) > 0) ||
-        ['drop','restPause','myo','forced'].includes(normalizeTechnique(set.technique).type)
+        ['drop','descending','mechanicalDrop','restPause','myo','forced'].includes(normalizeTechnique(set.technique).type)
       ).length;
       if (todayHard >= 4) {
         items.push(coachItem('限界近くのセットを増やしすぎない', `本日はすでに高努力セットが${todayHard}セットあります。以降はフォーム維持を優先します。`, true));
@@ -3442,7 +3446,7 @@ function init() {
           <div class="strength-summary-value">${stat.stimulus}<span style="margin-left:5px; color:${color}; font-size:10px;">${status}${hardNote}${fatigueNote}</span></div>
           <div style="margin-top:4px; color:var(--muted); font-size:10px;">実セット${stat.sets}・技法${stat.techniqueSets}・刺激${stat.stimulus}・疲労換算${stat.fatigueSets}</div>
         </div>`;
-      }).join('') + `<div style="margin-top:9px; color:var(--muted); font-size:10px; line-height:1.5;">刺激セットはRPE・回数帯、疲労換算はドロップ・レストポーズ・フォーストなどの技法負担を加味した比較用の値です。</div>`;
+      }).join('') + `<div style="margin-top:9px; color:var(--muted); font-size:10px; line-height:1.5;">刺激セットはRPE・回数帯、疲労換算はドロップ・ディセンディング・メカニカルドロップ・レストポーズ・フォーストなどの技法負担を加味した比較用の値です。</div>`;
     }
 
     function estimateSet1RM(set) {
@@ -5332,9 +5336,13 @@ function init() {
       partial: 'パーシャル',
       restPause: 'レストポーズ',
       drop: 'ドロップ',
+      descending: 'ディセンディング',
+      mechanicalDrop: 'メカニカルドロップ',
       forced: 'フォースト',
       myo: 'マイオレップ',
-      superset: 'スーパーセット'
+      superset: 'スーパーセット',
+      pause: 'ポーズ',
+      tempo: 'テンポ'
     };
     let editingTechniqueSetIndex = -1;
     let editingTechniqueDraft = { type:'none' };
@@ -5345,7 +5353,7 @@ function init() {
       if (['restPause','myo'].includes(normalized.type)) {
         normalized.clusters = Array.isArray(normalized.clusters) ? normalized.clusters : [];
       }
-      if (normalized.type === 'drop') {
+      if (['drop','descending','mechanicalDrop'].includes(normalized.type)) {
         normalized.stages = Array.isArray(normalized.stages) ? normalized.stages : [];
       }
       return normalized;
@@ -5375,11 +5383,30 @@ function init() {
         const stages = data.stages.filter(item => item.weight !== '' || item.reps !== '');
         return `ドロップ ${stages.map(item => `${item.weight || '-'}kg×${item.reps || '-'}回`).join(' → ') || '未入力'}`;
       }
+      if (data.type === 'descending') {
+        const stages = data.stages.filter(item => item.weight !== '' || item.reps !== '');
+        return `ディセンディング ${stages.map(item => `${item.weight || '-'}kg×${item.reps || '-'}回`).join(' → ') || '未入力'}`;
+      }
+      if (data.type === 'mechanicalDrop') {
+        const stages = data.stages.filter(item => item.variant !== '' || item.reps !== '');
+        return `メカニカルドロップ ${stages.map(item => `${item.variant || '変更'}×${item.reps || '-'}回`).join(' → ') || '未入力'}`;
+      }
       if (data.type === 'myo') {
         const clusters = data.clusters.map(item => Number(item.reps) || 0).filter(Boolean);
         return `マイオ ${clusters.join('＋') || '未入力'}回`;
       }
       if (data.type === 'superset') return `スーパーセット：${data.partnerExercise || '相手未選択'}`;
+      if (data.type === 'pause') {
+        const sec = Number(data.pauseSeconds);
+        const position = data.pausePosition || '停止位置未設定';
+        return Number.isFinite(sec) && sec > 0 ? `ポーズ ${position} ${sec}秒` : `ポーズ ${position}`;
+      }
+      if (data.type === 'tempo') {
+        const eccentric = data.eccentricSeconds || '-';
+        const pause = data.pauseSeconds || '0';
+        const concentric = data.concentricSeconds || '-';
+        return `テンポ ${eccentric}-${pause}-${concentric}`;
+      }
       return setTechniqueTypes[data.type] || '';
     }
 
@@ -5389,8 +5416,10 @@ function init() {
       const reps = Number(set.reps) || 0;
       let volume = weight * reps;
       const technique = normalizeTechnique(set.technique);
-      if (technique.type === 'drop') {
+      if (['drop','descending'].includes(technique.type)) {
         volume += technique.stages.reduce((sum, item) => sum + (Number(item.weight) || 0) * weightFactor * (Number(item.reps) || 0), 0);
+      } else if (technique.type === 'mechanicalDrop') {
+        volume += weight * technique.stages.reduce((sum, item) => sum + (Number(item.reps) || 0), 0);
       } else if (['restPause','myo'].includes(technique.type)) {
         volume += weight * technique.clusters.reduce((sum, item) => sum + (Number(item.reps) || 0), 0);
       } else if (technique.type === 'forced') {
@@ -5409,7 +5438,10 @@ function init() {
         editingTechniqueDraft = setTechniqueTypes[preferredType] ? { type:preferredType } : { type:'none' };
         if (preferredType === 'forced') editingTechniqueDraft.assistedReps = '';
         if (preferredType === 'restPause' || preferredType === 'myo') editingTechniqueDraft.clusters = [{ reps:'', restSeconds:'' }];
-        if (preferredType === 'drop') editingTechniqueDraft.stages = [{ weight:'', reps:'' }];
+        if (preferredType === 'drop' || preferredType === 'descending') editingTechniqueDraft.stages = [{ weight:'', reps:'' }];
+        if (preferredType === 'mechanicalDrop') editingTechniqueDraft.stages = [{ variant:'', reps:'' }];
+        if (preferredType === 'pause') { editingTechniqueDraft.pauseSeconds = ''; editingTechniqueDraft.pausePosition = 'ボトム'; }
+        if (preferredType === 'tempo') { editingTechniqueDraft.eccentricSeconds = ''; editingTechniqueDraft.pauseSeconds = ''; editingTechniqueDraft.concentricSeconds = ''; }
         if (preferredType === 'superset') editingTechniqueDraft.partnerExercise = '';
       }
       document.getElementById('techniqueModalTitle').textContent = `セット${index + 1}の技法`;
@@ -5429,9 +5461,19 @@ function init() {
       editingTechniqueDraft = { type };
       if (type === 'forced') editingTechniqueDraft.assistedReps = previous.assistedReps ?? '';
       if (type === 'restPause') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
-      if (type === 'drop') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ weight:'', reps:'' }];
+      if (type === 'drop' || type === 'descending') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ weight:'', reps:'' }];
+      if (type === 'mechanicalDrop') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ variant:'', reps:'' }];
       if (type === 'myo') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
       if (type === 'superset') editingTechniqueDraft.partnerExercise = previous.partnerExercise || '';
+      if (type === 'pause') {
+        editingTechniqueDraft.pauseSeconds = previous.pauseSeconds ?? '';
+        editingTechniqueDraft.pausePosition = previous.pausePosition || 'ボトム';
+      }
+      if (type === 'tempo') {
+        editingTechniqueDraft.eccentricSeconds = previous.eccentricSeconds ?? '';
+        editingTechniqueDraft.pauseSeconds = previous.pauseSeconds ?? '';
+        editingTechniqueDraft.concentricSeconds = previous.concentricSeconds ?? '';
+      }
       renderTechniqueModal();
     }
 
@@ -5440,18 +5482,19 @@ function init() {
     }
 
     function updateTechniqueStage(index, key, value) {
-      const listKey = editingTechniqueDraft.type === 'drop' ? 'stages' : 'clusters';
+      const listKey = ['drop','descending','mechanicalDrop'].includes(editingTechniqueDraft.type) ? 'stages' : 'clusters';
       editingTechniqueDraft[listKey][index][key] = value;
     }
 
     function addTechniqueStage() {
-      if (editingTechniqueDraft.type === 'drop') editingTechniqueDraft.stages.push({ weight:'', reps:'' });
+      if (['drop','descending'].includes(editingTechniqueDraft.type)) editingTechniqueDraft.stages.push({ weight:'', reps:'' });
+      else if (editingTechniqueDraft.type === 'mechanicalDrop') editingTechniqueDraft.stages.push({ variant:'', reps:'' });
       else editingTechniqueDraft.clusters.push({ reps:'', restSeconds:'' });
       renderTechniqueModal();
     }
 
     function removeTechniqueStage(index) {
-      const listKey = editingTechniqueDraft.type === 'drop' ? 'stages' : 'clusters';
+      const listKey = ['drop','descending','mechanicalDrop'].includes(editingTechniqueDraft.type) ? 'stages' : 'clusters';
       editingTechniqueDraft[listKey].splice(index, 1);
       if (!editingTechniqueDraft[listKey].length) addTechniqueStage();
       else renderTechniqueModal();
@@ -5471,13 +5514,25 @@ function init() {
         form.innerHTML = `<div style="color:var(--text); font-size:12px; line-height:1.65;"><strong>入力欄をPRへ自動変更します。</strong><br><span style="color:var(--muted);">回数欄にはパーシャルを含む総回数、PR欄にはその内パーシャルだった回数を入力してください。例：全20回のうち4回なら、回数20・PR4です。</span></div>`;
       } else if (type === 'forced') {
         form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>限界後の補助反復としてRPE10へ自動設定します。</strong><br><span style="color:var(--muted);">実施後、補助を受けて追加した回数を記録してください。</span></div><label>実施後のフォーストレップ回数</label><input type="number" inputmode="numeric" min="0" placeholder="結果を入力" value="${editingTechniqueDraft.assistedReps ?? ''}" oninput="updateTechniqueField('assistedReps',this.value)">`;
-      } else if (type === 'drop') {
-        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>最初のセットのRPEは現在の入力を維持します。</strong><br><span style="color:var(--muted);">実施後、実際に落とした重量と回数を追記してください。</span></div><label>最初の重量・回数は通常欄へ入力し、その後の結果を追加します。</label>
+      } else if (type === 'drop' || type === 'descending') {
+        const isDescending = type === 'descending';
+        const title = isDescending ? 'ディセンディング段階' : 'ドロップ段階';
+        const description = isDescending
+          ? '重量を段階的に下げて行った実際の重量と回数を追記してください。'
+          : '実施後、実際に落とした重量と回数を追記してください。';
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>最初のセットのRPEは現在の入力を維持します。</strong><br><span style="color:var(--muted);">${description}</span></div><label>最初の重量・回数は通常欄へ入力し、その後の結果を追加します。</label>
           <div style="margin-top:9px;">${editingTechniqueDraft.stages.map((item,index) => `<div class="technique-stage">
             <input type="number" inputmode="decimal" placeholder="実際の重量 kg" value="${item.weight ?? ''}" oninput="updateTechniqueStage(${index},'weight',this.value)">
             <input type="number" inputmode="numeric" placeholder="実際の回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
             <button type="button" onclick="removeTechniqueStage(${index})">−</button>
-          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ドロップ段階を追加</button>`;
+          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ${title}を追加</button>`;
+      } else if (type === 'mechanicalDrop') {
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>重量はそのまま、姿勢・角度・握りなどを有利な形に変えて続ける技法です。</strong><br><span style="color:var(--muted);">最初の重量・回数は通常欄へ入力し、変更後の形と追加回数を実施後に追記します。</span></div><label>フォーム変更後の追加分</label>
+          <div style="margin-top:9px;">${editingTechniqueDraft.stages.map((item,index) => `<div class="technique-stage">
+            <input type="text" placeholder="例：反動あり・角度変更" value="${escapeHtml(item.variant ?? '')}" oninput="updateTechniqueStage(${index},'variant',this.value)">
+            <input type="number" inputmode="numeric" placeholder="実際の追加回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
+            <button type="button" onclick="removeTechniqueStage(${index})">−</button>
+          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ 変更後の形を追加</button>`;
       } else if (type === 'restPause' || type === 'myo') {
         const title = type === 'myo' ? '活性化セット後のミニセット' : '短い休憩後の追加反復';
         const effortNote = type === 'myo'
@@ -5494,6 +5549,20 @@ function init() {
         form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>限界とは限らないため、現在のRPEを維持します。</strong></div><label>続けて行う相手種目</label><select onchange="updateTechniqueField('partnerExercise',this.value)">
           <option value="">選択してください</option>${names.map(name => `<option value="${escapeHtml(name)}" ${editingTechniqueDraft.partnerExercise === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}
         </select><div style="margin-top:8px; color:var(--muted); font-size:10px; line-height:1.5;">相手種目側にも同じ組み合わせが表示されます。各種目の重量・回数はそれぞれの画面で記録します。</div>`;
+      } else if (type === 'pause') {
+        const positions = ['ボトム','トップ','中間','胸上','膝下','その他'];
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>停止位置と秒数を記録します。</strong><br><span style="color:var(--muted);">フォーム練習や弱点補強用です。RPEは通常どおり自分で入力します。</span></div>
+          <label>停止位置</label><select onchange="updateTechniqueField('pausePosition',this.value)">
+            ${positions.map(position => `<option value="${position}" ${editingTechniqueDraft.pausePosition === position ? 'selected' : ''}>${position}</option>`).join('')}
+          </select>
+          <label style="margin-top:9px;">停止秒数</label><input type="number" inputmode="decimal" min="0" placeholder="例：2" value="${editingTechniqueDraft.pauseSeconds ?? ''}" oninput="updateTechniqueField('pauseSeconds',this.value)">`;
+      } else if (type === 'tempo') {
+        form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>下ろす・止める・上げる秒数を記録します。</strong><br><span style="color:var(--muted);">例：3-1-1なら、下ろし3秒・ボトム1秒・上げ1秒です。</span></div>
+          <div class="technique-pair">
+            <div><label>下ろし 秒</label><input type="number" inputmode="decimal" min="0" placeholder="3" value="${editingTechniqueDraft.eccentricSeconds ?? ''}" oninput="updateTechniqueField('eccentricSeconds',this.value)"></div>
+            <div><label>停止 秒</label><input type="number" inputmode="decimal" min="0" placeholder="1" value="${editingTechniqueDraft.pauseSeconds ?? ''}" oninput="updateTechniqueField('pauseSeconds',this.value)"></div>
+          </div>
+          <label>上げ 秒</label><input type="number" inputmode="decimal" min="0" placeholder="1" value="${editingTechniqueDraft.concentricSeconds ?? ''}" oninput="updateTechniqueField('concentricSeconds',this.value)">`;
       }
     }
 
@@ -6695,7 +6764,7 @@ function init() {
         });
       }
       const lastTechnique = normalizeTechnique(validSets[validSets.length - 1]?.technique).type;
-      if (['drop','restPause','myo','forced'].includes(lastTechnique)) {
+      if (['drop','descending','mechanicalDrop','restPause','myo','forced'].includes(lastTechnique)) {
         items.push({ title:'追加技法の連続使用を慎重に', reason:`直前は${setTechniqueTypes[lastTechnique]}です。通常セット以上に局所疲労が残りやすいため、次セットの質を確認します。`, warn:true });
       }
 
@@ -7126,6 +7195,10 @@ function detectPersonalRecords(exercise, dateStr, sets) {
       if (technique.type === 'restPause' && !technique.clusters.some(item => Number(item.reps) > 0)) return `セット${number}：レストポーズ追加回数`;
       if (technique.type === 'myo' && !technique.clusters.some(item => Number(item.reps) > 0)) return `セット${number}：マイオレップ追加回数`;
       if (technique.type === 'drop' && !technique.stages.some(item => Number(item.weight) > 0 || Number(item.reps) > 0)) return `セット${number}：ドロップ結果`;
+      if (technique.type === 'descending' && !technique.stages.some(item => Number(item.weight) > 0 || Number(item.reps) > 0)) return `セット${number}：ディセンディング結果`;
+      if (technique.type === 'mechanicalDrop' && !technique.stages.some(item => Number(item.reps) > 0 || item.variant)) return `セット${number}：メカニカルドロップ結果`;
+      if (technique.type === 'pause' && !(Number(technique.pauseSeconds) > 0)) return `セット${number}：ポーズ秒数`;
+      if (technique.type === 'tempo' && ![technique.eccentricSeconds, technique.pauseSeconds, technique.concentricSeconds].some(value => Number(value) > 0)) return `セット${number}：テンポ秒数`;
       if (technique.type === 'superset' && !technique.partnerExercise) return `セット${number}：スーパーセット相手`;
       return '';
     }
