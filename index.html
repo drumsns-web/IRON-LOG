@@ -147,6 +147,7 @@
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
     .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(72px, calc(env(safe-area-inset-bottom) + 64px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
+    .exercise-quick-bar.suppressed { display:none !important; }
     .exercise-quick-info { min-width:0; }
     .exercise-quick-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-size:13px; font-weight:800; }
     .exercise-quick-meta { margin-top:3px; color:var(--muted); font-size:11px; font-weight:700; }
@@ -2985,6 +2986,50 @@ function updateTodayTemplate() {
   renderDailyCoach();
 }
 
+    const quickBarBlockingPanelIds = [
+      'techniqueModal',
+      'setMetricModal',
+      'setBulkModal',
+      'draftHistoryModal',
+      'referenceVideoModal',
+      'youtubePlayerModal',
+      'workoutRecallModal',
+      'bodyMapModal',
+      'addExModal',
+      'exSheet',
+      'rmSheet',
+      'settingsSheet',
+      'reorderSheet',
+      'aiSheet'
+    ];
+
+    function isBlockingPanelOpen(el) {
+      if (!el) return false;
+      if (el.classList.contains('sheet')) {
+        const transform = el.style.transform || '';
+        return transform === 'translateY(0)' || transform === 'translateY(0px)';
+      }
+      const display = el.style.display || window.getComputedStyle(el).display;
+      return display !== 'none';
+    }
+
+    function syncQuickBarOverlapGuard() {
+      const bar = document.getElementById('exerciseQuickBar');
+      if (!bar) return;
+      const shouldSuppress = quickBarBlockingPanelIds.some(id => isBlockingPanelOpen(document.getElementById(id)));
+      bar.classList.toggle('suppressed', shouldSuppress);
+    }
+
+    function initQuickBarOverlapGuard() {
+      const observer = new MutationObserver(syncQuickBarOverlapGuard);
+      quickBarBlockingPanelIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el, { attributes:true, attributeFilter:['style', 'class'] });
+      });
+      document.addEventListener('transitionend', syncQuickBarOverlapGuard, true);
+      syncQuickBarOverlapGuard();
+    }
+
 function init() {
       renderCalendar();
       selectDate(currentDateStr);
@@ -2993,6 +3038,7 @@ function init() {
       renderPlanPresets();
       loadCoachSettings();
       initIntervalTimer();
+      initQuickBarOverlapGuard();
       renderAiButtonIcon();
       loadSetTextColor();
       createDailyLocalBackup();
@@ -3012,6 +3058,7 @@ function init() {
       const target = document.getElementById(viewId);
       if (target) target.classList.add('active');
       document.getElementById('exerciseQuickBar')?.classList.toggle('visible', viewId === 'view-exercise');
+      syncQuickBarOverlapGuard();
 
       document.querySelectorAll('.floating-nav-btn').forEach(i => i.classList.remove('active'));
       if (viewId === 'view-daily' || viewId === 'view-exercise') {
