@@ -248,6 +248,9 @@
     .metric-choice-description { display:block; color:var(--muted); font-size:13px; font-weight:600; line-height:1.5; }
     .bulk-action-list { display:grid; gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
     .bulk-action-list button { width:100%; min-height:52px; padding:8px 14px; border:1px solid #48484a; border-radius:9px; background:var(--surface-2); color:var(--text); font-size:14px; font-weight:750; text-align:left; cursor:pointer; }
+    .quick-timer-options { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
+    .quick-timer-options button { min-height:54px; border:1px solid #48484a; border-radius:9px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:850; cursor:pointer; }
+    .quick-timer-options button.active { border-color:var(--accent-brand); background:rgba(208,253,62,.12); color:var(--accent-brand); }
 
     .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer;}
     
@@ -782,6 +785,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div id="setMetricHeader" style="width:68px; text-align:center">
           <select id="exerciseMetricDefault" class="metric-header-select" onchange="changeExerciseMetricDefault(this.value)" aria-label="この種目の標準入力">
             <option value="RPE">RPE（余力・強度）</option>
+            <option value="RIR">RIR（残り回数）</option>
             <option value="PR">PR（パーシャル回数）</option>
           </select>
         </div>
@@ -838,7 +842,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div id="quickExerciseTitle" class="exercise-quick-title">種目</div>
       <div id="quickSetStatus" class="exercise-quick-meta">セット入力</div>
     </div>
-    <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="toggleIntervalTimer()" title="タイマーを開始・リセット">02:00</button>
+    <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="handleQuickTimerClick(event)" onpointerdown="startQuickTimerLongPress(event)" onpointerup="endQuickTimerLongPress(event)" onpointercancel="cancelQuickTimerLongPress()" onpointerleave="cancelQuickTimerLongPress()" oncontextmenu="event.preventDefault()" title="タイマーを開始・リセット。長押しで時間選択">02:00</button>
     <button type="button" class="exercise-quick-icon copy" onclick="duplicatePreviousSet()" title="直前セットを複製" aria-label="直前セットを複製">⧉</button>
     <button type="button" class="exercise-quick-icon primary" onclick="addSetRow()" title="セットを追加" aria-label="セットを追加">＋</button>
     <button type="button" class="exercise-quick-icon ai" onclick="openAiSheet()" title="AIに相談" aria-label="AIに相談" data-ai-icon>AI</button>
@@ -1086,6 +1090,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           <span class="metric-choice-code">RPE</span>
           <span><span class="metric-choice-title">余力・運動強度</span><span class="metric-choice-description">セット終了時に「あと何回できたか」を記録します。RPE10＝余力0回、9＝あと1回、8＝あと2回です。</span></span>
         </button>
+        <button type="button" class="metric-choice" data-metric-choice="RIR" onclick="selectSetMetricFromModal('RIR')">
+          <span class="metric-choice-code">RIR</span>
+          <span><span class="metric-choice-title">Reps In Reserve（残り回数）</span><span class="metric-choice-description">「あと何回できたか」を0〜5回で直接記録します。RIR0＝限界、RIR1＝あと1回です。</span></span>
+        </button>
         <button type="button" class="metric-choice" data-metric-choice="PR" onclick="selectSetMetricFromModal('PR')">
           <span class="metric-choice-code">PR</span>
           <span><span class="metric-choice-title">Partial Reps（パーシャルレップ）</span><span class="metric-choice-description">回数欄に総回数、PR欄にその内パーシャルだった回数を記録します。例：全20回のうち4回なら「20回・PR4」です。</span></span>
@@ -1108,10 +1116,21 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div class="bulk-action-list">
         <button type="button" onclick="applySetBulkAction('weight')">セット1の重量を全セットへ</button>
         <button type="button" onclick="applySetBulkAction('reps')">セット1の回数を全セットへ</button>
-        <button type="button" onclick="applySetBulkAction('metric')">セット1のRPE／PR／UP方式を全セットへ</button>
+        <button type="button" onclick="applySetBulkAction('metric')">セット1のRPE／RIR／PR／UP方式を全セットへ</button>
         <button type="button" onclick="applySetBulkAction('technique')">セット1の技法を全セットへ</button>
         <button type="button" onclick="applySetBulkAction('up')">全セットをUP（ウォームアップ）へ</button>
       </div>
+    </div>
+  </div>
+
+  <div class="technique-modal" id="quickTimerModal" onclick="closeQuickTimerModal(event)">
+    <div class="technique-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button type="button" onclick="closeQuickTimerModal()">閉じる</button>
+        <h3>インターバル時間</h3>
+        <div style="width:72px;"></div>
+      </div>
+      <div id="quickTimerOptions" class="quick-timer-options"></div>
     </div>
   </div>
 
@@ -1252,10 +1271,11 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div style="margin-top:12px; color:var(--text); font-weight:700;">種目名によって変わる入力</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">「アシスト」「assist」</strong>を含む種目：体重 − アシスト重量で実際の負荷を計算します。</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">「チンニング」「懸垂」「ディップス」</strong>を含む種目：体重 ＋ 追加重量で実際の負荷を計算します。</div>
-        <div style="margin-top:6px;">すべての種目で、セットごとに<strong style="color:var(--text);">RPE・PR・UP</strong>を選択できます。種目ごとの標準入力も記憶されます。</div>
+        <div style="margin-top:6px;">すべての種目で、セットごとに<strong style="color:var(--text);">RPE・RIR・PR・UP</strong>を選択できます。種目ごとの標準入力も記憶されます。</div>
 
         <div style="margin-top:14px; color:var(--text); font-weight:700;">略語</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">RPE</strong>＝Rating of Perceived Exertion。セット終了時にあと何回できたかを表します。目安はRPE10＝余力0回、9＝あと1回、8＝あと2回、7＝あと3回です。</div>
+        <div style="margin-top:6px;"><strong style="color:var(--text);">RIR</strong>＝Reps In Reserve。あと何回できたかを直接入力します。RIR0＝限界、RIR1＝あと1回、RIR2＝あと2回です。</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">PR</strong>＝Partial Reps（パーシャルレップ）。回数欄はパーシャルを含む総回数、PR欄はその内パーシャルだった回数です。例：全20回のうち最後の4回なら「20回・PR4」。</div>
         <div style="margin-top:6px;"><strong style="color:var(--text);">UP</strong>＝ウォームアップセット。通常種目・レイズ系のどちらでも選択でき、RPEやPRを付けない準備セットとして記録します。</div>
         <div style="margin-top:14px; color:var(--text); font-weight:700;">セット技法</div>
@@ -1440,6 +1460,20 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         </div>
         <div class="ai-option-row">
           <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">今日のプランだけ</div>
+            <div style="font-size:11px; color:var(--muted);">曜日・A〜Gの予定内容だけをコピー</div>
+          </div>
+          <button class="ai-option-copy" onclick="copyAiOption('todayPlan')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">前回同プラン全種目</div>
+            <div style="font-size:11px; color:var(--muted);">前回の同じ曜日・同じA〜Gの全記録をコピー</div>
+          </div>
+          <button class="ai-option-copy" onclick="copyAiOption('previousSamePlanDay')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
             <div style="font-weight:700; font-size:14px; margin-bottom:3px;">前回の同曜日／同プラン</div>
             <div style="font-size:11px; color:var(--muted);">前週や前回A〜G日の全種目をコピー</div>
           </div>
@@ -1577,6 +1611,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     let intervalTimerActive = false;
     let intervalTimerTwentySecondNotified = false;
     let timerNoticeTimeout = null;
+    let quickTimerLongPressId = null;
+    let quickTimerLongPressed = false;
     const intervalMinuteOptions = ['1','1.5','2','2.5','3','3.5','4','4.5','5'];
 
     function getTimerSelectedSeconds() {
@@ -1731,6 +1767,64 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         return;
       }
       startIntervalTimer();
+    }
+
+    function handleQuickTimerClick(event) {
+      if (quickTimerLongPressed) {
+        event?.preventDefault();
+        quickTimerLongPressed = false;
+        return;
+      }
+      toggleIntervalTimer();
+    }
+
+    function startQuickTimerLongPress(event) {
+      if (event && event.pointerType === 'mouse' && event.button !== 0) return;
+      quickTimerLongPressed = false;
+      clearTimeout(quickTimerLongPressId);
+      quickTimerLongPressId = setTimeout(() => {
+        quickTimerLongPressed = true;
+        openQuickTimerModal();
+      }, 520);
+    }
+
+    function endQuickTimerLongPress() {
+      clearTimeout(quickTimerLongPressId);
+      quickTimerLongPressId = null;
+    }
+
+    function cancelQuickTimerLongPress() {
+      clearTimeout(quickTimerLongPressId);
+      quickTimerLongPressId = null;
+    }
+
+    function openQuickTimerModal() {
+      const box = document.getElementById('quickTimerOptions');
+      if (!box) return;
+      const currentValue = getTimerOptionValue(intervalTimerTotal || getTimerSelectedSeconds());
+      box.innerHTML = intervalMinuteOptions.map(value => {
+        const seconds = Math.round(Number(value) * 60);
+        const active = value === currentValue ? 'active' : '';
+        return `<button type="button" class="${active}" onclick="selectQuickTimerDuration('${value}')">${formatTimerDuration(seconds)}</button>`;
+      }).join('');
+      document.getElementById('quickTimerModal').style.display = 'flex';
+    }
+
+    function closeQuickTimerModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const modal = document.getElementById('quickTimerModal');
+      if (modal) modal.style.display = 'none';
+      setTimeout(() => { quickTimerLongPressed = false; }, 80);
+    }
+
+    function selectQuickTimerDuration(value) {
+      const select = document.getElementById('timerMinutes');
+      if (select) select.value = value;
+      localStorage.setItem('ironlog-interval-minutes', value);
+      if (selectedExercise) saveExerciseInputPreference(selectedExercise, { timerMinutes:value });
+      resetIntervalTimer(false);
+      closeQuickTimerModal();
+      showCopyToast(`タイマーを${formatTimerDuration(Number(value) * 60)}にしました`);
     }
 
     function tickIntervalTimer() {
@@ -2866,9 +2960,12 @@ function selectWorkoutRecallDate(dateStr) {
 }
 
 function formatRecallSet(set) {
+  const metricType = inferLogMetricType(set, set.exercise);
   const effort = set.isWarmup
     ? 'UP'
-    : (set.partialReps != null ? `${set.reps}回中PR${set.partialReps}` : `RPE${set.rpe ?? '-'}`);
+    : (metricType === 'PR'
+      ? `${set.reps}回中PR${set.partialReps}`
+      : (metricType === 'RIR' ? `RIR${set.rir ?? '-'}` : `RPE${set.rpe ?? '-'}`));
   const technique = getTechniqueSummary(set.technique, set);
   return `${formatRecordedWeight(set, set.exercise)}×${set.reps}回 ${effort}${technique ? `・${technique}` : ''}`;
 }
@@ -2926,15 +3023,19 @@ function applyWorkoutRecall() {
         prevWeight: set.weight,
         prevReps: set.reps,
         prevRpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
+        prevRir: set.rir ?? getRirFromRpeValue(set.rpe ?? 8),
         prevPartialReps: set.partialReps ?? '',
         prevMetricType: inferLogMetricType(set, group.exercise),
         weight: String(set.weight),
         reps: String(set.reps),
         rpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
+        rir: set.rir ?? '',
         partialReps: set.partialReps ?? '',
         metricType: inferLogMetricType(set, group.exercise),
         technique: normalizeTechnique(set.technique),
-        done: false
+        done: false,
+        manualCheckRequired: true,
+        completedAt: null
       })),
       memo: '',
       recalledFrom: workoutRecallSourceDate,
@@ -3000,7 +3101,8 @@ function updateTodayTemplate() {
       'rmSheet',
       'settingsSheet',
       'reorderSheet',
-      'aiSheet'
+      'aiSheet',
+      'quickTimerModal'
     ];
 
     function isBlockingPanelOpen(el) {
@@ -3317,8 +3419,8 @@ function init() {
       if (!Number.isFinite(reps) || reps <= 0) return 0;
       const preset = getEffectiveCoachPreset(goalKey);
       let effort = 0.55;
-      if (metricType === 'RPE' && Number.isFinite(Number(set.rpe))) {
-        const rpe = Number(set.rpe);
+      if ((metricType === 'RPE' || metricType === 'RIR') && (Number.isFinite(Number(set.rpe)) || Number.isFinite(Number(set.rir)))) {
+        const rpe = metricType === 'RIR' ? getRpeFromRirValue(set.rir) : Number(set.rpe);
         effort = rpe >= 9 ? 1 : rpe >= 8 ? 0.85 : rpe >= 7 ? 0.65 : rpe >= 6 ? 0.4 : 0.22;
       } else if (metricType === 'PR') {
         effort = Number(set.partialReps) > 0 ? 0.9 : 0.6;
@@ -3326,8 +3428,8 @@ function init() {
       let repFit = reps >= preset.repMin && reps <= preset.repMax ? 1 : 0.75;
       if (reps > 30 || (goalKey === 'strength' && reps > 12)) repFit = 0.5;
       if (goalKey === 'technique') {
-        const rpe = Number(set.rpe);
-        effort = metricType === 'RPE' && rpe >= 5 && rpe <= 7.5 ? 1 : 0.6;
+        const rpe = metricType === 'RIR' ? getRpeFromRirValue(set.rir) : Number(set.rpe);
+        effort = (metricType === 'RPE' || metricType === 'RIR') && rpe >= 5 && rpe <= 7.5 ? 1 : 0.6;
       }
       const techniqueType = normalizeTechnique(set.technique).type;
       const techniqueFactor = ['drop','descending','mechanicalDrop','restPause','myo','forced'].includes(techniqueType) ? 1.15
@@ -3366,6 +3468,7 @@ function init() {
           stats[category].fatigueSets += getTechniqueFatigueWeight(set);
           if (normalizeTechnique(set.technique).type !== 'none') stats[category].techniqueSets += 1;
           if (metricType === 'RPE' && Number(set.rpe) >= 9) stats[category].hardSets += 1;
+          if (metricType === 'RIR' && getRpeFromRirValue(set.rir) >= 9) stats[category].hardSets += 1;
           if (metricType === 'PR' && Number(set.partialReps) > 0) stats[category].hardSets += 1;
         }
       });
@@ -3431,6 +3534,7 @@ function init() {
       const todaySets = logs.filter(set => set.date === currentDateStr && inferLogMetricType(set, set.exercise) !== 'UP');
       const todayHard = todaySets.filter(set =>
         (inferLogMetricType(set, set.exercise) === 'RPE' && Number(set.rpe) >= 9) ||
+        (inferLogMetricType(set, set.exercise) === 'RIR' && getRpeFromRirValue(set.rir) >= 9) ||
         (inferLogMetricType(set, set.exercise) === 'PR' && Number(set.partialReps) > 0) ||
         ['drop','descending','mechanicalDrop','restPause','myo','forced'].includes(normalizeTechnique(set.technique).type)
       ).length;
@@ -3507,6 +3611,10 @@ function init() {
       if (metricType === 'RPE') {
         if (!Number.isFinite(rpe)) return null;
         effectiveReps = Math.max(1, reps + (10 - rpe));
+      } else if (metricType === 'RIR') {
+        const rir = Number(set.rir);
+        if (!Number.isFinite(rir)) return null;
+        effectiveReps = Math.max(1, reps + Math.max(0, Math.min(5, rir)));
       } else if (metricType === 'PR') {
         effectiveReps = Math.max(1, reps - Math.max(0, Number(set.partialReps) || 0));
       }
@@ -4271,7 +4379,7 @@ function init() {
                 const metricType = inferLogMetricType(s, g.exercise);
                 const tag = metricType === 'PR'
                   ? `内PR ${s.partialReps ?? '-'}`
-                  : (metricType === 'UP' ? 'UP' : `RPE ${s.rpe}`);
+                  : (metricType === 'UP' ? 'UP' : (metricType === 'RIR' ? `RIR ${s.rir ?? '-'}` : `RPE ${s.rpe}`));
                 const weightText = s.weight !== '' && s.weight != null
                   ? formatRecordedWeight({ ...s, exercise:g.exercise }, g.exercise)
                   : '-kg';
@@ -5309,6 +5417,8 @@ function init() {
           ? 'UP'
           : set.metricType === 'PR'
             ? `PR${set.partialReps || '-'}`
+            : set.metricType === 'RIR'
+              ? `RIR${set.rir ?? '-'}`
             : `RPE${set.rpe ?? '-'}`;
         return `${index + 1}: ${weight}kg × ${reps}回 ${metric}`;
       });
@@ -5809,34 +5919,51 @@ function init() {
 
     function getExerciseMetricDefault(exName = selectedExercise) {
       const saved = getMetricPreferences()[exName];
-      if (saved === 'RPE' || saved === 'PR') return saved;
+      if (saved === 'RPE' || saved === 'RIR' || saved === 'PR') return saved;
       return isRaiseExercise(exName) ? 'PR' : 'RPE';
+    }
+
+    function getRirFromRpeValue(rpe) {
+      const value = Number(rpe);
+      if (!Number.isFinite(value)) return 2;
+      return Math.max(0, Math.min(5, Math.round((10 - value) * 2) / 2));
+    }
+
+    function getRpeFromRirValue(rir) {
+      const value = Number(rir);
+      if (!Number.isFinite(value)) return 8;
+      return Math.max(5, Math.min(10, Math.round((10 - value) * 2) / 2));
     }
 
     function inferLogMetricType(set, exName = selectedExercise) {
       if (set?.metricType === 'UP' || set?.isWarmup || set?.isForm || set?.rpe === 'UP') return 'UP';
       if (set?.metricType === 'PR') return 'PR';
+      if (set?.metricType === 'RIR') return 'RIR';
       if (set?.metricType === 'RPE') return 'RPE';
       if (set?.partialReps != null && set?.partialReps !== '') return 'PR';
+      if (set?.rir != null && set?.rir !== '') return 'RIR';
       return isRaiseExercise(exName) && set?.rpe == null ? 'PR' : 'RPE';
     }
 
     function normalizeCurrentSetMetric(set, exName = selectedExercise) {
       const metricType = set.metricType || inferLogMetricType(set, exName);
-      set.metricType = ['RPE', 'PR', 'UP'].includes(metricType) ? metricType : getExerciseMetricDefault(exName);
+      set.metricType = ['RPE', 'RIR', 'PR', 'UP'].includes(metricType) ? metricType : getExerciseMetricDefault(exName);
       if (set.metricType === 'UP') set.rpe = 'UP';
       else if (set.metricType === 'RPE' && (set.rpe === 'UP' || set.rpe == null || set.rpe === '')) set.rpe = 8;
+      else if (set.metricType === 'RIR' && (set.rir == null || set.rir === '')) set.rir = getRirFromRpeValue(set.rpe);
       if (set.partialReps == null) set.partialReps = '';
+      if (set.rir == null) set.rir = '';
       set.technique = normalizeTechnique(set.technique);
       if (set.metricType === 'PR' && set.technique.type === 'none') set.technique = { type:'partial' };
       if (!set.prevComparisonLabel) set.prevComparisonLabel = '前回';
       if (set.prevComparisonDate == null) set.prevComparisonDate = '';
       if (set.manualCheckRequired == null) set.manualCheckRequired = false;
+      if (set.completedAt == null) set.completedAt = null;
       return set;
     }
 
     function changeExerciseMetricDefault(metricType) {
-      if (!['RPE', 'PR'].includes(metricType) || !selectedExercise) return;
+      if (!['RPE', 'RIR', 'PR'].includes(metricType) || !selectedExercise) return;
       const preferences = getMetricPreferences();
       preferences[selectedExercise] = metricType;
       localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(preferences));
@@ -5846,6 +5973,7 @@ function init() {
         if (set.metricType !== 'UP') {
           set.metricType = metricType;
           if (metricType === 'RPE' && (set.rpe == null || set.rpe === 'UP')) set.rpe = 8;
+          if (metricType === 'RIR' && (set.rir == null || set.rir === '')) set.rir = getRirFromRpeValue(set.rpe);
           if (metricType === 'PR') set.technique = { type:'partial' };
           else if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
         }
@@ -6029,22 +6157,26 @@ function init() {
           let rStr = 8;
           if (metricType === 'UP') rStr = 'UP';
           else if (s.rpe) rStr = s.rpe;
+          const rirValue = s.rir != null && s.rir !== '' ? s.rir : getRirFromRpeValue(rStr);
 
           currentSets.push({ 
             prevWeight: s.weight, prevReps: s.reps, prevRpe: rStr, 
             prevPartialReps: s.partialReps ?? '', prevMetricType: metricType,
+            prevRir: rirValue,
             prevTechnique: normalizeTechnique(s.technique),
             prevComparisonLabel: comparisonSession.shortLabel || '前回',
             prevComparisonDate: comparisonSession.date || '',
-            weight: '', reps: '', rpe: rStr, partialReps: '', metricType: metricType,
+            weight: '', reps: '', rpe: rStr, rir: metricType === 'RIR' ? rirValue : '', partialReps: '', metricType: metricType,
             technique: { type:'none' },
-            done: false 
+            done: false,
+            manualCheckRequired: true,
+            completedAt: null
           });
         });
       } else {
         // Default 3 sets if no history
         for(let i=0; i<3; i++) {
-          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevPartialReps: '', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, prevComparisonLabel:'前回', prevComparisonDate:'', weight: '', reps: '', rpe: 8, partialReps: '', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false });
+          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevRir: 2, prevPartialReps: '', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, prevComparisonLabel:'前回', prevComparisonDate:'', weight: '', reps: '', rpe: 8, rir: '', partialReps: '', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false, completedAt: null });
         }
       }
 
@@ -6052,6 +6184,7 @@ function init() {
         prevWeight:set.prevWeight,
         prevReps:set.prevReps,
         prevRpe:set.prevRpe,
+        prevRir:set.prevRir,
         prevPartialReps:set.prevPartialReps,
         prevMetricType:set.prevMetricType,
         prevTechnique:set.prevTechnique,
@@ -6064,7 +6197,10 @@ function init() {
         currentSets = draft.sets.map((set, idx) => {
           const normalized = normalizeCurrentSetMetric(set);
           const freshComparison = comparisonTemplateSets[idx];
-          if (freshComparison) Object.assign(normalized, freshComparison);
+          if (freshComparison) {
+            Object.assign(normalized, freshComparison);
+            if (!normalized.done) normalized.manualCheckRequired = true;
+          }
           return normalized;
         });
         const memoEl = document.getElementById('sessionMemo');
@@ -6086,7 +6222,7 @@ function init() {
       const metricDefaultSelect = document.getElementById('exerciseMetricDefault');
       const metricHelp = document.getElementById('setMetricHelp');
       if (metricDefaultSelect) metricDefaultSelect.value = metricDefault;
-      if (metricHelp) metricHelp.textContent = 'RPE＝余力・強度。PR＝総回数の内、パーシャルだった回数です（20回中4回ならPR4）。';
+      if (metricHelp) metricHelp.textContent = 'RPE＝余力・強度。RIR＝あと何回できたか。PR＝総回数の内、パーシャルだった回数です（20回中4回ならPR4）。';
       container.innerHTML = currentSets.map((s, i) => {
         normalizeCurrentSetMetric(s);
         const isDone = s.done ? 'is-done' : '';
@@ -6097,6 +6233,7 @@ function init() {
         const pW = s.prevWeight || '-';
         const pR = s.prevReps || '-';
         const pPartial = s.prevPartialReps ?? '';
+        const pRir = s.prevRir ?? '';
         const metricType = s.metricType;
         const technique = normalizeTechnique(s.technique);
         const techniqueSummary = getTechniqueSummary(technique, s);
@@ -6104,6 +6241,10 @@ function init() {
           ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">`
           : metricType === 'UP'
             ? `<div class="metric-up-label">UP</div>`
+            : metricType === 'RIR'
+              ? `<select class="metric-value-select" aria-label="RIR" onchange="updateSet(${i}, 'rir', this.value)">
+                  ${[0,0.5,1,1.5,2,2.5,3,3.5,4,4.5,5].map(value => `<option value="${value}" ${Number(s.rir)==value?'selected':''}>${value}</option>`).join('')}
+                </select>`
             : `<select class="metric-value-select" aria-label="RPE" onchange="updateSet(${i}, 'rpe', this.value)">
                 <option value="10" ${s.rpe==10?'selected':''}>10</option>
                 <option value="9.5" ${s.rpe==9.5?'selected':''}>9.5</option>
@@ -6180,20 +6321,40 @@ function init() {
       return `${formatVolumeNumber(value)}kg`;
     }
 
+    function formatSetClockTime(timestamp) {
+      const value = Number(timestamp);
+      if (!Number.isFinite(value) || value <= 0) return '';
+      return new Date(value).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+    }
+
+    function getCompletedSetTimes() {
+      return currentSets
+        .map(set => Number(set.completedAt))
+        .filter(value => Number.isFinite(value) && value > 0)
+        .sort((a, b) => a - b);
+    }
+
+    function getExerciseElapsedText() {
+      const times = getCompletedSetTimes();
+      if (times.length < 2) return '';
+      return `経過 ${formatTimerDuration((times[times.length - 1] - times[0]) / 1000)}`;
+    }
+
     function getSetComparisonHtml(set) {
       const parts = [];
       const weight = Number(set.weight);
       const reps = Number(set.reps);
       const prevWeight = Number(set.prevWeight);
       const prevReps = Number(set.prevReps);
-      if (set.weight !== '' && set.prevWeight !== '') parts.push(formatSetDifference('重量', weight, prevWeight, 1, 'kg'));
-      if (set.reps !== '' && set.prevReps !== '') parts.push(formatSetDifference('回数', reps, prevReps, 0, '回'));
+      const showPreviousSessionDiff = !set.compareToPreviousSet;
+      if (showPreviousSessionDiff && set.weight !== '' && set.prevWeight !== '') parts.push(formatSetDifference('重量', weight, prevWeight, 1, 'kg'));
+      if (showPreviousSessionDiff && set.reps !== '' && set.prevReps !== '') parts.push(formatSetDifference('回数', reps, prevReps, 0, '回'));
       if (set.weight !== '' && set.reps !== '') {
         const volume = calculateSetVolume({ ...set, exercise:selectedExercise, weight, reps });
         if (Number.isFinite(volume) && volume > 0) {
           parts.push(`<span class="same">ボリューム ${formatVolumeNumber(volume)}kg</span>`);
         }
-        if (set.prevWeight !== '' && set.prevReps !== '') {
+        if (showPreviousSessionDiff && set.prevWeight !== '' && set.prevReps !== '') {
           const prevVolume = calculateSetVolume({
             exercise:selectedExercise,
             weight:prevWeight,
@@ -6215,7 +6376,7 @@ function init() {
         }
       }
       if (set.weight !== '' && set.reps !== '' &&
-          set.prevWeight !== '' && set.prevReps !== '') {
+          showPreviousSessionDiff && set.prevWeight !== '' && set.prevReps !== '') {
         const currentEstimate = estimateSet1RM({ ...set, exercise:selectedExercise, weight, reps });
         const previousEstimate = estimateSet1RM({
           exercise:selectedExercise,
@@ -6229,6 +6390,16 @@ function init() {
           parts.push(formatSetDifference(`${set.prevComparisonLabel || '前回'}比`, currentEstimate, previousEstimate, 1, 'kg'));
         }
       }
+      const recordedAt = formatSetClockTime(set.completedAt);
+      if (recordedAt) {
+        parts.push(`<span class="same">記録 ${recordedAt}</span>`);
+        const idx = currentSets.indexOf(set);
+        const prevDone = currentSets.slice(0, idx).reverse().find(item => Number(item.completedAt) > 0);
+        if (prevDone) {
+          const diff = (Number(set.completedAt) - Number(prevDone.completedAt)) / 1000;
+          if (diff > 0) parts.push(`<span class="same">前セットから ${formatTimerDuration(diff)}</span>`);
+        }
+      }
       return parts.filter(Boolean).join('');
     }
 
@@ -6239,12 +6410,13 @@ function init() {
 
     function createBlankSet() {
       return {
-        prevWeight:'', prevReps:'', prevRpe:8, prevPartialReps:'',
+        prevWeight:'', prevReps:'', prevRpe:8, prevRir:2, prevPartialReps:'',
         prevMetricType:getExerciseMetricDefault(), prevTechnique:{type:'none'},
         prevComparisonLabel:'前回', prevComparisonDate:'',
-        weight:'', reps:'', rpe:8, partialReps:'',
+        weight:'', reps:'', rpe:8, rir:'', partialReps:'',
         metricType:getExerciseMetricDefault(), technique:{type:'none'}, done:false,
-        manualCheckRequired:false
+        manualCheckRequired:false,
+        completedAt:null
       };
     }
 
@@ -6263,6 +6435,13 @@ function init() {
           set.technique = normalizeTechnique(set.prevTechnique);
         }
         if (normalizeTechnique(set.technique).type === 'none') set.technique = { type:'partial' };
+      } else if (set.metricType === 'RIR') {
+        if ((set.rir === '' || set.rir == null) && set.prevRir !== '' && set.prevRir != null) {
+          set.rir = set.prevRir;
+        }
+        if (normalizeTechnique(set.technique).type === 'none') {
+          set.technique = normalizeTechnique(set.prevTechnique);
+        }
       } else {
         if ((set.rpe === '' || set.rpe == null || set.rpe === 'UP') && set.prevRpe !== '' && set.prevRpe != null) {
           set.rpe = set.prevRpe;
@@ -6281,6 +6460,9 @@ function init() {
       const sourceReps = normalizedSource.reps !== '' ? normalizedSource.reps : (normalizedSource.prevReps ?? '');
       const sourceMetricType = normalizedSource.metricType || normalizedSource.prevMetricType || getExerciseMetricDefault();
       const sourceRpe = sourceMetricType === 'UP' ? 'UP' : (normalizedSource.rpe !== '' && normalizedSource.rpe != null ? normalizedSource.rpe : normalizedSource.prevRpe);
+      const sourceRir = normalizedSource.rir !== '' && normalizedSource.rir != null
+        ? normalizedSource.rir
+        : (normalizedSource.prevRir ?? getRirFromRpeValue(sourceRpe));
       const sourcePartial = normalizedSource.partialReps !== '' && normalizedSource.partialReps != null
         ? normalizedSource.partialReps
         : (normalizedSource.prevPartialReps ?? '');
@@ -6290,19 +6472,23 @@ function init() {
         prevWeight: sourceWeight,
         prevReps: sourceReps,
         prevRpe: sourceRpe,
+        prevRir: sourceRir,
         prevPartialReps: sourcePartial,
         prevMetricType: sourceMetricType,
         prevTechnique: sourceTechnique,
         prevComparisonLabel: '前セット',
         prevComparisonDate: currentDateStr,
+        compareToPreviousSet: true,
         weight: fillActual ? sourceWeight : '',
         reps: fillActual ? sourceReps : '',
         rpe: fillActual ? sourceRpe : (sourceMetricType === 'UP' ? 'UP' : 8),
+        rir: fillActual && sourceMetricType === 'RIR' ? sourceRir : '',
         partialReps: fillActual && sourceMetricType === 'PR' ? sourcePartial : '',
         metricType: sourceMetricType,
         technique: sourceTechnique,
         done: false,
-        manualCheckRequired: true
+        manualCheckRequired: true,
+        completedAt: null
       };
       return normalizeCurrentSetMetric(copied);
     }
@@ -6316,7 +6502,8 @@ function init() {
         const entered = currentSets.filter(set => set.weight !== '' || set.reps !== '').length;
         const nextIndex = currentSets.findIndex(set => set.weight === '' && set.reps === '');
         const currentLabel = nextIndex >= 0 ? nextIndex + 1 : Math.max(1, currentSets.length);
-        status.textContent = `${currentLabel}セット目・入力 ${entered}/${currentSets.length}`;
+        const elapsed = getExerciseElapsedText();
+        status.textContent = `${currentLabel}セット目・入力 ${entered}/${currentSets.length}${elapsed ? `・${elapsed}` : ''}`;
       }
       if (timer) {
         const minutes = Math.floor(intervalTimerRemaining / 60);
@@ -6331,7 +6518,7 @@ function init() {
     }
 
     function getSetFieldLabel(key) {
-      return ({ weight:'重量', reps:'回数', rpe:'RPE', partialReps:'パーシャル', metricType:'入力方式' })[key] || 'セット';
+      return ({ weight:'重量', reps:'回数', rpe:'RPE', rir:'RIR', partialReps:'パーシャル', metricType:'入力方式' })[key] || 'セット';
     }
 
     function captureSetEditUndo(label, editKey = '') {
@@ -6498,6 +6685,12 @@ function init() {
       showUndoToast(`セット${idx + 1}削除`);
     }
 
+    function markSetDone(set, timestamp = Date.now()) {
+      if (!set) return;
+      set.done = true;
+      if (!Number(set.completedAt)) set.completedAt = timestamp;
+    }
+
     function updateSet(idx, key, val, options = {}) {
       if (!currentSets[idx]) return;
       const changed = currentSets[idx][key] !== val;
@@ -6512,12 +6705,15 @@ function init() {
       const hasMainValues = s.weight !== '' && s.reps !== '';
       const shouldMarkDone = hasMainValues && (s.done || !s.manualCheckRequired);
       if (shouldMarkDone) {
-        s.done = true;
+        markSetDone(s);
         row.classList.add('is-done');
         btn.classList.add('checked');
         btn.textContent = '✔';
       } else {
-        if (!hasMainValues) s.done = false;
+        if (!hasMainValues) {
+          s.done = false;
+          s.completedAt = null;
+        }
         row.classList.remove('is-done');
         btn.classList.remove('checked');
         btn.textContent = '';
@@ -6587,9 +6783,14 @@ function init() {
         set.metricType = 'PR';
         if (set.rpe === 'UP') set.rpe = 8;
         set.technique = { type:'partial' };
+      } else if (type === 'RIR') {
+        set.metricType = 'RIR';
+        if (set.rir == null || set.rir === '') set.rir = getRirFromRpeValue(set.rpe);
+        if (set.rpe === 'UP' || set.rpe == null) set.rpe = getRpeFromRirValue(set.rir);
+        if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
       } else {
         set.metricType = 'RPE';
-        if (set.rpe === 'UP' || set.rpe == null) set.rpe = 8;
+        if (set.rpe === 'UP' || set.rpe == null || set.rpe === '') set.rpe = set.rir !== '' && set.rir != null ? getRpeFromRirValue(set.rir) : 8;
         if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
       }
     }
@@ -6621,7 +6822,7 @@ function init() {
         currentSets.forEach(set => applyMetricTypeToSet(set, 'UP'));
       }
       currentSets.forEach(set => {
-        if (set.weight !== '' && set.reps !== '') set.done = true;
+        if (set.weight !== '' && set.reps !== '') markSetDone(set);
       });
       renderSetRows();
       calcAdvice();
@@ -6646,19 +6847,20 @@ function init() {
     function toggleDone(idx) {
       const s = currentSets[idx];
       if (!s) return;
-      captureSetEditUndo(`セット${idx + 1}のチェック`);
       s.done = !s.done;
 
       // Auto-fill from placeholder if empty and marking as done
       if (s.done) {
         applyPreviousValuesToSet(s);
         s.manualCheckRequired = false;
+        markSetDone(s);
+      } else {
+        s.completedAt = null;
       }
 
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
-      showUndoToast(`セット${idx + 1}のチェック`);
     }
 
     function getExerciseSessionBestEstimates(exName, beforeDate, limit = 3) {
@@ -6849,10 +7051,11 @@ function init() {
         const enteredWeight = s.weight !== '' ? s.weight : (s.done ? s.prevWeight : NaN);
         const w = getCalculationWeight({ ...s, weight:enteredWeight, exercise:selectedExercise }, selectedExercise);
         const r = parseInt(s.reps !== '' ? s.reps : (s.done ? s.prevReps : NaN));
-        const rpeVal = s.rpe;
+        const rpeVal = s.metricType === 'RIR' ? getRpeFromRirValue(s.rir) : s.rpe;
 
-        if (s.done && s.metricType === 'RPE' && !isNaN(w) && !isNaN(r) && rpeVal !== 'UP' && rpeVal !== 'FORM') {
+        if (s.done && ['RPE', 'RIR'].includes(s.metricType) && !isNaN(w) && !isNaN(r) && rpeVal !== 'UP' && rpeVal !== 'FORM') {
           const rpeNum = parseFloat(rpeVal);
+          if (!Number.isFinite(rpeNum)) return;
           const effectiveReps = r + (10 - rpeNum);
           const est1RM = w * (1 + effectiveReps / 30);
           if (est1RM > best1RM) best1RM = est1RM;
@@ -6869,8 +7072,15 @@ function init() {
       }
 
       const validSets = currentSets.filter(set =>
-        set.done && set.metricType === 'RPE' && set.weight !== '' && set.reps !== '' && Number.isFinite(Number(set.rpe))
-      ).map(set => ({ ...set, weight:Number(set.weight), reps:Number(set.reps), rpe:Number(set.rpe), exercise:selectedExercise }));
+        set.done && ['RPE', 'RIR'].includes(set.metricType) && set.weight !== '' && set.reps !== '' &&
+        (Number.isFinite(Number(set.rpe)) || Number.isFinite(Number(set.rir)))
+      ).map(set => ({
+        ...set,
+        weight:Number(set.weight),
+        reps:Number(set.reps),
+        rpe:set.metricType === 'RIR' ? getRpeFromRirValue(set.rir) : Number(set.rpe),
+        exercise:selectedExercise
+      }));
       const adviceItems = buildExerciseCoachAdvice(validSets, lastValidSet, best1RM);
       advBox.style.display = 'block';
       advBox.style.color = 'var(--text)';
@@ -6883,7 +7093,7 @@ function init() {
     
     let aiSheetSource = 'exercise';
     function getExerciseNamesForDate(dateStr) { const names = []; logs.filter(function(l){ return l.date === dateStr; }).sort(function(a,b){ return a.id - b.id; }).forEach(function(l){ if (!names.includes(l.exercise)) names.push(l.exercise); }); return names; }
-    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP', technique: normalizeTechnique(s.technique), weightMode: getExerciseWeightMode(selectedExercise) }; }); }
+    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, rir: s.metricType === 'RIR' ? parseFloat(s.rir) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP', technique: normalizeTechnique(s.technique), weightMode: getExerciseWeightMode(selectedExercise), completedAt: Number(s.completedAt) || null }; }); }
     function getAllTodayForAi() {
       const unsaved = getCurrentUnsavedAiSets(selectedExercise);
       const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); });
@@ -6902,6 +7112,8 @@ function init() {
         ? 'アップ'
         : (metricType === 'PR'
             ? `${s.reps}回のうち${s.partialReps ?? 0}回がパーシャル`
+            : metricType === 'RIR'
+              ? `RIR ${s.rir}`
             : `RPE ${s.rpe}`);
       const technique = getTechniqueSummary(s.technique, s);
       return `${index + 1}セット目: ${formatRecordedWeight(s, s.exercise)} × ${s.reps}回 (${effort}${technique && metricType !== 'PR' ? `・${technique}` : ''})`;
@@ -6962,7 +7174,7 @@ function init() {
       const metricType = inferLogMetricType(s, s.exercise);
       const effort = metricType === 'PR'
         ? `（${s.reps}回のうち${s.partialReps ?? 0}回がパーシャル）`
-        : (metricType === 'UP' ? 'UP' : `RPE${s.rpe}`);
+        : (metricType === 'UP' ? 'UP' : (metricType === 'RIR' ? `RIR${s.rir}` : `RPE${s.rpe}`));
       const technique = getTechniqueSummary(s.technique, s);
       return `${formatRecordedWeight(s, s.exercise)} ${s.reps}回 ${effort}${technique && metricType !== 'PR' ? ` ${technique}` : ''}`;
     }
@@ -7140,6 +7352,20 @@ function init() {
       return buildWorkoutDaySummaryText(date, prefix);
     }
 
+    function buildTodayPlanText() {
+      const plan = getActivePlanInfo();
+      if (!plan || !plan.text) return '';
+      return `${plan.label}\n${plan.text}`;
+    }
+
+    function buildPreviousSamePlanDayText() {
+      const date = findPreviousComparableWorkoutDate();
+      if (!date) return '';
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const prefix = mode === 'cycle' ? '前回同プラン全種目: ' : '前回同曜日全種目: ';
+      return buildWorkoutDaySummaryText(date, prefix);
+    }
+
     function buildPreviousExerciseText(exName) {
       if (!exName) return '';
       const preference = getExerciseComparisonPreference(exName);
@@ -7156,7 +7382,7 @@ function init() {
       const aiExercise = getAiExerciseName();
       const allToday = getAllTodayForAi();
       const exerciseSets = aiExercise ? getAiExerciseSets(aiExercise) : [];
-      const planLine = goal ? `今日: ${goal}` : '';
+      const planLine = '';
       let text = '';
 
       if (type === 'lastSet') {
@@ -7199,6 +7425,12 @@ function init() {
       } else if (type === 'periodSummary') {
         text = buildPeriodSummaryText();
         if (!text) return showCopyToast('期間内の記録がありません');
+      } else if (type === 'todayPlan') {
+        text = buildTodayPlanText();
+        if (!text) return showCopyToast('今日のプラン内容がありません');
+      } else if (type === 'previousSamePlanDay') {
+        text = buildPreviousSamePlanDayText();
+        if (!text) return showCopyToast('前回同プランの記録がありません');
       } else if (type === 'previousComparableDay') {
         text = buildPreviousComparableDayText();
         if (!text) return showCopyToast('前回の同曜日／同プラン記録がありません');
@@ -7277,8 +7509,10 @@ function saveWorkout() {
         reps: Number(s.reps),
         metricType: s.metricType,
         rpe: s.metricType === 'RPE' ? Number(s.rpe) : null,
+        rir: s.metricType === 'RIR' ? Number(s.rir) : null,
         partialReps: s.metricType === 'PR' ? Number(s.partialReps) || null : null,
-        technique: normalizeTechnique(s.technique)
+        technique: normalizeTechnique(s.technique),
+        completedAt: Number(s.completedAt) || null
       }));
       const personalRecords = detectPersonalRecords(selectedExercise, currentDateStr, recordCandidates);
 
@@ -7299,9 +7533,11 @@ function saveWorkout() {
           reps: parseInt(s.reps),
           metricType: s.metricType,
           rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null,
+          rir: s.metricType === 'RIR' ? parseFloat(s.rir) : null,
           isWarmup: s.metricType === 'UP',
           partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null,
           technique: normalizeTechnique(s.technique),
+          completedAt: Number(s.completedAt) || null,
           planMode: planMode,
           planLabel: planInfo.label,
           planText: planInfo.text,
