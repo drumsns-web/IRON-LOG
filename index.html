@@ -272,6 +272,10 @@
     .strength-display-mode { display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; margin-bottom:10px; }
     .strength-display-mode button { min-height:34px; padding:0 8px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--muted); font-size:12px; font-weight:800; cursor:pointer; }
     .strength-display-mode button.active { border-color:var(--accent-brand); color:#000; background:var(--accent-brand); }
+    .strength-representatives { display:grid; gap:7px; margin:10px 0 12px; }
+    .strength-representative-row { display:grid; grid-template-columns:64px minmax(0,1fr); align-items:center; gap:8px; }
+    .strength-representative-label { display:flex; align-items:center; gap:6px; color:var(--text); font-size:12px; font-weight:800; }
+    .strength-representative-row select { width:100%; min-height:36px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); padding:0 9px; font-size:12px; font-weight:700; outline:none; }
     .strength-chart-wrap { width:100%; min-height:280px; overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); }
     .strength-chart { display:block; width:100%; height:auto; min-height:280px; }
     .strength-chart-note { margin-top:8px; color:var(--muted); font-size:11px; font-weight:650; line-height:1.45; }
@@ -875,7 +879,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px;">
           <div>
             <h3 style="font-size:16px; font-weight:700; margin:0;">部位別 推定1RMの推移</h3>
-            <div style="font-size:10px; color:var(--muted); margin-top:4px; line-height:1.45;">週ごとの部位内最高推定値。RPE/RIR/PRから計算します。</div>
+            <div style="font-size:10px; color:var(--muted); margin-top:4px; line-height:1.45;">代表種目を選ぶと、その種目の週最高推定値で表示します。</div>
           </div>
         </div>
         <div class="strength-range" id="strengthRangeButtons">
@@ -888,6 +892,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           <button data-mode="relative" onclick="setStrengthChartMode('relative')" class="active">伸び率</button>
           <button data-mode="kg" onclick="setStrengthChartMode('kg')">実数kg</button>
         </div>
+        <div id="strengthRepresentativeSelectors" class="strength-representatives"></div>
         <div id="strengthChartContainer"></div>
         <div style="font-size:9px; color:var(--muted); margin-top:10px; line-height:1.5;">推定式：重量 ×（1 ＋ 実効回数 ÷ 30）。実効回数は「回数 ＋ (10 − RPE)」。種目が変わると数値の比較条件も変わります。</div>
       </div>
@@ -1549,6 +1554,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     const STORE_SET_TEXT_COLOR = 'ironlog-set-text-color-v1';
     const STORE_DAILY_EXERCISE_ORDER = 'ironlog-daily-exercise-order-v1';
     const STORE_DRAFT_HISTORY = 'ironlog-draft-history-v1';
+    const STORE_STRENGTH_REPRESENTATIVES = 'ironlog-strength-representatives-v1';
     const STORE_LOCAL_BACKUPS = 'ironlog-local-backups-v1';
     const STORE_JSON_BACKUP_DATE = 'ironlog-last-json-backup-date-v1';
     const STORE_BACKUP_REMINDER_DATE = 'ironlog-backup-reminder-date-v1';
@@ -2144,6 +2150,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         planPresets: getPlanPresets(),
         coachSettings: getCoachSettings(),
         setTextColor: localStorage.getItem(STORE_SET_TEXT_COLOR) || 'white',
+        strengthRepresentatives: getStrengthRepresentativeMap(),
         exportDate: new Date().toISOString()
       };
     }
@@ -2214,6 +2221,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       localStorage.setItem(STORE_PLAN_PRESETS, JSON.stringify(Array.isArray(data.planPresets) ? data.planPresets : []));
       localStorage.setItem(STORE_COACH_SETTINGS, JSON.stringify(data.coachSettings || {}));
       if (data.setTextColor) localStorage.setItem(STORE_SET_TEXT_COLOR, data.setTextColor);
+      localStorage.setItem(STORE_STRENGTH_REPRESENTATIVES, JSON.stringify(data.strengthRepresentatives || {}));
     }
 
     function getLocalBackups() {
@@ -3409,6 +3417,7 @@ function init() {
       }
     }
 
+    const strengthCategories = ['胸', '肩', '背中', '脚', '二頭筋', '三頭筋', '腹', 'その他'];
     let strengthChartRangeMonths = 3;
     let strengthChartMode = 'relative';
 
@@ -3710,16 +3719,83 @@ function init() {
       return weeks;
     }
 
+    function getStrengthRepresentativeMap() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORE_STRENGTH_REPRESENTATIVES) || '{}');
+        return data && typeof data === 'object' ? data : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function getStrengthRepresentativeExercise(category) {
+      const map = getStrengthRepresentativeMap();
+      const exercise = map[category] || '';
+      if (!exercise) return '';
+      return logs.some(set => set.exercise === exercise && getCategoryForExercise(set.exercise) === category && estimateSet1RM(set) != null)
+        ? exercise
+        : '';
+    }
+
+    function getActiveStrengthRepresentativeMap() {
+      const active = {};
+      strengthCategories.forEach(category => {
+        const exercise = getStrengthRepresentativeExercise(category);
+        if (exercise) active[category] = exercise;
+      });
+      return active;
+    }
+
+    function setStrengthRepresentative(category, exercise) {
+      const map = getStrengthRepresentativeMap();
+      if (exercise) map[category] = exercise;
+      else delete map[category];
+      localStorage.setItem(STORE_STRENGTH_REPRESENTATIVES, JSON.stringify(map));
+      renderStrengthRepresentativeSelectors();
+      renderStrengthChart();
+    }
+
+    function getStrengthExercisesByCategory(category) {
+      return [...new Set(logs
+        .filter(set => getCategoryForExercise(set.exercise) === category && estimateSet1RM(set) != null)
+        .map(set => set.exercise))]
+        .sort((a, b) => a.localeCompare(b, 'ja'));
+    }
+
+    function renderStrengthRepresentativeSelectors() {
+      const container = document.getElementById('strengthRepresentativeSelectors');
+      if (!container) return;
+      const rows = strengthCategories
+        .map(category => {
+          const names = getStrengthExercisesByCategory(category);
+          if (!names.length) return '';
+          const selected = getStrengthRepresentativeExercise(category);
+          const options = ['<option value="">自動（部位内最高）</option>'].concat(
+            names.map(name => `<option value="${escapeHtml(name)}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`)
+          ).join('');
+          return `<div class="strength-representative-row">
+            <div class="strength-representative-label"><span class="strength-legend-dot" style="background:${catColors[category] || catColors['その他']}"></span>${category}</div>
+            <select onchange="setStrengthRepresentative('${category}', this.value)" aria-label="${category}の代表種目">${options}</select>
+          </div>`;
+        })
+        .filter(Boolean);
+      container.innerHTML = rows.length
+        ? `<div style="font-size:11px; color:var(--muted); font-weight:700; line-height:1.5;">伸び率を安定して見る部位は代表種目を固定できます。</div>${rows.join('')}`
+        : '';
+    }
+
     function getWeeklyCategory1RM() {
       const weeks = getStrengthChartWeeks();
-      const categories = ['胸', '肩', '背中', '脚', '二頭筋', '三頭筋', '腹', 'その他'];
-      const series = Object.fromEntries(categories.map(category => [category, Array(weeks.length).fill(null)]));
+      const representativeMap = getActiveStrengthRepresentativeMap();
+      const series = Object.fromEntries(strengthCategories.map(category => [category, Array(weeks.length).fill(null)]));
       logs.forEach(set => {
         const weekIndex = weeks.findIndex(week => set.date >= week.start && set.date <= week.end);
         if (weekIndex < 0) return;
         const estimate = estimateSet1RM(set);
         if (estimate == null) return;
         const category = getCategoryForExercise(set.exercise);
+        const representative = representativeMap[category] || '';
+        if (representative && set.exercise !== representative) return;
         const current = series[category]?.[weekIndex];
         if (series[category] && (current == null || estimate > current.value)) {
           series[category][weekIndex] = { value: estimate, exercise: set.exercise };
@@ -3737,12 +3813,15 @@ function init() {
       document.querySelectorAll('#strengthDisplayButtons button').forEach(button => {
         button.classList.toggle('active', button.dataset.mode === strengthChartMode);
       });
+      renderStrengthRepresentativeSelectors();
       const { weeks, series } = getWeeklyCategory1RM();
       const visibleCategories = Object.keys(series).filter(category => series[category].some(point => point));
       if (!visibleCategories.length) {
         container.innerHTML = '<div class="strength-chart-wrap" style="display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px;">期間内にRPE記録がありません</div>';
         return;
       }
+      const representativeMap = getActiveStrengthRepresentativeMap();
+      const representativeCategories = visibleCategories.filter(category => representativeMap[category]);
 
       const baselines = Object.fromEntries(visibleCategories.map(category => {
         const first = series[category].find(Boolean);
@@ -3844,8 +3923,8 @@ function init() {
         </svg>
       </div>
       <div class="strength-chart-note">${strengthChartMode === 'relative'
-        ? '伸び率表示：各部位の期間内で最初に記録された推定1RMを0%として、そこからの変化を表示します。週ごとの部位内最高値なので、種目・種目順・RPE/RIR・片側/両側・アシスト換算が変わると、実感では伸びていても下がる場合があります。'
-        : '実数kg表示：推定1RMのkgをそのまま表示します。部位ごとの代表値は週内最高の1セットです。条件差が大きい場合は、下のカードや種目別グラフで同じ種目どうしを確認してください。'}</div>
+        ? `${representativeCategories.length ? '代表種目を選んだ部位は、その種目だけで伸び率を表示します。' : '伸び率表示：各部位の期間内で最初に記録された推定1RMを0%として、そこからの変化を表示します。'}未選択の部位は週ごとの部位内最高値です。種目・種目順・RPE/RIR・片側/両側・アシスト換算が変わると、実感では伸びていても下がる場合があります。`
+        : `${representativeCategories.length ? '代表種目を選んだ部位は、その種目だけの推定1RMを表示します。' : '実数kg表示：推定1RMのkgをそのまま表示します。'}未選択の部位は週内最高の1セットです。条件差が大きい場合は、下のカードや種目別グラフで同じ種目どうしを確認してください。`}</div>
       <div class="strength-legend">${legend}</div>
       <div class="strength-summary">${summary}</div>`;
     }
