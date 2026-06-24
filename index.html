@@ -595,6 +595,39 @@
   color: var(--text);
   white-space: pre-wrap;
 }
+.cycle-extra-controls {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(208,253,62,.16);
+}
+.cycle-extra-title {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  margin-bottom: 7px;
+}
+.cycle-extra-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cycle-extra-btn {
+  min-width: 36px;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.cycle-extra-btn.active {
+  border-color: var(--accent-brand);
+  background: rgba(208,253,62,.15);
+  color: var(--accent-brand);
+}
 .recall-workout-btn {
   width: 100%;
   min-height: 48px;
@@ -710,6 +743,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         </select>
         <button onclick="changeCycleSlot(1)" aria-label="次の予定" style="width:44px; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; font-weight:700;">›</button>
       </div>
+      <div id="cycleExtraPlanControls" class="cycle-extra-controls"></div>
     </div>
     <button class="recall-workout-btn" onclick="openWorkoutRecallModal()">
       <strong>過去メニューを呼び出す</strong>
@@ -2194,6 +2228,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         cycleCompletedDate: localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '',
         cycleCompletedSlot: localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '',
         cycleAdvancedDate: localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '',
+        cycleExtraSlots: getCycleExtraSlotMap(),
         intervalMinutes: localStorage.getItem('ironlog-interval-minutes') || '2',
         metricPreferences: getMetricPreferences(),
         exerciseInputPreferences: getExerciseInputPreferences(),
@@ -2266,6 +2301,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       data.cycleCompletedDate ? localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, data.cycleCompletedDate) : localStorage.removeItem(STORE_CYCLE_COMPLETED_DATE);
       data.cycleCompletedSlot ? localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, data.cycleCompletedSlot) : localStorage.removeItem(STORE_CYCLE_COMPLETED_SLOT);
       data.cycleAdvancedDate ? localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, data.cycleAdvancedDate) : localStorage.removeItem(STORE_CYCLE_ADVANCED_DATE);
+      localStorage.setItem(STORE_CYCLE_EXTRA_SLOTS, JSON.stringify(data.cycleExtraSlots || {}));
       if (data.intervalMinutes) localStorage.setItem('ironlog-interval-minutes', data.intervalMinutes);
       localStorage.setItem(STORE_METRIC_PREFS, JSON.stringify(data.metricPreferences || {}));
       localStorage.setItem(STORE_EXERCISE_INPUT_PREFS, JSON.stringify(data.exerciseInputPreferences || {}));
@@ -2656,6 +2692,7 @@ const STORE_CYCLE_SLOT = 'ironlog-cycle-current-slot-v1';
 const STORE_CYCLE_COMPLETED_DATE = 'ironlog-cycle-completed-date-v1';
 const STORE_CYCLE_COMPLETED_SLOT = 'ironlog-cycle-completed-slot-v1';
 const STORE_CYCLE_ADVANCED_DATE = 'ironlog-cycle-advanced-date-v1';
+const STORE_CYCLE_EXTRA_SLOTS = 'ironlog-cycle-extra-slots-v1';
 const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 const cycleNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
@@ -2791,9 +2828,95 @@ function getCurrentCycleSlot() {
   return cycleNames.includes(saved) ? saved : 'A';
 }
 
+function getCycleExtraSlotMap() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORE_CYCLE_EXTRA_SLOTS) || '{}');
+    return data && typeof data === 'object' ? data : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function getCycleExtraSlots(dateStr = currentDateStr) {
+  const current = getCurrentCycleSlot();
+  const data = getCycleExtraSlotMap();
+  return Array.isArray(data[dateStr])
+    ? data[dateStr].filter(slot => cycleNames.includes(slot) && slot !== current)
+    : [];
+}
+
+function saveCycleExtraSlots(dateStr, slots) {
+  const current = getCurrentCycleSlot();
+  const clean = [...new Set((slots || []).filter(slot => cycleNames.includes(slot) && slot !== current))];
+  const data = getCycleExtraSlotMap();
+  if (clean.length) data[dateStr] = clean;
+  else delete data[dateStr];
+  localStorage.setItem(STORE_CYCLE_EXTRA_SLOTS, JSON.stringify(data));
+}
+
+function getCyclePlanSlots(dateStr = currentDateStr) {
+  const current = getCurrentCycleSlot();
+  return [current, ...getCycleExtraSlots(dateStr)].filter((slot, index, array) => array.indexOf(slot) === index);
+}
+
+function getFarthestCycleSlot(slots, baseSlot = getCurrentCycleSlot()) {
+  const baseIndex = cycleNames.indexOf(baseSlot);
+  if (baseIndex < 0) return baseSlot;
+  return (slots || [baseSlot]).reduce((best, slot) => {
+    const slotIndex = cycleNames.indexOf(slot);
+    const bestIndex = cycleNames.indexOf(best);
+    const slotDistance = slotIndex >= 0 ? (slotIndex - baseIndex + cycleNames.length) % cycleNames.length : -1;
+    const bestDistance = bestIndex >= 0 ? (bestIndex - baseIndex + cycleNames.length) % cycleNames.length : -1;
+    return slotDistance > bestDistance ? slot : best;
+  }, baseSlot);
+}
+
+function formatCyclePlanLabel(slots) {
+  const clean = (slots || []).filter(slot => cycleNames.includes(slot));
+  return `プラン${clean.length ? clean.join('+') : getCurrentCycleSlot()}`;
+}
+
+function formatCyclePlanText(slots, data) {
+  const clean = (slots || []).filter(slot => cycleNames.includes(slot));
+  if (clean.length <= 1) return data[clean[0] || getCurrentCycleSlot()] || '';
+  return clean.map(slot => `【${slot}】${data[slot] || '未入力'}`).join('\n');
+}
+
+function toggleCycleExtraSlot(slot) {
+  if (!cycleNames.includes(slot) || slot === getCurrentCycleSlot()) return;
+  const extras = getCycleExtraSlots();
+  const next = extras.includes(slot)
+    ? extras.filter(item => item !== slot)
+    : [...extras, slot];
+  saveCycleExtraSlots(currentDateStr, next);
+  updateTodayTemplate();
+}
+
+function renderCycleExtraPlanControls() {
+  const container = document.getElementById('cycleExtraPlanControls');
+  if (!container) return;
+  if ((localStorage.getItem(STORE_TMPL_MODE) || 'weekday') !== 'cycle') {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  const current = getCurrentCycleSlot();
+  const extras = getCycleExtraSlots();
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="cycle-extra-title">追加で行うプラン</div>
+    <div class="cycle-extra-buttons">
+      ${cycleNames.filter(slot => slot !== current).map(slot => `
+        <button type="button" class="cycle-extra-btn ${extras.includes(slot) ? 'active' : ''}" onclick="toggleCycleExtraSlot('${slot}')">${slot}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
 function setCycleSlot(slot) {
   if (!cycleNames.includes(slot)) return;
   localStorage.setItem(STORE_CYCLE_SLOT, slot);
+  saveCycleExtraSlots(currentDateStr, getCycleExtraSlots(currentDateStr).filter(item => item !== slot));
   updateTodayTemplate();
 }
 
@@ -2804,22 +2927,32 @@ function changeCycleSlot(delta) {
   setCycleSlot(next);
 }
 
-function markCyclePlanCompleted(dateStr) {
+function markCyclePlanCompleted(dateStr, slots = getCyclePlanSlots(dateStr)) {
   if ((localStorage.getItem(STORE_TMPL_MODE) || 'weekday') !== 'cycle') return;
   const completedDate = localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '';
   if (completedDate === dateStr) return;
   if (completedDate && completedDate > dateStr) return;
+  const completedSlot = getFarthestCycleSlot(slots, getCurrentCycleSlot());
   localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, dateStr);
-  localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, getCurrentCycleSlot());
+  localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, completedSlot);
+  saveCycleExtraSlots(dateStr, []);
 }
 
 function getLatestRecordedCycleCompletion() {
   const candidates = logs
-    .filter(log => log.planMode === 'cycle' && /^プラン[A-G]$/.test(log.planLabel || ''))
+    .filter(log => log.planMode === 'cycle' && getCycleSlotsFromLog(log).length)
     .sort((a, b) => a.date.localeCompare(b.date) || Number(a.id || 0) - Number(b.id || 0));
   if (!candidates.length) return null;
   const latest = candidates[candidates.length - 1];
-  return { date:latest.date, slot:latest.planLabel.replace('プラン', '') };
+  const slots = getCycleSlotsFromLog(latest);
+  return { date:latest.date, slot:getFarthestCycleSlot(slots, slots[0] || 'A') };
+}
+
+function getCycleSlotsFromLog(log) {
+  if (Array.isArray(log?.planSlots)) return log.planSlots.filter(slot => cycleNames.includes(slot));
+  const label = String(log?.planLabel || '');
+  const match = label.match(/^プラン([A-G](?:\+[A-G])*)$/);
+  return match ? match[1].split('+').filter(slot => cycleNames.includes(slot)) : [];
 }
 
 function reconcileCycleCompletionState() {
@@ -2913,13 +3046,13 @@ function getPlanOverviewRows() {
   const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
   if (mode === 'cycle') {
     const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
-    const active = getCurrentCycleSlot();
+    const activeSlots = getCyclePlanSlots();
     return {
       title: 'A〜G予定一覧',
       rows: cycleNames.map(name => ({
         label: name,
         text: data[name] || '',
-        active: name === active
+        active: activeSlots.includes(name)
       }))
     };
   }
@@ -2979,9 +3112,13 @@ function getPreviousSameWeekdayDate(targetDateStr) {
 
 function getPreviousSamePlanDate(targetDateStr) {
   if ((localStorage.getItem(STORE_TMPL_MODE) || 'weekday') !== 'cycle') return '';
-  const planLabel = `プラン${getCurrentCycleSlot()}`;
+  const targetSlots = getCyclePlanSlots(targetDateStr);
   return getWorkoutDatesBefore(targetDateStr)
-    .find(date => logs.some(log => log.date === date && log.planMode === 'cycle' && log.planLabel === planLabel)) || '';
+    .find(date => logs.some(log =>
+      log.date === date &&
+      log.planMode === 'cycle' &&
+      getCycleSlotsFromLog(log).some(slot => targetSlots.includes(slot))
+    )) || '';
 }
 
 function getWorkoutRecallGroups(dateStr) {
@@ -3018,7 +3155,7 @@ function refreshWorkoutRecallChoices() {
   if (planBtn) planBtn.disabled = mode !== 'cycle' || !planDate;
   if (planLabel) {
     planLabel.textContent = mode === 'cycle'
-      ? `${getCurrentCycleSlot()}：${getRecallDateLabel(planDate)}`
+      ? `${getCyclePlanSlots().join('+')}：${getRecallDateLabel(planDate)}`
       : 'A〜G方式で利用できます';
   }
 
@@ -3172,6 +3309,14 @@ function applyWorkoutRecall() {
   showCopyToast(`${groups.length}種目を下書きにしました`);
 }
 
+function isRestDayForPlanDisplay(dateStr) {
+  const todayStr = formatDate(new Date());
+  if (!dateStr || dateStr >= todayStr) return false;
+  const hasLogs = logs.some(log => log.date === dateStr);
+  const hasDrafts = getDraftGroupsForDate(dateStr).length > 0;
+  return !hasLogs && !hasDrafts;
+}
+
 function updateTodayTemplate() {
   if (typeof currentDateStr === 'undefined') return;
   const d = new Date(currentDateStr);
@@ -3182,22 +3327,42 @@ function updateTodayTemplate() {
   const title = document.getElementById('todayTemplateTitle');
   const content = document.getElementById('todayTemplateContent');
   const cycleControls = document.getElementById('cycleTemplateControls');
+  const extraControls = document.getElementById('cycleExtraPlanControls');
+
+  if (isRestDayForPlanDisplay(currentDateStr)) {
+    renderTodayTemplateTitle(`${d.getMonth() + 1}月${d.getDate()}日 休み`, '');
+    if (content) content.textContent = 'この日は記録がないため、休みとして扱います。';
+    if (cycleControls) cycleControls.style.display = 'none';
+    if (extraControls) {
+      extraControls.style.display = 'none';
+      extraControls.innerHTML = '';
+    }
+    card.style.display = 'block';
+    renderDailyCoach();
+    return;
+  }
 
   let todayTask = '';
   if (mode === 'cycle') {
     syncCycleSlotForToday();
+    const slots = getCyclePlanSlots();
     const slot = getCurrentCycleSlot();
     const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
-    todayTask = data[slot] || '';
-    renderTodayTemplateTitle(`現在の予定（${slot}）`, todayTask);
+    todayTask = formatCyclePlanText(slots, data);
+    renderTodayTemplateTitle(`現在の予定（${slots.join('+')}）`, todayTask);
     const slotSelect = document.getElementById('cycleSlotSelect');
     if (slotSelect) slotSelect.value = slot;
     if (cycleControls) cycleControls.style.display = 'flex';
+    renderCycleExtraPlanControls();
   } else {
     const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
     todayTask = data[dayIndex] || '';
     renderTodayTemplateTitle(`今日の予定（${dayNames[dayIndex]}）`, todayTask);
     if (cycleControls) cycleControls.style.display = 'none';
+    if (extraControls) {
+      extraControls.style.display = 'none';
+      extraControls.innerHTML = '';
+    }
   }
 
   content.textContent = todayTask || (mode === 'cycle'
@@ -3668,6 +3833,10 @@ function init() {
       const goalLabel = document.getElementById('dailyCoachGoal');
       const planBox = document.getElementById('dailyCoachPlan');
       if (!card || !content) return;
+      if (isRestDayForPlanDisplay(currentDateStr)) {
+        card.style.display = 'none';
+        return;
+      }
       const goalKey = getCoachSettings().goal;
       const preset = getEffectiveCoachPreset(goalKey);
       if (goalLabel) goalLabel.textContent = preset.name;
@@ -4574,7 +4743,9 @@ function init() {
       });
 
       if(groups.length === 0) {
-        container.innerHTML = '<div class="empty-msg" style="padding-top:60px;">記録がありません</div>';
+        container.innerHTML = isRestDayForPlanDisplay(currentDateStr)
+          ? '<div class="empty-msg" style="padding-top:60px;">休み（記録なし）</div>'
+          : '<div class="empty-msg" style="padding-top:60px;">記録がありません</div>';
         const reorderBtn = document.getElementById('reorderBtn');
         if (reorderBtn) reorderBtn.style.display = 'none';
         return;
@@ -5241,8 +5412,10 @@ function init() {
         .sort((a, b) => b.localeCompare(a));
       if (!candidateDates.length) return null;
 
+      const targetPlanSlots = planInfo.slots || [];
       const hasSamePlan = date => setsOnDate(date).some(set =>
-        set.planMode === 'cycle' && set.planLabel === planInfo.label
+        set.planMode === 'cycle' &&
+        getCycleSlotsFromLog(set).some(slot => targetPlanSlots.includes(slot))
       );
       const hasSameWeekday = date => new Date(date + 'T00:00:00').getDay() === targetDay;
       const hasSameOrder = date => getExOrderOnDate(date, exName) === currentOrder;
@@ -7458,9 +7631,13 @@ function init() {
     function getActivePlanInfo() {
       const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
       if (mode === 'cycle') {
-        const slot = getCurrentCycleSlot();
+        const slots = getCyclePlanSlots();
         const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
-        return { label: `プラン${slot}`, text: data[slot] || '' };
+        return {
+          label: formatCyclePlanLabel(slots),
+          text: formatCyclePlanText(slots, data),
+          slots
+        };
       }
       const d = new Date(currentDateStr);
       const dayIndex = d.getDay();
@@ -7561,7 +7738,7 @@ function init() {
       let startIndex = -1;
       for (let i = selectedDates.length - 1; i >= 0; i--) {
         const date = selectedDates[i];
-        if (available.some(l => l.date === date && l.planMode === 'cycle' && l.planLabel === 'プランA')) {
+        if (available.some(l => l.date === date && l.planMode === 'cycle' && getCycleSlotsFromLog(l).includes('A'))) {
           startIndex = i;
           break;
         }
@@ -7666,7 +7843,12 @@ function init() {
       if (!dates.length) return '';
       if (mode === 'cycle') {
         const plan = getActivePlanInfo();
-        const samePlanDate = dates.find(date => logs.some(l => l.date === date && l.planMode === 'cycle' && l.planLabel === plan.label));
+        const targetSlots = plan.slots || [];
+        const samePlanDate = dates.find(date => logs.some(l =>
+          l.date === date &&
+          l.planMode === 'cycle' &&
+          getCycleSlotsFromLog(l).some(slot => targetSlots.includes(slot))
+        ));
         if (samePlanDate) return samePlanDate;
       }
       const targetDay = new Date(currentDateStr + 'T00:00:00').getDay();
@@ -7865,13 +8047,14 @@ function saveWorkout() {
           planMode: planMode,
           planLabel: planInfo.label,
           planText: planInfo.text,
+          planSlots: planInfo.slots || null,
           memo: memoText
         });
       });
 
       localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
       createDailyLocalBackup();
-      markCyclePlanCompleted(currentDateStr);
+      markCyclePlanCompleted(currentDateStr, planInfo.slots);
       clearCurrentDraft();
 
       // Go back to daily view
