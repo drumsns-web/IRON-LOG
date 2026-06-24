@@ -977,8 +977,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div class="card" style="margin-bottom:24px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px;">
           <div>
-            <h3 style="font-size:16px; font-weight:700; margin:0;">部位別 推定1RMの推移</h3>
-            <div style="font-size:10px; color:var(--muted); margin-top:4px; line-height:1.45;">代表種目を選ぶと、その種目の週最高推定値で表示します。</div>
+            <h3 style="font-size:16px; font-weight:700; margin:0;">筋力・筋量の判断リフト</h3>
+            <div style="font-size:10px; color:var(--muted); margin-top:4px; line-height:1.45;">ベンチプレスのトップシングルのように、伸びを判断しやすい代表リフトの週最高推定値で表示します。</div>
           </div>
         </div>
         <div class="strength-range" id="strengthRangeButtons">
@@ -993,7 +993,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         </div>
         <div id="strengthRepresentativeSelectors" class="strength-representatives"></div>
         <div id="strengthChartContainer"></div>
-        <div style="font-size:9px; color:var(--muted); margin-top:10px; line-height:1.5;">推定式：重量 ×（1 ＋ 実効回数 ÷ 30）。実効回数は「回数 ＋ (10 − RPE)」。種目が変わると数値の比較条件も変わります。</div>
+        <div style="font-size:9px; color:var(--muted); margin-top:10px; line-height:1.5;">推定式：重量 ×（1 ＋ 実効回数 ÷ 30）。判断リフトはウォームアップ・パーシャル主体・技法セットを除き、原則1〜12回のRPE/RIRセットを使います。</div>
       </div>
 
       <div class="card" style="margin-bottom:24px;">
@@ -4062,11 +4062,71 @@ function init() {
       }
     }
 
+    function isCoreStrengthCategory(category) {
+      return ['胸', '肩', '背中', '脚'].includes(category);
+    }
+
+    function isStrengthJudgmentSet(set) {
+      const metricType = inferLogMetricType(set, set.exercise);
+      const reps = Number(set.reps);
+      if (!['RPE', 'RIR'].includes(metricType)) return false;
+      if (!Number.isFinite(reps) || reps < 1 || reps > 12) return false;
+      if (normalizeTechnique(set.technique).type !== 'none') return false;
+      return estimateSet1RM(set) != null;
+    }
+
+    function getStrengthMovementPriority(category, exName) {
+      const name = exName || '';
+      const rules = {
+        '胸': [
+          /ベンチプレス|bench\s*press/i,
+          /インクライン.*ベンチ|incline.*bench/i,
+          /ダンベルプレス|dumbbell.*press/i,
+          /チェストプレス|chest.*press/i
+        ],
+        '肩': [
+          /オーバーヘッドプレス|ショルダープレス|ミリタリープレス|overhead.*press|shoulder.*press|military.*press/i,
+          /マシン.*プレス|press/i
+        ],
+        '背中': [
+          /デッドリフト|deadlift/i,
+          /チンニング|懸垂|pull[\s-]*up|chin[\s-]*up/i,
+          /ロウ|ロー|row/i,
+          /ラットプル|lat.*pull/i
+        ],
+        '脚': [
+          /スクワット|squat/i,
+          /レッグプレス|leg.*press/i,
+          /ルーマニアンデッドリフト|RDL|romanian.*deadlift/i,
+          /ブルガリアン|ランジ|lunge/i
+        ]
+      };
+      const list = rules[category] || [];
+      const index = list.findIndex(pattern => pattern.test(name));
+      return index < 0 ? 999 : index;
+    }
+
+    function getAutoStrengthRepresentativeExercise(category) {
+      if (!isCoreStrengthCategory(category)) return '';
+      const candidates = getStrengthExercisesByCategory(category)
+        .map(name => {
+          const priority = getStrengthMovementPriority(category, name);
+          const estimates = logs
+            .filter(set => set.exercise === name && isStrengthJudgmentSet(set))
+            .map(estimateSet1RM)
+            .filter(value => value != null);
+          return { name, priority, best: estimates.length ? Math.max(...estimates) : 0 };
+        })
+        .filter(item => item.priority < 999 && item.best > 0)
+        .sort((a, b) => a.priority - b.priority || b.best - a.best || a.name.localeCompare(b.name, 'ja'));
+      return candidates[0]?.name || '';
+    }
+
     function getStrengthRepresentativeExercise(category) {
       const map = getStrengthRepresentativeMap();
       const exercise = map[category] || '';
       if (!exercise) return '';
-      return logs.some(set => set.exercise === exercise && getCategoryForExercise(set.exercise) === category && estimateSet1RM(set) != null)
+      return logs.some(set => set.exercise === exercise && getCategoryForExercise(set.exercise) === category && isStrengthJudgmentSet(set))
         ? exercise
         : '';
     }
@@ -4091,7 +4151,7 @@ function init() {
 
     function getStrengthExercisesByCategory(category) {
       return [...new Set(logs
-        .filter(set => getCategoryForExercise(set.exercise) === category && estimateSet1RM(set) != null)
+        .filter(set => getCategoryForExercise(set.exercise) === category && isStrengthJudgmentSet(set))
         .map(set => set.exercise))]
         .sort((a, b) => a.localeCompare(b, 'ja'));
     }
@@ -4104,7 +4164,9 @@ function init() {
           const names = getStrengthExercisesByCategory(category);
           if (!names.length) return '';
           const selected = getStrengthRepresentativeExercise(category);
-          const options = ['<option value="">自動（部位内最高）</option>'].concat(
+          const auto = getAutoStrengthRepresentativeExercise(category);
+          const autoLabel = auto ? `自動（${escapeHtml(auto)}）` : (isCoreStrengthCategory(category) ? '自動（判断リフト候補なし）' : '自動（非表示）');
+          const options = [`<option value="">${autoLabel}</option>`].concat(
             names.map(name => `<option value="${escapeHtml(name)}" ${name === selected ? 'selected' : ''}>${escapeHtml(name)}</option>`)
           ).join('');
           return `<div class="strength-representative-row">
@@ -4114,7 +4176,7 @@ function init() {
         })
         .filter(Boolean);
       container.innerHTML = rows.length
-        ? `<div style="font-size:11px; color:var(--muted); font-weight:700; line-height:1.5;">伸び率を安定して見る部位は代表種目を固定できます。</div>${rows.join('')}`
+        ? `<div style="font-size:11px; color:var(--muted); font-weight:700; line-height:1.5;">筋力・筋量の判断は、胸・肩・背中・脚の大きなリフトを優先します。必要なら各部位の代表種目を固定できます。</div>${rows.join('')}`
         : '';
     }
 
@@ -4125,11 +4187,12 @@ function init() {
       logs.forEach(set => {
         const weekIndex = weeks.findIndex(week => set.date >= week.start && set.date <= week.end);
         if (weekIndex < 0) return;
+        if (!isStrengthJudgmentSet(set)) return;
         const estimate = estimateSet1RM(set);
         if (estimate == null) return;
         const category = getCategoryForExercise(set.exercise);
-        const representative = representativeMap[category] || '';
-        if (representative && set.exercise !== representative) return;
+        const representative = representativeMap[category] || getAutoStrengthRepresentativeExercise(category);
+        if (!representative || set.exercise !== representative) return;
         const current = series[category]?.[weekIndex];
         if (series[category] && (current == null || estimate > current.value)) {
           series[category][weekIndex] = { value: estimate, exercise: set.exercise };
@@ -4251,14 +4314,14 @@ function init() {
       }).join('');
 
       container.innerHTML = `<div class="strength-chart-wrap">
-        <svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="部位別推定1RMの推移">
+        <svg class="strength-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="筋力・筋量の判断リフト推移">
           ${gridLines}${xLabels}${lines}${endLabels}
           <text x="${width-right}" y="20" fill="#f2f2f7" font-size="14" font-weight="800" text-anchor="end">${strengthChartMode === 'relative' ? '%' : 'kg'}</text>
         </svg>
       </div>
       <div class="strength-chart-note">${strengthChartMode === 'relative'
-        ? `${representativeCategories.length ? '代表種目を選んだ部位は、その種目だけで伸び率を表示します。' : '伸び率表示：各部位の期間内で最初に記録された推定1RMを0%として、そこからの変化を表示します。'}未選択の部位は週ごとの部位内最高値です。種目・種目順・RPE/RIR・片側/両側・アシスト換算が変わると、実感では伸びていても下がる場合があります。`
-        : `${representativeCategories.length ? '代表種目を選んだ部位は、その種目だけの推定1RMを表示します。' : '実数kg表示：推定1RMのkgをそのまま表示します。'}未選択の部位は週内最高の1セットです。条件差が大きい場合は、下のカードや種目別グラフで同じ種目どうしを確認してください。`}</div>
+        ? `${representativeCategories.length ? '手動で代表種目を選んだ部位は、その種目だけで伸び率を表示します。' : '伸び率表示：判断リフトの期間内で最初に記録された推定1RMを0%として、そこからの変化を表示します。'}未選択の胸・肩・背中・脚はベンチプレス、プレス、デッドリフト、スクワット系などを自動優先します。腕・腹は代表種目を選んだ場合だけ表示します。`
+        : `${representativeCategories.length ? '手動で代表種目を選んだ部位は、その種目だけの推定1RMを表示します。' : '実数kg表示：判断リフトの推定1RMをそのまま表示します。'}ウォームアップ・パーシャル主体・技法セットは筋力判断から外し、同じ種目のトップセット寄りで見ます。`}</div>
       <div class="strength-legend">${legend}</div>
       <div class="strength-summary">${summary}</div>`;
     }
