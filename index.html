@@ -49,8 +49,10 @@
     .cal-day.active .cal-day-number { color: #000; background: var(--accent-brand); }
     .cal-day.has-log { position: relative; }
     .cal-day.has-log::after { display: none; }
-    .cal-dots { display: flex; justify-content: center; align-items: center; gap: 3px; min-height: 6px; max-width: 42px; overflow: hidden; }
+    .cal-dots { display: flex; justify-content: center; align-items: center; gap: 3px; min-height: 6px; max-width: 46px; overflow: hidden; }
+    .cal-dots.text-mode { gap: 2px; min-height: 12px; max-width: 50px; }
     .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex: 0 0 auto; }
+    .cal-marker-text { min-width: 8px; max-width: 18px; height: 12px; line-height: 12px; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 8px; font-weight: 950; letter-spacing: 0; text-shadow: 0 0 4px rgba(0,0,0,.85); }
     .cal-day.empty { opacity: 0; pointer-events: none; }
     .body-map-modal { position:fixed; inset:0; z-index:260; display:none; align-items:flex-end; justify-content:center; background:rgba(0,0,0,.82); backdrop-filter:blur(6px); }
     .body-map-dialog { width:min(600px,100%); max-height:min(92vh,92dvh); display:flex; flex-direction:column; background:#101113; border:1px solid #34363a; border-radius:18px 18px 0 0; overflow:hidden; }
@@ -151,7 +153,9 @@
     .exercise-quick-info { min-width:0; }
     .exercise-quick-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-size:13px; font-weight:800; }
     .exercise-quick-meta { margin-top:3px; color:var(--muted); font-size:11px; font-weight:700; }
-    .exercise-quick-timer { min-width:58px; min-height:42px; padding:0 7px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--accent-brand); font-size:13px; font-weight:850; font-variant-numeric:tabular-nums; cursor:pointer; }
+    .exercise-quick-timer-group { display:flex; align-items:center; gap:4px; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+    .exercise-quick-timer { min-width:58px; min-height:42px; padding:0 7px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--accent-brand); font-size:13px; font-weight:850; font-variant-numeric:tabular-nums; cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+    .exercise-quick-timer-menu { width:32px; min-height:42px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:900; cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     .exercise-quick-icon { width:42px; height:42px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:20px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .exercise-quick-icon.primary { border-color:var(--accent-brand); background:var(--accent-brand); color:#000; }
     .exercise-quick-icon.ai { color:var(--accent-brand); font-size:12px; font-weight:950; letter-spacing:0; }
@@ -251,6 +255,12 @@
     .quick-timer-options { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
     .quick-timer-options button { min-height:54px; border:1px solid #48484a; border-radius:9px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:850; cursor:pointer; }
     .quick-timer-options button.active { border-color:var(--accent-brand); background:rgba(208,253,62,.12); color:var(--accent-brand); }
+    .plan-overview-list { display:grid; gap:9px; padding:14px 16px max(30px, env(safe-area-inset-bottom)); overflow-y:auto; }
+    .plan-overview-item { display:grid; grid-template-columns:42px minmax(0,1fr); gap:10px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+    .plan-overview-item.active { border-color:rgba(208,253,62,.5); background:rgba(208,253,62,.08); }
+    .plan-overview-label { color:var(--accent-brand); font-size:15px; font-weight:900; text-align:center; }
+    .plan-overview-text { color:var(--text); font-size:14px; font-weight:700; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .plan-overview-empty { color:var(--muted); font-weight:700; }
 
     .save-btn { width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer;}
     
@@ -488,6 +498,35 @@
   background: transparent;
   cursor: pointer;
 }
+.color-setting-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cat-marker-input {
+  width: 52px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 850;
+  outline: none;
+}
+.calendar-marker-mode {
+  width: 100%;
+  min-height: 40px;
+  margin: 10px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  padding: 0 11px;
+  font-size: 14px;
+  font-weight: 700;
+}
 .color-reset-btn {
   width: 100%;
   margin-top: 12px;
@@ -508,14 +547,34 @@
   margin-bottom: 16px;
   display: none; /* 予定がない場合は隠す */
 }
+.today-template-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
 .today-template-card .title {
   font-size: 14px;
   color: var(--accent-brand);
   font-weight: 700;
-  margin-bottom: 4px;
   display: flex;
   align-items: center;
   gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+.today-template-list-btn {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(208,253,62,.36);
+  border-radius: 8px;
+  background: rgba(208,253,62,.08);
+  color: var(--accent-brand);
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
 }
 .today-template-dots {
   display: inline-flex;
@@ -638,7 +697,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     
     <!-- ===== 追加: 今日の曜日予定枠 ===== -->
     <div id="todayTemplateCard" class="today-template-card">
-      <div class="title" id="todayTemplateTitle">今日の予定（月）</div>
+      <div class="today-template-head">
+        <div class="title" id="todayTemplateTitle">今日の予定（月）</div>
+        <button type="button" class="today-template-list-btn" onclick="openPlanOverviewModal()">一覧</button>
+      </div>
       <div class="content" id="todayTemplateContent"></div>
       <div id="cycleTemplateControls" style="display:none; gap:8px; margin-top:12px;">
         <button onclick="changeCycleSlot(-1)" aria-label="前の予定" style="width:44px; min-height:38px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); border-radius:8px; font-weight:700;">‹</button>
@@ -846,7 +908,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div id="quickExerciseTitle" class="exercise-quick-title">種目</div>
       <div id="quickSetStatus" class="exercise-quick-meta">セット入力</div>
     </div>
-    <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="handleQuickTimerClick(event)" onpointerdown="startQuickTimerLongPress(event)" onpointerup="endQuickTimerLongPress(event)" onpointercancel="cancelQuickTimerLongPress()" onpointerleave="cancelQuickTimerLongPress()" oncontextmenu="event.preventDefault()" title="タイマーを開始・リセット。長押しで時間選択">02:00</button>
+    <div class="exercise-quick-timer-group">
+      <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="handleQuickTimerClick(event)" oncontextmenu="event.preventDefault()" title="タイマーを開始・リセット">02:00</button>
+      <button type="button" class="exercise-quick-timer-menu" onclick="openQuickTimerModal()" oncontextmenu="event.preventDefault()" title="時間を選択" aria-label="タイマー時間を選択">▼</button>
+    </div>
     <button type="button" class="exercise-quick-icon copy" onclick="duplicatePreviousSet()" title="直前セットを複製" aria-label="直前セットを複製">⧉</button>
     <button type="button" class="exercise-quick-icon primary" onclick="addSetRow()" title="セットを追加" aria-label="セットを追加">＋</button>
     <button type="button" class="exercise-quick-icon ai" onclick="openAiSheet()" title="AIに相談" aria-label="AIに相談" data-ai-icon>AI</button>
@@ -1139,6 +1204,17 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
   </div>
 
+  <div class="technique-modal" id="planOverviewModal" onclick="closePlanOverviewModal(event)">
+    <div class="technique-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button type="button" onclick="closePlanOverviewModal()">閉じる</button>
+        <h3 id="planOverviewTitle">予定一覧</h3>
+        <div style="width:56px;"></div>
+      </div>
+      <div id="planOverviewList" class="plan-overview-list"></div>
+    </div>
+  </div>
+
   <div class="technique-modal" id="draftHistoryModal" onclick="closeDraftHistoryModal(event)">
     <div class="technique-dialog" onclick="event.stopPropagation()">
       <div class="video-dialog-header">
@@ -1344,10 +1420,15 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <summary>部位カラー</summary>
       <div class="template-body">
         <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
-          ここで変更した色は、カレンダー・レポート・記録一覧・種目追加に反映されます。
+          ここで変更した色は、カレンダー・レポート・記録一覧・種目追加に反映されます。カレンダーは従来の●表示と、任意文字表示を選べます。
         </div>
+        <label for="calendarMarkerMode" style="display:block; font-size:13px; color:var(--muted); font-weight:700;">カレンダー表示</label>
+        <select id="calendarMarkerMode" class="calendar-marker-mode" onchange="saveCalendarMarkerMode(this.value)">
+          <option value="dot">● 色の点で表示</option>
+          <option value="text">文字で表示</option>
+        </select>
         <div class="color-settings-grid" id="catColorSettings"></div>
-        <button class="color-reset-btn" onclick="resetCatColors()">初期カラーに戻す</button>
+        <button class="color-reset-btn" onclick="resetCatColors()">初期カラー・文字に戻す</button>
       </div>
     </details>
 
@@ -1610,8 +1691,6 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     let intervalTimerActive = false;
     let intervalTimerTwentySecondNotified = false;
     let timerNoticeTimeout = null;
-    let quickTimerLongPressId = null;
-    let quickTimerLongPressed = false;
     const intervalMinuteOptions = ['1','1.5','2','2.5','3','3.5','4','4.5','5'];
 
     function getTimerSelectedSeconds() {
@@ -1769,32 +1848,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     }
 
     function handleQuickTimerClick(event) {
-      if (quickTimerLongPressed) {
-        event?.preventDefault();
-        quickTimerLongPressed = false;
-        return;
-      }
       toggleIntervalTimer();
-    }
-
-    function startQuickTimerLongPress(event) {
-      if (event && event.pointerType === 'mouse' && event.button !== 0) return;
-      quickTimerLongPressed = false;
-      clearTimeout(quickTimerLongPressId);
-      quickTimerLongPressId = setTimeout(() => {
-        quickTimerLongPressed = true;
-        openQuickTimerModal();
-      }, 520);
-    }
-
-    function endQuickTimerLongPress() {
-      clearTimeout(quickTimerLongPressId);
-      quickTimerLongPressId = null;
-    }
-
-    function cancelQuickTimerLongPress() {
-      clearTimeout(quickTimerLongPressId);
-      quickTimerLongPressId = null;
     }
 
     function openQuickTimerModal() {
@@ -1813,7 +1867,6 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       if (event && event.target !== event.currentTarget) return;
       const modal = document.getElementById('quickTimerModal');
       if (modal) modal.style.display = 'none';
-      setTimeout(() => { quickTimerLongPressed = false; }, 80);
     }
 
     function selectQuickTimerDuration(value) {
@@ -2132,6 +2185,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         logs: logs,
         exercises: exercises,
         catColors: catColors,
+        calendarMarkerMode: getCalendarMarkerMode(),
+        categoryMarkers: catMarkers,
         weekdayTemplates: JSON.parse(localStorage.getItem(STORE_TMPL) || '{}'),
         templateMode: localStorage.getItem(STORE_TMPL_MODE) || 'weekday',
         cycleTemplates: JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}'),
@@ -2202,6 +2257,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       localStorage.setItem(STORE_LOGS, JSON.stringify(data.logs));
       if (data.exercises) localStorage.setItem(STORE_EX, JSON.stringify(data.exercises));
       if (data.catColors) localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(data.catColors));
+      if (data.calendarMarkerMode) localStorage.setItem(STORE_CALENDAR_MARKER_MODE, data.calendarMarkerMode === 'text' ? 'text' : 'dot');
+      localStorage.setItem(STORE_CAT_MARKERS, JSON.stringify(data.categoryMarkers || {}));
       localStorage.setItem(STORE_TMPL, JSON.stringify(data.weekdayTemplates || {}));
       localStorage.setItem(STORE_TMPL_MODE, data.templateMode === 'cycle' ? 'cycle' : 'weekday');
       localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(data.cycleTemplates || {}));
@@ -2852,6 +2909,61 @@ function renderTodayTemplateTitle(label, planText) {
   title.innerHTML = `${dots ? `<span class="today-template-dots">${dots}</span>` : ''}<span>${label}</span>`;
 }
 
+function getPlanOverviewRows() {
+  const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+  if (mode === 'cycle') {
+    const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
+    const active = getCurrentCycleSlot();
+    return {
+      title: 'A〜G予定一覧',
+      rows: cycleNames.map(name => ({
+        label: name,
+        text: data[name] || '',
+        active: name === active
+      }))
+    };
+  }
+  const data = JSON.parse(localStorage.getItem(STORE_TMPL) || '{}');
+  const activeDay = new Date(currentDateStr + 'T00:00:00').getDay();
+  const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
+  return {
+    title: '曜日予定一覧',
+    rows: weekdayOrder.map(dayIndex => ({
+      label: `${dayNames[dayIndex]}曜`,
+      text: data[dayIndex] || '',
+      active: dayIndex === activeDay
+    }))
+  };
+}
+
+function renderPlanOverviewModal() {
+  const title = document.getElementById('planOverviewTitle');
+  const list = document.getElementById('planOverviewList');
+  if (!title || !list) return;
+  const overview = getPlanOverviewRows();
+  title.textContent = overview.title;
+  list.innerHTML = overview.rows.map(row => `
+    <div class="plan-overview-item ${row.active ? 'active' : ''}">
+      <div class="plan-overview-label">${escapeHtml(row.label)}</div>
+      <div class="plan-overview-text ${row.text ? '' : 'plan-overview-empty'}">${escapeHtml(row.text || '未設定')}</div>
+    </div>
+  `).join('');
+}
+
+function openPlanOverviewModal() {
+  renderPlanOverviewModal();
+  const modal = document.getElementById('planOverviewModal');
+  if (modal) modal.style.display = 'flex';
+  updateExerciseQuickBar();
+}
+
+function closePlanOverviewModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  const modal = document.getElementById('planOverviewModal');
+  if (modal) modal.style.display = 'none';
+  updateExerciseQuickBar();
+}
+
 let workoutRecallSourceDate = '';
 
 function getWorkoutDatesBefore(targetDateStr) {
@@ -3110,7 +3222,8 @@ function updateTodayTemplate() {
       'settingsSheet',
       'reorderSheet',
       'aiSheet',
-      'quickTimerModal'
+      'quickTimerModal',
+      'planOverviewModal'
     ];
 
     function isBlockingPanelOpen(el) {
@@ -3241,17 +3354,30 @@ function init() {
 
     // 部位ごとの色（記録画面・レポートで共通利用）
     const STORE_CAT_COLORS = 'ironlog-category-colors-v1';
+    const STORE_CALENDAR_MARKER_MODE = 'ironlog-calendar-marker-mode-v1';
+    const STORE_CAT_MARKERS = 'ironlog-category-markers-v1';
     const defaultCatColors = {
       '胸': '#e74c3c', '肩': '#e67e22', '二頭筋': '#f1c40f', '三頭筋': '#ff6b9a',
       '背中': '#9b59b6', '脚': '#2ecc71', '腹': '#3498db', 'その他': '#95a5a6'
+    };
+    const defaultCatMarkers = {
+      '胸': 'C', '肩': 'D', '二頭筋': 'Ab', '三頭筋': 'At',
+      '背中': 'B', '脚': 'L', '腹': 'Abs', 'その他': 'O'
     };
     let catColors = {
       ...defaultCatColors,
       ...(JSON.parse(localStorage.getItem(STORE_CAT_COLORS) || '{}'))
     };
+    let catMarkers = {
+      ...defaultCatMarkers,
+      ...(JSON.parse(localStorage.getItem(STORE_CAT_MARKERS) || '{}'))
+    };
     if (catColors['腕']) catColors['二頭筋'] = catColors['腕'];
     delete catColors['腕'];
+    if (catMarkers['腕'] && !catMarkers['二頭筋']) catMarkers['二頭筋'] = catMarkers['腕'];
+    delete catMarkers['腕'];
     localStorage.setItem(STORE_CAT_COLORS, JSON.stringify(catColors));
+    localStorage.setItem(STORE_CAT_MARKERS, JSON.stringify(catMarkers));
 
     function getCategoryForExercise(exName) {
       for (const [cat, exList] of Object.entries(exercises)) {
@@ -3361,19 +3487,56 @@ function init() {
       return ((r * 299 + g * 587 + b * 114) / 1000) > 150 ? '#000' : '#fff';
     }
 
+    function getCalendarMarkerMode() {
+      return localStorage.getItem(STORE_CALENDAR_MARKER_MODE) === 'text' ? 'text' : 'dot';
+    }
+
+    function sanitizeCatMarker(value) {
+      return String(value || '').trim().replace(/\s+/g, '').slice(0, 4);
+    }
+
+    function saveCalendarMarkerMode(mode) {
+      localStorage.setItem(STORE_CALENDAR_MARKER_MODE, mode === 'text' ? 'text' : 'dot');
+      renderCatColorSettings();
+      renderCalendar();
+    }
+
+    function saveCatMarker(cat, value) {
+      catMarkers[cat] = sanitizeCatMarker(value) || defaultCatMarkers[cat] || cat.slice(0, 1);
+      localStorage.setItem(STORE_CAT_MARKERS, JSON.stringify(catMarkers));
+      renderCatColorSettings();
+      renderCalendar();
+    }
+
+    function renderCalendarCategoryMarker(cat, mode = getCalendarMarkerMode()) {
+      const color = catColors[cat] || catColors['その他'];
+      if (mode === 'text') {
+        const marker = sanitizeCatMarker(catMarkers[cat]) || defaultCatMarkers[cat] || cat.slice(0, 1);
+        return `<span class="cal-marker-text" style="color:${color};" title="${escapeHtml(cat)}">${escapeHtml(marker)}</span>`;
+      }
+      return `<span class="cal-dot" style="background:${color};" title="${escapeHtml(cat)}"></span>`;
+    }
+
     function renderCatColorSettings() {
       const container = document.getElementById('catColorSettings');
       if (!container) return;
+      const modeSelect = document.getElementById('calendarMarkerMode');
+      if (modeSelect) modeSelect.value = getCalendarMarkerMode();
+      const showTextInputs = getCalendarMarkerMode() === 'text';
       const cats = Object.keys(defaultCatColors);
       container.innerHTML = cats.map(cat => {
         const color = catColors[cat] || defaultCatColors[cat];
+        const marker = sanitizeCatMarker(catMarkers[cat]) || defaultCatMarkers[cat] || cat.slice(0, 1);
         return `
           <div class="color-setting-row">
             <div class="color-setting-label">
               <span class="color-setting-dot" style="background:${color};"></span>
               <span>${cat}</span>
             </div>
-            <input type="color" value="${color}" onchange="saveCatColor('${cat}', this.value)" aria-label="${cat}の色">
+            <div class="color-setting-inputs">
+              ${showTextInputs ? `<input class="cat-marker-input" type="text" maxlength="4" value="${escapeHtml(marker)}" onchange="saveCatMarker('${cat}', this.value)" aria-label="${cat}のカレンダー文字">` : ''}
+              <input type="color" value="${color}" onchange="saveCatColor('${cat}', this.value)" aria-label="${cat}の色">
+            </div>
           </div>
         `;
       }).join('');
@@ -3387,9 +3550,11 @@ function init() {
     }
 
     function resetCatColors() {
-      if (!confirm('部位カラーを初期設定に戻しますか？')) return;
+      if (!confirm('部位カラーとカレンダー文字を初期設定に戻しますか？')) return;
       catColors = { ...defaultCatColors };
+      catMarkers = { ...defaultCatMarkers };
       localStorage.removeItem(STORE_CAT_COLORS);
+      localStorage.removeItem(STORE_CAT_MARKERS);
       refreshColorDependentViews();
       renderCatColorSettings();
     }
@@ -4341,8 +4506,9 @@ function init() {
         const isHasLog = dayCats.length > 0 ? 'has-log' : '';
         const isActive = dStr === currentDateStr ? 'active' : '';
         const isActualToday = dStr === formatDate(new Date()) ? 'today-marker' : '';
-        const dotsHtml = dayCats.slice(0, 6).map(cat => `<span class="cal-dot" style="background:${catColors[cat] || catColors['その他']};"></span>`).join('');
-        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive} ${isActualToday}" data-date="${dStr}" role="button" aria-label="${i}日。タップで日付選択、長押しでトレーニング部位を表示" onpointerdown="startCalendarLongPress(event, '${dStr}')" onpointermove="moveCalendarLongPress(event)" onpointerup="endCalendarLongPress()" onpointercancel="endCalendarLongPress()" onpointerleave="endCalendarLongPress()" oncontextmenu="event.preventDefault()" onclick="handleCalendarDayClick(event, '${dStr}')"><div class="cal-day-number">${i}</div><div class="cal-dots">${dotsHtml}</div></div>`;
+        const markerMode = getCalendarMarkerMode();
+        const dotsHtml = dayCats.slice(0, 6).map(cat => renderCalendarCategoryMarker(cat, markerMode)).join('');
+        grid.innerHTML += `<div class="cal-day ${isHasLog} ${isActive} ${isActualToday}" data-date="${dStr}" role="button" aria-label="${i}日。タップで日付選択、長押しでトレーニング部位を表示" onpointerdown="startCalendarLongPress(event, '${dStr}')" onpointermove="moveCalendarLongPress(event)" onpointerup="endCalendarLongPress()" onpointercancel="endCalendarLongPress()" onpointerleave="endCalendarLongPress()" oncontextmenu="event.preventDefault()" onclick="handleCalendarDayClick(event, '${dStr}')"><div class="cal-day-number">${i}</div><div class="cal-dots ${markerMode === 'text' ? 'text-mode' : ''}">${dotsHtml}</div></div>`;
       }
     }
 
