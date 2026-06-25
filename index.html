@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -117,6 +117,11 @@
     .set-technique-btn { min-height:32px; padding:0 10px; border:1px solid #48484a; border-radius:7px; background:var(--surface-2); color:var(--set-label-text); font-size:12px; font-weight:750; cursor:pointer; }
     .set-technique-btn.active { border-color:rgba(208,253,62,.5); color:var(--accent-brand); background:rgba(208,253,62,.07); }
     .set-technique-summary { min-width:0; flex:1; color:var(--set-value-text); font-size:14px; font-weight:750; line-height:1.4; white-space:normal; overflow-wrap:anywhere; }
+    .set-extra-line { display:grid; grid-template-columns:74px minmax(0,1fr); gap:8px; padding:0 16px 11px 70px; align-items:center; }
+    .set-prev-btn { min-height:34px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--set-label-text); font-size:12px; font-weight:800; cursor:pointer; }
+    .set-prev-btn:disabled { opacity:.42; cursor:default; }
+    .set-note-input { width:100%; min-height:34px; border:1px solid var(--line); border-radius:7px; outline:none; background:var(--surface-2); color:var(--set-value-text); padding:0 10px; font-size:13px; font-weight:650; }
+    .set-note-input::placeholder { color:var(--set-ghost-text); opacity:1; }
 
     .set-label { width: 44px; font-size: 15px; font-weight: 750; color: var(--set-label-text); text-align: center;}
 
@@ -1257,6 +1262,17 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div style="width:56px;"></div>
       </div>
       <div id="draftHistoryList" class="history-list"></div>
+    </div>
+  </div>
+
+  <div class="technique-modal" id="previousSetModal" onclick="closePreviousSetModal(event)">
+    <div class="technique-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button type="button" onclick="closePreviousSetModal()">閉じる</button>
+        <h3 id="previousSetModalTitle">前回同種目</h3>
+        <div style="width:56px;"></div>
+      </div>
+      <div id="previousSetModalBody" class="history-list"></div>
     </div>
   </div>
 
@@ -3280,6 +3296,7 @@ function applyWorkoutRecall() {
         prevAssistAmount: set.assistAmount ?? '',
         prevAssistMode: set.assistMode ?? '',
         prevMetricType: inferLogMetricType(set, group.exercise),
+        prevNote: set.note || '',
         weight: String(set.weight),
         reps: String(set.reps),
         rpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
@@ -3290,6 +3307,7 @@ function applyWorkoutRecall() {
         assistMode: set.assistMode ?? '',
         metricType: inferLogMetricType(set, group.exercise),
         technique: normalizeTechnique(set.technique),
+        note: '',
         done: false,
         manualCheckRequired: true,
         completedAt: null
@@ -3377,6 +3395,7 @@ function updateTodayTemplate() {
       'setMetricModal',
       'setBulkModal',
       'draftHistoryModal',
+      'previousSetModal',
       'referenceVideoModal',
       'youtubePlayerModal',
       'workoutRecallModal',
@@ -4869,6 +4888,7 @@ function init() {
                 const setTimeText = formatSetClockTime(s.completedAt);
                 const assistText = formatAssistMeta(s, g.exercise);
                 const detailLine = [assistText, setTimeText ? `記録 ${setTimeText}` : ''].filter(Boolean).join(' ・ ');
+                const setNote = s.note || '';
                 return `
                 <div style="border-bottom:1px solid var(--line);">
                   <div class="log-row" style="background:transparent; border-bottom:none;">
@@ -4877,6 +4897,7 @@ function init() {
                     <div class="tag">${tag}</div>
                   </div>
                   ${detailLine ? `<div style="padding:0 16px 7px 46px; color:var(--set-label-text); font-size:10.5px; font-weight:700;">${escapeHtml(detailLine)}</div>` : ''}
+                  ${setNote ? `<div style="padding:0 16px 7px 46px; color:var(--muted); font-size:10.5px; line-height:1.45;">メモ: ${escapeHtml(setNote)}</div>` : ''}
                   ${techniqueText ? `<div style="padding:0 16px 8px 46px; color:var(--accent-brand); font-size:10px;">${escapeHtml(techniqueText)}</div>` : ''}
                 </div>`;
               }).join('')}
@@ -6450,6 +6471,8 @@ function init() {
       if (set.bodyWeight == null) set.bodyWeight = '';
       if (set.assistAmount == null) set.assistAmount = '';
       if (set.assistMode == null) set.assistMode = '';
+      if (set.note == null) set.note = '';
+      if (set.prevNote == null) set.prevNote = '';
       return set;
     }
 
@@ -6626,6 +6649,8 @@ function init() {
         comparisonPreference.date
       );
       const prevSets = comparisonSession ? comparisonSession.sets : [];
+      const latestSameExerciseSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
+      const latestSameExerciseSets = latestSameExerciseSession ? latestSameExerciseSession.sets : [];
 
       currentSets = [];
 
@@ -6694,7 +6719,9 @@ function init() {
             prevTechnique: normalizeTechnique(s.technique),
             prevComparisonLabel: comparisonSession.shortLabel || '前回',
             prevComparisonDate: comparisonSession.date || '',
+            prevNote: latestSameExerciseSets[currentSets.length]?.note || '',
             weight: '', reps: '', rpe: rStr, rir: metricType === 'RIR' ? rirValue : '', partialReps: '', metricType: metricType,
+            note: '',
             technique: { type:'none' },
             done: false,
             manualCheckRequired: true,
@@ -6704,7 +6731,7 @@ function init() {
       } else {
         // Default 3 sets if no history
         for(let i=0; i<3; i++) {
-          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevRir: 2, prevPartialReps: '', prevBodyWeight:'', prevAssistAmount:'', prevAssistMode:'', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, prevComparisonLabel:'前回', prevComparisonDate:'', weight: '', reps: '', rpe: 8, rir: '', partialReps: '', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false, completedAt: null });
+          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevRir: 2, prevPartialReps: '', prevBodyWeight:'', prevAssistAmount:'', prevAssistMode:'', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, prevComparisonLabel:'前回', prevComparisonDate:'', prevNote: latestSameExerciseSets[i]?.note || '', weight: '', reps: '', rpe: 8, rir: '', partialReps: '', note:'', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false, completedAt: null });
         }
       }
 
@@ -6720,7 +6747,8 @@ function init() {
         prevMetricType:set.prevMetricType,
         prevTechnique:set.prevTechnique,
         prevComparisonLabel:set.prevComparisonLabel,
-        prevComparisonDate:set.prevComparisonDate
+        prevComparisonDate:set.prevComparisonDate,
+        prevNote:set.prevNote
       }));
 
       const draft = loadCurrentDraft();
@@ -6747,6 +6775,84 @@ function init() {
       calcAdvice();
     }
 
+    function getLatestSameExerciseSession(exName = selectedExercise, beforeDate = currentDateStr) {
+      const dates = [...new Set(logs
+        .filter(set => set.exercise === exName && set.date < beforeDate)
+        .map(set => set.date))]
+        .sort((a, b) => b.localeCompare(a));
+      const date = dates[0];
+      if (!date) return null;
+      return {
+        date,
+        shortLabel:'直近同種目',
+        sets: logs
+          .filter(set => set.exercise === exName && set.date === date)
+          .sort((a, b) => a.id - b.id)
+      };
+    }
+
+    function getPreviousSetNotePlaceholder(index) {
+      const value = currentSets[index]?.prevNote;
+      return value ? `前回メモ: ${value}` : 'セットメモ';
+    }
+
+    function getPreviousSetButtonLabel(session) {
+      return session ? `前回 ${formatComparisonDateLabel(session.date)}` : '前回なし';
+    }
+
+    function formatPreviousSetDetail(set, index) {
+      if (!set) return '';
+      const metricType = inferLogMetricType(set, set.exercise || selectedExercise);
+      const effort = metricType === 'UP'
+        ? 'UP'
+        : metricType === 'PR'
+          ? `PR${set.partialReps ?? '-'}`
+          : metricType === 'RIR'
+            ? `RIR${set.rir ?? '-'}`
+            : `RPE${set.rpe ?? '-'}`;
+      const technique = normalizeTechnique(set.technique);
+      const techniqueText = getTechniqueSummary(technique, set);
+      const note = set.note || '';
+      const assist = formatAssistMeta(set, set.exercise || selectedExercise);
+      return `<div class="history-item">
+        <div class="history-item-head"><span>${index + 1}セット目</span><span>${formatRecordedWeight(set, set.exercise || selectedExercise)} × ${set.reps ?? '-'}回</span></div>
+        <div class="history-item-summary">${escapeHtml(effort)}${assist ? `・${escapeHtml(assist)}` : ''}${techniqueText ? `・${escapeHtml(techniqueText)}` : ''}${note ? `<br>メモ: ${escapeHtml(note)}` : ''}</div>
+      </div>`;
+    }
+
+    function openPreviousSetModal(index) {
+      const session = getLatestSameExerciseSession();
+      const modal = document.getElementById('previousSetModal');
+      const title = document.getElementById('previousSetModalTitle');
+      const body = document.getElementById('previousSetModalBody');
+      if (!modal || !title || !body) return;
+      if (!session || !session.sets.length) {
+        title.textContent = '前回同種目';
+        body.innerHTML = '<div class="history-item"><div class="history-item-summary">直近の同種目記録がありません。</div></div>';
+      } else {
+        title.textContent = `${selectedExercise}・${formatComparisonDateLabel(session.date)}`;
+        const selected = session.sets[index];
+        body.innerHTML = `${selected ? `<div class="history-item" style="border-color:rgba(208,253,62,.45);">
+          <div class="history-item-head"><span>このセット番号の前回</span><span>${formatRecordedWeight(selected, selectedExercise)} × ${selected.reps ?? '-'}回</span></div>
+          <div class="history-item-summary">${escapeHtml(formatSimpleAiSet({ ...selected, exercise:selectedExercise }))}</div>
+        </div>` : ''}
+        ${session.sets.map(formatPreviousSetDetail).join('')}`;
+      }
+      modal.style.display = 'flex';
+    }
+
+    function closePreviousSetModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const modal = document.getElementById('previousSetModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function updateSetNote(idx, value) {
+      if (!currentSets[idx]) return;
+      currentSets[idx].note = value;
+      saveCurrentDraft();
+    }
+
     function renderSetRows() {
       const container = document.getElementById('setListContainer');
       const metricDefault = getExerciseMetricDefault();
@@ -6754,6 +6860,7 @@ function init() {
       const metricHelp = document.getElementById('setMetricHelp');
       if (metricDefaultSelect) metricDefaultSelect.value = metricDefault;
       if (metricHelp) metricHelp.textContent = 'RPE＝余力・強度。RIR＝あと何回できたか。PR＝総回数の内、パーシャルだった回数です（20回中4回ならPR4）。';
+      const latestSameExerciseSession = getLatestSameExerciseSession();
       container.innerHTML = currentSets.map((s, i) => {
         normalizeCurrentSetMetric(s);
         const isDone = s.done ? 'is-done' : '';
@@ -6768,6 +6875,7 @@ function init() {
         const metricType = s.metricType;
         const technique = normalizeTechnique(s.technique);
         const techniqueSummary = getTechniqueSummary(technique, s);
+        const previousButtonLabel = getPreviousSetButtonLabel(latestSameExerciseSession);
         const metricInput = metricType === 'PR'
           ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">`
           : metricType === 'UP'
@@ -6809,6 +6917,10 @@ function init() {
             <button class="check-btn ${checkClass}" onclick="toggleDone(${i})">${checkIcon}</button>
           </div>
           <div class="set-comparison" id="set-comparison-${i}">${getSetComparisonHtml(s)}</div>
+          <div class="set-extra-line">
+            <button type="button" class="set-prev-btn" onclick="openPreviousSetModal(${i})" ${latestSameExerciseSession ? '' : 'disabled'}>${previousButtonLabel}</button>
+            <input class="set-note-input" type="text" placeholder="${escapeHtml(getPreviousSetNotePlaceholder(i))}" value="${escapeHtml(s.note || '')}" oninput="updateSetNote(${i}, this.value)">
+          </div>
           <div class="set-technique-line">
             <button type="button" class="set-technique-btn ${technique.type !== 'none' ? 'active' : ''}" onclick="openTechniqueModal(${i})">${technique.type === 'none' ? '＋ 技法' : setTechniqueTypes[technique.type]}</button>
             <div class="set-technique-summary">${escapeHtml(techniqueSummary)}</div>
@@ -6959,8 +7071,8 @@ function init() {
         prevWeight:'', prevReps:'', prevRpe:8, prevRir:2, prevPartialReps:'',
         prevBodyWeight:'', prevAssistAmount:'', prevAssistMode:'',
         prevMetricType:getExerciseMetricDefault(), prevTechnique:{type:'none'},
-        prevComparisonLabel:'前回', prevComparisonDate:'',
-        weight:'', reps:'', rpe:8, rir:'', partialReps:'',
+        prevComparisonLabel:'前回', prevComparisonDate:'', prevNote:'',
+        weight:'', reps:'', rpe:8, rir:'', partialReps:'', note:'',
         metricType:getExerciseMetricDefault(), technique:{type:'none'}, done:false,
         manualCheckRequired:false,
         completedAt:null
@@ -7047,6 +7159,8 @@ function init() {
         bodyWeight: fillActual ? sourceBodyWeight : '',
         assistAmount: fillActual ? sourceAssistAmount : '',
         assistMode: fillActual ? sourceAssistMode : '',
+        note: fillActual ? (normalizedSource.note || '') : '',
+        prevNote: normalizedSource.note || normalizedSource.prevNote || '',
         metricType: sourceMetricType,
         technique: sourceTechnique,
         done: false,
@@ -7656,7 +7770,7 @@ function init() {
     
     let aiSheetSource = 'exercise';
     function getExerciseNamesForDate(dateStr) { const names = []; logs.filter(function(l){ return l.date === dateStr; }).sort(function(a,b){ return a.id - b.id; }).forEach(function(l){ if (!names.includes(l.exercise)) names.push(l.exercise); }); return names; }
-    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, rir: s.metricType === 'RIR' ? parseFloat(s.rir) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP', technique: normalizeTechnique(s.technique), weightMode: getExerciseWeightMode(selectedExercise), completedAt: Number(s.completedAt) || null, bodyWeight: s.bodyWeight !== '' && s.bodyWeight != null ? Number(s.bodyWeight) : null, assistAmount: s.assistAmount !== '' && s.assistAmount != null ? Number(s.assistAmount) : null, assistMode: s.assistMode || null }; }); }
+    function getCurrentUnsavedAiSets(exName) { if (aiSheetSource !== 'exercise' || exName !== selectedExercise) return []; return currentSets.filter(function(s){ return s.done && s.weight !== '' && s.reps !== ''; }).map(function(s, idx){ normalizeCurrentSetMetric(s); return { id: Date.now() + idx, date: currentDateStr, exercise: selectedExercise, weight: parseFloat(s.weight), reps: parseInt(s.reps), metricType: s.metricType, rpe: s.metricType === 'RPE' ? parseFloat(s.rpe) : null, rir: s.metricType === 'RIR' ? parseFloat(s.rir) : null, partialReps: s.metricType === 'PR' && s.partialReps !== '' ? parseInt(s.partialReps) : null, isWarmup: s.metricType === 'UP', technique: normalizeTechnique(s.technique), weightMode: getExerciseWeightMode(selectedExercise), completedAt: Number(s.completedAt) || null, bodyWeight: s.bodyWeight !== '' && s.bodyWeight != null ? Number(s.bodyWeight) : null, assistAmount: s.assistAmount !== '' && s.assistAmount != null ? Number(s.assistAmount) : null, assistMode: s.assistMode || null, note: (s.note || '').trim() }; }); }
     function getAllTodayForAi() {
       const unsaved = getCurrentUnsavedAiSets(selectedExercise);
       const saved = logs.filter(function(l){ return l.date === currentDateStr && !(unsaved.length && l.exercise === selectedExercise); });
@@ -7745,7 +7859,8 @@ function init() {
         : (metricType === 'UP' ? 'UP' : (metricType === 'RIR' ? `RIR${s.rir}` : `RPE${s.rpe}`));
       const technique = getTechniqueSummary(s.technique, s);
       const assistDetail = formatAssistMeta(s, s.exercise);
-      return `${formatRecordedWeight(s, s.exercise)} ${s.reps}回 ${effort}${assistDetail ? ` ${assistDetail}` : ''}${technique && metricType !== 'PR' ? ` ${technique}` : ''}`;
+      const note = s.note ? ` メモ:${s.note}` : '';
+      return `${formatRecordedWeight(s, s.exercise)} ${s.reps}回 ${effort}${assistDetail ? ` ${assistDetail}` : ''}${technique && metricType !== 'PR' ? ` ${technique}` : ''}${note}`;
     }
 
     function showCopyToast(message) {
@@ -8078,7 +8193,8 @@ function saveWorkout() {
         completedAt: Number(s.completedAt) || null,
         bodyWeight: s.bodyWeight !== '' && s.bodyWeight != null ? Number(s.bodyWeight) : null,
         assistAmount: s.assistAmount !== '' && s.assistAmount != null ? Number(s.assistAmount) : null,
-        assistMode: s.assistMode || null
+        assistMode: s.assistMode || null,
+        note: (s.note || '').trim()
       }));
       const personalRecords = detectPersonalRecords(selectedExercise, currentDateStr, recordCandidates);
 
@@ -8107,6 +8223,7 @@ function saveWorkout() {
           bodyWeight: s.bodyWeight !== '' && s.bodyWeight != null ? Number(s.bodyWeight) : null,
           assistAmount: s.assistAmount !== '' && s.assistAmount != null ? Number(s.assistAmount) : null,
           assistMode: s.assistMode || null,
+          note: (s.note || '').trim(),
           planMode: planMode,
           planLabel: planInfo.label,
           planText: planInfo.text,
@@ -8134,3 +8251,4 @@ function saveWorkout() {
 
 </body>
 </html>
+
