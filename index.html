@@ -383,6 +383,8 @@
     .comparison-control input { min-height:36px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); padding:0 9px; font-size:13px; font-weight:700; outline:none; }
     .comparison-control select { flex:1; min-width:0; }
     .comparison-control input { flex:0 0 136px; }
+    .comparison-actions { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px; margin-bottom:9px; }
+    .comparison-actions button { min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--text); font-size:11px; font-weight:800; cursor:pointer; }
     .set-insert-divider { display:flex; align-items:center; justify-content:center; min-height:28px; margin:-3px 0; }
     .set-insert-divider button { min-height:26px; padding:0 11px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); color:var(--set-secondary-text); font-size:10px; font-weight:700; cursor:pointer; }
     .set-row-delete { flex:0 0 auto; min-height:30px; padding:0 10px; border:1px solid rgba(255,69,58,.42); border-radius:7px; background:transparent; color:#ff9b94; font-size:11px; font-weight:800; cursor:pointer; }
@@ -921,6 +923,11 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           <option value="date">日付指定</option>
         </select>
         <input id="comparisonDateInput" type="date" onchange="setExerciseComparisonDate(this.value)" style="display:none;">
+      </div>
+      <div class="comparison-actions">
+        <button type="button" onclick="openComparisonHistoryModal('recent')">過去5回</button>
+        <button type="button" onclick="openComparisonHistoryModal('date')">指定日表示</button>
+        <button type="button" onclick="loadExerciseDraftFromSelectedDate()">指定日から下書き</button>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <div id="prevOrderBox" style="font-size:12px; color:var(--accent-brand); font-weight:600; display:none;"></div>
@@ -6791,6 +6798,159 @@ function init() {
       };
     }
 
+    function getExerciseHistorySessions(exName = selectedExercise, beforeDate = currentDateStr, limit = 5) {
+      const dates = [...new Set(logs
+        .filter(set => set.exercise === exName && set.date < beforeDate)
+        .map(set => set.date))]
+        .sort((a, b) => b.localeCompare(a))
+        .slice(0, limit);
+      return dates.map(date => ({
+        date,
+        sets: logs.filter(set => set.exercise === exName && set.date === date).sort((a, b) => a.id - b.id)
+      }));
+    }
+
+    function getComparisonActionDate() {
+      const input = document.getElementById('comparisonDateInput');
+      const pref = getExerciseComparisonPreference();
+      let date = input?.value || pref.date || '';
+      if (!date) {
+        date = getExerciseHistorySessions(selectedExercise, currentDateStr, 1)[0]?.date || '';
+        if (date) {
+          saveExerciseInputPreference(selectedExercise, { comparisonDate:date });
+          if (input) input.value = date;
+        }
+      }
+      return date;
+    }
+
+    function renderComparisonSessionCard(session, index = 0) {
+      const sets = session?.sets || [];
+      if (!session || !sets.length) {
+        return `<div class="history-item"><div class="history-item-summary">この日の同種目記録がありません。</div></div>`;
+      }
+      const bestEstimate = Math.max(...sets.map(set => estimateSet1RM({ ...set, exercise:selectedExercise })).filter(value => value != null), 0);
+      const totalVolume = sets.reduce((sum, set) => sum + (calculateSetVolume({ ...set, exercise:selectedExercise }) || 0), 0);
+      return `<div class="history-item">
+        <div class="history-item-head"><span>${index + 1}. ${formatComparisonDateLabel(session.date)}</span><span>${sets.length}セット</span></div>
+        <div class="history-item-summary">
+          ${bestEstimate ? `最高推定1RM ${formatEstimatedLoadLabel(bestEstimate, selectedExercise)}・` : ''}総量 ${formatVolumeNumber(totalVolume)}kg
+          <div style="margin-top:8px; display:grid; gap:5px;">
+            ${sets.map((set, setIndex) => `<div>${setIndex + 1}セット目: ${escapeHtml(formatSimpleAiSet({ ...set, exercise:selectedExercise }))}</div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function openComparisonHistoryModal(mode = 'recent') {
+      const modal = document.getElementById('previousSetModal');
+      const title = document.getElementById('previousSetModalTitle');
+      const body = document.getElementById('previousSetModalBody');
+      if (!modal || !title || !body) return;
+      if (mode === 'date') {
+        const date = getComparisonActionDate();
+        if (!date) {
+          title.textContent = '指定日比較';
+          body.innerHTML = '<div class="history-item"><div class="history-item-summary">比較できる過去記録がありません。</div></div>';
+        } else {
+          saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:date });
+          renderComparisonControl();
+          const sets = logs.filter(set => set.exercise === selectedExercise && set.date === date).sort((a, b) => a.id - b.id);
+          title.textContent = `${selectedExercise}・指定日比較`;
+          body.innerHTML = renderComparisonSessionCard({ date, sets });
+        }
+      } else {
+        const sessions = getExerciseHistorySessions(selectedExercise, currentDateStr, 5);
+        title.textContent = `${selectedExercise}・過去5回`;
+        body.innerHTML = sessions.length
+          ? sessions.map(renderComparisonSessionCard).join('')
+          : '<div class="history-item"><div class="history-item-summary">過去の同種目記録がありません。</div></div>';
+      }
+      modal.style.display = 'flex';
+    }
+
+    function getExerciseDraftSourceOnDate(dateStr, exName = selectedExercise) {
+      if (!dateStr) return null;
+      const drafts = getSetDrafts();
+      const draft = drafts[getDraftKey(dateStr, exName)];
+      if (draft && Array.isArray(draft.sets) && draft.sets.length) {
+        return { date:dateStr, exercise:exName, sets:draft.sets, memo:draft.memo || '', source:'draft' };
+      }
+      const savedSets = logs.filter(set => set.exercise === exName && set.date === dateStr).sort((a, b) => a.id - b.id);
+      if (savedSets.length) {
+        return { date:dateStr, exercise:exName, sets:savedSets, memo:(savedSets.find(set => set.memo)?.memo || ''), source:'log' };
+      }
+      return null;
+    }
+
+    function createDraftSetFromSource(set, exName = selectedExercise) {
+      const metricType = inferLogMetricType(set, exName);
+      const rpeValue = metricType === 'UP' ? 'UP' : (set.rpe ?? set.prevRpe ?? 8);
+      const rirValue = set.rir ?? set.prevRir ?? getRirFromRpeValue(rpeValue);
+      const weightValue = set.weight !== '' && set.weight != null ? set.weight : (set.prevWeight ?? '');
+      const repsValue = set.reps !== '' && set.reps != null ? set.reps : (set.prevReps ?? '');
+      const partialValue = set.partialReps ?? set.prevPartialReps ?? '';
+      return normalizeCurrentSetMetric({
+        prevWeight: weightValue,
+        prevReps: repsValue,
+        prevRpe: rpeValue,
+        prevRir: rirValue,
+        prevPartialReps: partialValue,
+        prevBodyWeight: set.bodyWeight ?? set.prevBodyWeight ?? '',
+        prevAssistAmount: set.assistAmount ?? set.prevAssistAmount ?? '',
+        prevAssistMode: set.assistMode ?? set.prevAssistMode ?? '',
+        prevMetricType: metricType,
+        prevTechnique: normalizeTechnique(set.technique || set.prevTechnique),
+        prevComparisonLabel:'指定日',
+        prevComparisonDate:set.date || '',
+        prevNote: set.note || set.prevNote || '',
+        weight: String(weightValue),
+        reps: String(repsValue),
+        rpe: rpeValue,
+        rir: metricType === 'RIR' ? rirValue : '',
+        partialReps: metricType === 'PR' ? partialValue : '',
+        bodyWeight: set.bodyWeight ?? set.prevBodyWeight ?? '',
+        assistAmount: set.assistAmount ?? set.prevAssistAmount ?? '',
+        assistMode: set.assistMode ?? set.prevAssistMode ?? '',
+        note: set.note || '',
+        metricType,
+        technique: normalizeTechnique(set.technique),
+        done:false,
+        manualCheckRequired:true,
+        completedAt:null
+      }, exName);
+    }
+
+    function loadExerciseDraftFromSelectedDate() {
+      const pref = getExerciseComparisonPreference();
+      const input = document.getElementById('comparisonDateInput');
+      if (pref.mode !== 'date' || !(input?.value || pref.date)) {
+        const latest = getExerciseHistorySessions(selectedExercise, currentDateStr, 1)[0]?.date || '';
+        saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:latest });
+        renderComparisonControl();
+        showCopyToast('日付を選んでから読み込んでください');
+        return;
+      }
+      const date = getComparisonActionDate();
+      if (!date) return alert('読み込める過去日がありません。');
+      const source = getExerciseDraftSourceOnDate(date, selectedExercise);
+      if (!source) return alert(`指定日（${formatComparisonDateLabel(date)}）にこの種目の記録または下書きがありません。`);
+      const hasInput = currentSets.some(set => set.done || set.weight !== '' || set.reps !== '' || set.note);
+      if (hasInput && !confirm(`${formatComparisonDateLabel(date)}の${source.source === 'draft' ? '下書き' : '記録'}を、現在の入力欄へ読み込みますか？\n今の入力途中データは上書きされます。`)) return;
+      captureSetEditUndo('指定日下書き呼び出し');
+      currentSets = source.sets.map(set => createDraftSetFromSource({ ...set, date:source.date }, selectedExercise));
+      const memoEl = document.getElementById('sessionMemo');
+      if (memoEl) memoEl.value = source.memo || '';
+      saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:date });
+      renderComparisonControl();
+      renderSetRows();
+      updateAssistCalcVisibility();
+      calcAdvice();
+      saveCurrentDraft();
+      showUndoToast('指定日下書き呼び出し');
+      showCopyToast(`${formatComparisonDateLabel(date)}から読み込みました`);
+    }
+
     function getPreviousSetNotePlaceholder(index) {
       const value = currentSets[index]?.prevNote;
       return value ? `前回メモ: ${value}` : 'セットメモ';
@@ -6861,7 +7021,7 @@ function init() {
       if (metricDefaultSelect) metricDefaultSelect.value = metricDefault;
       if (metricHelp) metricHelp.textContent = 'RPE＝余力・強度。RIR＝あと何回できたか。PR＝総回数の内、パーシャルだった回数です（20回中4回ならPR4）。';
       const latestSameExerciseSession = getLatestSameExerciseSession();
-      container.innerHTML = currentSets.map((s, i) => {
+      container.innerHTML = `<div class="set-insert-divider"><button type="button" onclick="insertSetRow(0)">＋ 1セット目の上にセットを差し込む</button></div>` + currentSets.map((s, i) => {
         normalizeCurrentSetMetric(s);
         const isDone = s.done ? 'is-done' : '';
         const checkClass = s.done ? 'checked' : '';
