@@ -1617,6 +1617,13 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         </div>
         <div class="ai-option-row">
           <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">おはよう＋前回記録</div>
+            <div style="font-size:11px; color:var(--muted);">挨拶つきで前回同曜日／同プランをコピー</div>
+          </div>
+          <button class="ai-option-copy" onclick="copyAiOption('morningAdvice')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
             <div style="font-weight:700; font-size:14px; margin-bottom:3px;">同種目の前回記録</div>
             <div style="font-size:11px; color:var(--muted);">比較対象にしている前回セットをコピー</div>
           </div>
@@ -6471,6 +6478,7 @@ function init() {
       if (set.rir == null) set.rir = '';
       set.technique = normalizeTechnique(set.technique);
       if (set.metricType === 'PR' && set.technique.type === 'none') set.technique = { type:'partial' };
+      if (set.metricType !== 'PR' && set.technique.type === 'partial') set.technique = { type:'none' };
       if (!set.prevComparisonLabel) set.prevComparisonLabel = '前回';
       if (set.prevComparisonDate == null) set.prevComparisonDate = '';
       if (set.manualCheckRequired == null) set.manualCheckRequired = false;
@@ -6529,7 +6537,8 @@ function init() {
         ? '体重 − アシスト重量 = 実際の負荷'
         : '体重 ＋ 追加重量 = 実際の負荷';
       if (bodyInput && !bodyInput.value) {
-        bodyInput.value = localStorage.getItem('ironlog-body-weight') || '';
+        const todayBodyWeight = getReadinessData()[currentDateStr]?.weight;
+        bodyInput.value = Number(todayBodyWeight) > 0 ? todayBodyWeight : (localStorage.getItem('ironlog-body-weight') || '');
       }
       updateAssistLoadPreview();
     }
@@ -6936,11 +6945,18 @@ function init() {
       const source = getExerciseDraftSourceOnDate(date, selectedExercise);
       if (!source) return alert(`指定日（${formatComparisonDateLabel(date)}）にこの種目の記録または下書きがありません。`);
       const hasInput = currentSets.some(set => set.done || set.weight !== '' || set.reps !== '' || set.note);
-      if (hasInput && !confirm(`${formatComparisonDateLabel(date)}の${source.source === 'draft' ? '下書き' : '記録'}を、現在の入力欄へ読み込みますか？\n今の入力途中データは上書きされます。`)) return;
+      if (hasInput && !confirm(`${formatComparisonDateLabel(date)}の${source.source === 'draft' ? '下書き' : '記録'}を、入力済みセットの後ろへ追加しますか？`)) return;
       captureSetEditUndo('指定日下書き呼び出し');
-      currentSets = source.sets.map(set => createDraftSetFromSource({ ...set, date:source.date }, selectedExercise));
+      const importedSets = source.sets.map(set => createDraftSetFromSource({ ...set, date:source.date }, selectedExercise));
+      if (hasInput) {
+        const lastInputIndex = currentSets.reduce((latest, set, index) =>
+          (set.done || set.weight !== '' || set.reps !== '' || set.note) ? index : latest, -1);
+        currentSets = currentSets.slice(0, lastInputIndex + 1).concat(importedSets);
+      } else {
+        currentSets = importedSets;
+      }
       const memoEl = document.getElementById('sessionMemo');
-      if (memoEl) memoEl.value = source.memo || '';
+      if (memoEl && !hasInput) memoEl.value = source.memo || '';
       saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:date });
       renderComparisonControl();
       renderSetRows();
@@ -6981,22 +6997,31 @@ function init() {
     }
 
     function openPreviousSetModal(index) {
-      const session = getLatestSameExerciseSession();
+      const preference = getExerciseComparisonPreference();
+      const comparisonSession = getExerciseComparisonSession(selectedExercise, currentDateStr, false, preference.mode, preference.date);
+      const latestSession = getLatestSameExerciseSession();
       const modal = document.getElementById('previousSetModal');
       const title = document.getElementById('previousSetModalTitle');
       const body = document.getElementById('previousSetModalBody');
       if (!modal || !title || !body) return;
-      if (!session || !session.sets.length) {
+      const renderBlock = (heading, session, highlight = false) => {
+        if (!session || !session.sets?.length) return `<div class="history-item"><div class="history-item-summary">${heading}: 記録がありません。</div></div>`;
+        const selected = session.sets[index];
+        return `<div style="color:var(--muted); font-size:12px; font-weight:800; margin:2px 0 7px;">${heading} ${formatComparisonDateLabel(session.date)}</div>
+          ${selected ? `<div class="history-item" style="${highlight ? 'border-color:rgba(208,253,62,.45);' : ''}">
+            <div class="history-item-head"><span>このセット番号</span><span>${formatRecordedWeight(selected, selectedExercise)} × ${selected.reps ?? '-'}回</span></div>
+            <div class="history-item-summary">${escapeHtml(formatSimpleAiSet({ ...selected, exercise:selectedExercise }))}</div>
+          </div>` : ''}
+          ${session.sets.map(formatPreviousSetDetail).join('')}`;
+      };
+      if ((!comparisonSession || !comparisonSession.sets?.length) && (!latestSession || !latestSession.sets?.length)) {
         title.textContent = '前回同種目';
         body.innerHTML = '<div class="history-item"><div class="history-item-summary">直近の同種目記録がありません。</div></div>';
       } else {
-        title.textContent = `${selectedExercise}・${formatComparisonDateLabel(session.date)}`;
-        const selected = session.sets[index];
-        body.innerHTML = `${selected ? `<div class="history-item" style="border-color:rgba(208,253,62,.45);">
-          <div class="history-item-head"><span>このセット番号の前回</span><span>${formatRecordedWeight(selected, selectedExercise)} × ${selected.reps ?? '-'}回</span></div>
-          <div class="history-item-summary">${escapeHtml(formatSimpleAiSet({ ...selected, exercise:selectedExercise }))}</div>
-        </div>` : ''}
-        ${session.sets.map(formatPreviousSetDetail).join('')}`;
+        title.textContent = `${selectedExercise}・前回確認`;
+        const sameDate = comparisonSession?.date && comparisonSession.date === latestSession?.date;
+        body.innerHTML = `${renderBlock(`比較対象（${comparisonSession?.shortLabel || '前回'}）`, comparisonSession, true)}
+          ${sameDate ? '' : renderBlock('直近同種目', latestSession, false)}`;
       }
       modal.style.display = 'flex';
     }
@@ -7239,6 +7264,25 @@ function init() {
       };
     }
 
+    function getTodayBodyWeightValue() {
+      const readinessWeight = Number(getReadinessData()[currentDateStr]?.weight);
+      if (Number.isFinite(readinessWeight) && readinessWeight > 0) return readinessWeight;
+      const cachedWeight = Number(localStorage.getItem('ironlog-body-weight') || '');
+      return Number.isFinite(cachedWeight) && cachedWeight > 0 ? cachedWeight : null;
+    }
+
+    function refreshBodyweightSetLoadFromToday(set) {
+      if (!set || !isBodyweightLoadExercise()) return set;
+      const todayBody = getTodayBodyWeightValue();
+      const amount = Number(set.assistAmount);
+      const mode = set.assistMode || (isAssistExercise() ? 'assist' : (isWeightedBodyweightExercise() ? 'add' : ''));
+      if (!Number.isFinite(todayBody) || !Number.isFinite(amount) || !mode) return set;
+      set.bodyWeight = todayBody;
+      const actual = mode === 'assist' ? Math.max(0, todayBody - amount) : todayBody + amount;
+      set.weight = String(Math.round(actual * 10) / 10);
+      return set;
+    }
+
     function applyPreviousValuesToSet(set) {
       if (!set) return set;
       if (set.weight === '' && set.prevWeight !== '' && set.prevWeight != null) set.weight = set.prevWeight;
@@ -7272,6 +7316,7 @@ function init() {
           set.technique = normalizeTechnique(set.prevTechnique);
         }
       }
+      refreshBodyweightSetLoadFromToday(set);
       return normalizeCurrentSetMetric(set);
     }
 
@@ -7622,11 +7667,13 @@ function init() {
         set.technique = { type:'partial' };
       } else if (type === 'RIR') {
         set.metricType = 'RIR';
+        set.partialReps = '';
         if (set.rir == null || set.rir === '') set.rir = getRirFromRpeValue(set.rpe);
         if (set.rpe === 'UP' || set.rpe == null) set.rpe = getRpeFromRirValue(set.rir);
         if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
       } else {
         set.metricType = 'RPE';
+        set.partialReps = '';
         if (set.rpe === 'UP' || set.rpe == null || set.rpe === '') set.rpe = set.rir !== '' && set.rir != null ? getRpeFromRirValue(set.rir) : 8;
         if (normalizeTechnique(set.technique).type === 'partial') set.technique = { type:'none' };
       }
@@ -7952,7 +7999,8 @@ function init() {
             : metricType === 'RIR'
               ? `RIR ${s.rir}`
             : `RPE ${s.rpe}`);
-      const technique = getTechniqueSummary(s.technique, s);
+      const normalizedTechnique = normalizeTechnique(s.technique);
+      const technique = metricType !== 'PR' && normalizedTechnique.type === 'partial' ? '' : getTechniqueSummary(normalizedTechnique, s);
       const assistDetail = formatAssistMeta(s, s.exercise);
       return `${index + 1}セット目: ${formatRecordedWeight(s, s.exercise)} × ${s.reps}回 (${effort}${assistDetail ? `・${assistDetail}` : ''}${technique && metricType !== 'PR' ? `・${technique}` : ''})`;
     }
@@ -8017,7 +8065,8 @@ function init() {
       const effort = metricType === 'PR'
         ? `（${s.reps}回のうち${s.partialReps ?? 0}回がパーシャル）`
         : (metricType === 'UP' ? 'UP' : (metricType === 'RIR' ? `RIR${s.rir}` : `RPE${s.rpe}`));
-      const technique = getTechniqueSummary(s.technique, s);
+      const normalizedTechnique = normalizeTechnique(s.technique);
+      const technique = metricType !== 'PR' && normalizedTechnique.type === 'partial' ? '' : getTechniqueSummary(normalizedTechnique, s);
       const assistDetail = formatAssistMeta(s, s.exercise);
       const note = s.note ? ` メモ:${s.note}` : '';
       return `${formatRecordedWeight(s, s.exercise)} ${s.reps}回 ${effort}${assistDetail ? ` ${assistDetail}` : ''}${technique && metricType !== 'PR' ? ` ${technique}` : ''}${note}`;
@@ -8201,6 +8250,13 @@ function init() {
       return buildWorkoutDaySummaryText(date, prefix);
     }
 
+    function buildMorningAdviceText() {
+      const previous = buildPreviousComparableDayText();
+      if (!previous) return '';
+      const today = formatComparisonDateLabel(currentDateStr);
+      return `おはようございます。\n今日もトレーニングアドバイスお願いします。\n今日は${today}です。前回同プラン、もしくは同曜日の記録を参考に、今日の重量・回数・注意点を提案してください。\n\n${previous}`;
+    }
+
     function buildTodayPlanText() {
       const plan = getActivePlanInfo();
       if (!plan || !plan.text) return '';
@@ -8271,6 +8327,9 @@ function init() {
         if (!text) return showCopyToast('今日のプラン内容がありません');
       } else if (type === 'previousComparableDay') {
         text = buildPreviousComparableDayText();
+        if (!text) return showCopyToast('前回の同曜日／同プラン記録がありません');
+      } else if (type === 'morningAdvice') {
+        text = buildMorningAdviceText();
         if (!text) return showCopyToast('前回の同曜日／同プラン記録がありません');
       } else if (type === 'previousExercise') {
         text = buildPreviousExerciseText(aiExercise);
