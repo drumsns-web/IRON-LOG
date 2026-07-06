@@ -260,6 +260,8 @@
     .quick-timer-options { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
     .quick-timer-options button { min-height:54px; border:1px solid #48484a; border-radius:9px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:850; cursor:pointer; }
     .quick-timer-options button.active { border-color:var(--accent-brand); background:rgba(208,253,62,.12); color:var(--accent-brand); }
+    #quickTimerModal { align-items:flex-end; padding:12px 12px max(12px, env(safe-area-inset-bottom)); }
+    #quickTimerModal .technique-dialog { max-height:min(48vh, 360px); border-radius:16px; }
     .plan-overview-list { display:grid; gap:9px; padding:14px 16px max(30px, env(safe-area-inset-bottom)); overflow-y:auto; }
     .plan-overview-item { display:grid; grid-template-columns:42px minmax(0,1fr); gap:10px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
     .plan-overview-item.active { border-color:rgba(208,253,62,.5); background:rgba(208,253,62,.08); }
@@ -383,7 +385,7 @@
     .comparison-control input { min-height:36px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); padding:0 9px; font-size:13px; font-weight:700; outline:none; }
     .comparison-control select { flex:1; min-width:0; }
     .comparison-control input { flex:0 0 136px; }
-    .comparison-actions { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px; margin-bottom:9px; }
+    .comparison-actions { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:7px; margin-bottom:9px; }
     .comparison-actions button { min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--text); font-size:11px; font-weight:800; cursor:pointer; }
     .set-insert-divider { display:flex; align-items:center; justify-content:center; min-height:28px; margin:-3px 0; }
     .set-insert-divider button { min-height:26px; padding:0 11px; border:1px solid var(--line); border-radius:14px; background:var(--surface-2); color:var(--set-secondary-text); font-size:10px; font-weight:700; cursor:pointer; }
@@ -927,6 +929,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div class="comparison-actions">
         <button type="button" onclick="openComparisonHistoryModal('recent')">過去5回</button>
         <button type="button" onclick="openComparisonHistoryModal('date')">指定日表示</button>
+        <button type="button" onclick="openComparisonHistoryModal('plan')">同プラン5回</button>
         <button type="button" onclick="loadExerciseDraftFromSelectedDate()">指定日から下書き</button>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -3471,6 +3474,7 @@ function init() {
       window.addEventListener('focus', syncAppDateAfterResume);
       clearInterval(dateRolloverTimer);
       dateRolloverTimer = setInterval(syncAppDateAfterResume, 30000);
+      setInterval(updateLiveRestTimers, 1000);
     }
 
     // --- View Navigation ---
@@ -6819,6 +6823,22 @@ function init() {
       }));
     }
 
+    function getPlanHistoryDates(beforeDate = currentDateStr, limit = 5) {
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      const dates = [...new Set(logs.filter(set => set.date < beforeDate).map(set => set.date))]
+        .sort((a, b) => b.localeCompare(a));
+      if (mode === 'cycle') {
+        const targetSlots = getCyclePlanSlots(beforeDate);
+        return dates.filter(date => logs.some(log =>
+          log.date === date &&
+          log.planMode === 'cycle' &&
+          getCycleSlotsFromLog(log).some(slot => targetSlots.includes(slot))
+        )).slice(0, limit);
+      }
+      const targetDay = new Date(beforeDate + 'T00:00:00').getDay();
+      return dates.filter(date => new Date(date + 'T00:00:00').getDay() === targetDay).slice(0, limit);
+    }
+
     function getComparisonActionDate() {
       const input = document.getElementById('comparisonDateInput');
       const pref = getExerciseComparisonPreference();
@@ -6847,8 +6867,27 @@ function init() {
           <div style="margin-top:8px; display:grid; gap:5px;">
             ${sets.map((set, setIndex) => `<div>${setIndex + 1}セット目: ${escapeHtml(formatSimpleAiSet({ ...set, exercise:selectedExercise }))}</div>`).join('')}
           </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:10px;">
+            <button type="button" onclick="selectComparisonDateFromHistory('${session.date}')">この日を指定</button>
+            <button type="button" onclick="loadExerciseDraftFromHistory('${session.date}')">下書き追加</button>
+          </div>
         </div>
       </div>`;
+    }
+
+    function selectComparisonDateFromHistory(dateStr) {
+      saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:dateStr });
+      renderComparisonControl();
+      loadPrevSets();
+      closePreviousSetModal();
+      showCopyToast(`${formatComparisonDateLabel(dateStr)}を指定しました`);
+    }
+
+    function loadExerciseDraftFromHistory(dateStr) {
+      saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:dateStr });
+      renderComparisonControl();
+      loadExerciseDraftFromSelectedDate();
+      closePreviousSetModal();
     }
 
     function openComparisonHistoryModal(mode = 'recent') {
@@ -6868,6 +6907,13 @@ function init() {
           title.textContent = `${selectedExercise}・指定日比較`;
           body.innerHTML = renderComparisonSessionCard({ date, sets });
         }
+      } else if (mode === 'plan') {
+        const sessions = getPlanHistoryDates(currentDateStr, 5)
+          .map(date => ({ date, sets: logs.filter(set => set.exercise === selectedExercise && set.date === date).sort((a, b) => a.id - b.id) }));
+        title.textContent = `${selectedExercise}・同プラン/同曜日5回`;
+        body.innerHTML = sessions.length
+          ? sessions.map(renderComparisonSessionCard).join('')
+          : '<div class="history-item"><div class="history-item-summary">同プラン/同曜日の過去記録がありません。</div></div>';
       } else {
         const sessions = getExerciseHistorySessions(selectedExercise, currentDateStr, 5);
         title.textContent = `${selectedExercise}・過去5回`;
@@ -7020,8 +7066,12 @@ function init() {
       } else {
         title.textContent = `${selectedExercise}・前回確認`;
         const sameDate = comparisonSession?.date && comparisonSession.date === latestSession?.date;
+        const historyButtons = getExerciseHistorySessions(selectedExercise, currentDateStr, 5)
+          .map(session => `<button type="button" onclick="selectComparisonDateFromHistory('${session.date}')" style="min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800;">${formatComparisonDateLabel(session.date)}</button>`)
+          .join('');
         body.innerHTML = `${renderBlock(`比較対象（${comparisonSession?.shortLabel || '前回'}）`, comparisonSession, true)}
-          ${sameDate ? '' : renderBlock('直近同種目', latestSession, false)}`;
+          ${sameDate ? '' : renderBlock('直近同種目', latestSession, false)}
+          ${historyButtons ? `<div style="color:var(--muted); font-size:12px; font-weight:800; margin:10px 0 7px;">同種目の過去5回から選択</div><div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px;">${historyButtons}</div>` : ''}`;
       }
       modal.style.display = 'flex';
     }
@@ -7235,8 +7285,9 @@ function init() {
       }
       const recordedAt = formatSetClockTime(set.completedAt);
       if (recordedAt) {
-        parts.push(`<span class="same">記録 ${recordedAt}</span>`);
         const idx = currentSets.indexOf(set);
+        parts.push(`<span class="same">記録 ${recordedAt}</span>`);
+        parts.push(`<span class="same" data-live-rest="${idx}" data-start="${Number(set.completedAt) || 0}">経過 ${formatTimerDuration((Date.now() - Number(set.completedAt)) / 1000)}</span>`);
         const prevDone = currentSets.slice(0, idx).reverse().find(item => Number(item.completedAt) > 0);
         if (prevDone) {
           const diff = (Number(set.completedAt) - Number(prevDone.completedAt)) / 1000;
@@ -7249,6 +7300,14 @@ function init() {
     function updateSetComparison(idx) {
       const container = document.getElementById(`set-comparison-${idx}`);
       if (container && currentSets[idx]) container.innerHTML = getSetComparisonHtml(currentSets[idx]);
+    }
+
+    function updateLiveRestTimers() {
+      document.querySelectorAll('[data-live-rest]').forEach(el => {
+        const start = Number(el.dataset.start);
+        if (!Number.isFinite(start) || start <= 0) return;
+        el.textContent = `経過 ${formatTimerDuration((Date.now() - start) / 1000)}`;
+      });
     }
 
     function createBlankSet() {
