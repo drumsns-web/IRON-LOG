@@ -113,6 +113,11 @@
     .set-comparison .up { color:#8ee99d; }
     .set-comparison .down { color:#ff9b94; }
     .set-comparison .same { color:var(--set-label-text); }
+    .set-comparison .live-rest { color:var(--accent-brand); border:1px solid rgba(208,253,62,.46); border-radius:999px; padding:1px 7px; background:rgba(208,253,62,.09); box-shadow:0 0 12px rgba(208,253,62,.22); font-weight:850; font-variant-numeric:tabular-nums; animation:restPulse 1.6s ease-in-out infinite; }
+    @keyframes restPulse {
+      0%, 100% { box-shadow:0 0 9px rgba(208,253,62,.16); }
+      50% { box-shadow:0 0 17px rgba(208,253,62,.34); }
+    }
     .set-technique-line { display:flex; align-items:center; gap:10px; padding:0 16px 11px 70px; }
     .set-technique-btn { min-height:32px; padding:0 10px; border:1px solid #48484a; border-radius:7px; background:var(--surface-2); color:var(--set-label-text); font-size:12px; font-weight:750; cursor:pointer; }
     .set-technique-btn.active { border-color:rgba(208,253,62,.5); color:var(--accent-brand); background:rgba(208,253,62,.07); }
@@ -152,7 +157,7 @@
     .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
     .draft-status-row .saving { color:var(--accent-brand); }
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
-    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(72px, calc(env(safe-area-inset-bottom) + 64px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
+    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(72px, calc(var(--keyboard-inset, 0px) + 12px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
     .exercise-quick-bar.suppressed { display:none !important; }
     .exercise-quick-info { min-width:0; }
@@ -260,7 +265,7 @@
     .quick-timer-options { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
     .quick-timer-options button { min-height:54px; border:1px solid #48484a; border-radius:9px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:850; cursor:pointer; }
     .quick-timer-options button.active { border-color:var(--accent-brand); background:rgba(208,253,62,.12); color:var(--accent-brand); }
-    #quickTimerModal { align-items:flex-end; padding:12px 12px max(12px, env(safe-area-inset-bottom)); }
+    #quickTimerModal { align-items:flex-end; padding:12px 12px max(12px, calc(var(--keyboard-inset, 0px) + 12px)); }
     #quickTimerModal .technique-dialog { max-height:min(48vh, 360px); border-radius:16px; }
     .plan-overview-list { display:grid; gap:9px; padding:14px 16px max(30px, env(safe-area-inset-bottom)); overflow-y:auto; }
     .plan-overview-item { display:grid; grid-template-columns:42px minmax(0,1fr); gap:10px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
@@ -3454,6 +3459,25 @@ function updateTodayTemplate() {
       syncQuickBarOverlapGuard();
     }
 
+    function updateKeyboardInset() {
+      const viewport = window.visualViewport;
+      let inset = 0;
+      if (viewport) {
+        inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      }
+      document.documentElement.style.setProperty('--keyboard-inset', `${Math.round(inset)}px`);
+    }
+
+    function initKeyboardInsetGuard() {
+      updateKeyboardInset();
+      window.addEventListener('resize', updateKeyboardInset);
+      window.addEventListener('orientationchange', () => setTimeout(updateKeyboardInset, 80));
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', updateKeyboardInset);
+        window.visualViewport.addEventListener('scroll', updateKeyboardInset);
+      }
+    }
+
 function init() {
       renderCalendar();
       selectDate(currentDateStr);
@@ -3463,6 +3487,7 @@ function init() {
       loadCoachSettings();
       initIntervalTimer();
       initQuickBarOverlapGuard();
+      initKeyboardInsetGuard();
       renderAiButtonIcon();
       loadSetTextColor();
       createDailyLocalBackup();
@@ -7218,6 +7243,34 @@ function init() {
       return `経過 ${formatTimerDuration((times[times.length - 1] - times[0]) / 1000)}`;
     }
 
+    function getSetCompletedTimesForExercise(dateStr, exName) {
+      const savedTimes = logs
+        .filter(set => set.date === dateStr && set.exercise === exName)
+        .map(set => Number(set.completedAt));
+      const draft = getSetDraft(dateStr, exName);
+      const draftTimes = (draft?.sets || []).map(set => Number(set.completedAt));
+      return savedTimes.concat(draftTimes)
+        .filter(value => Number.isFinite(value) && value > 0)
+        .sort((a, b) => a - b);
+    }
+
+    function getPreviousExerciseTransitionText() {
+      if (!selectedExercise) return '';
+      const order = getExerciseOrderForDate(currentDateStr);
+      const selectedIndex = order.indexOf(selectedExercise);
+      if (selectedIndex <= 0) return '';
+      const prevName = order.slice(0, selectedIndex).reverse()
+        .find(name => getSetCompletedTimesForExercise(currentDateStr, name).length);
+      if (!prevName) return '';
+      const prevTimes = getSetCompletedTimesForExercise(currentDateStr, prevName);
+      const prevLast = prevTimes[prevTimes.length - 1];
+      const currentTimes = getCompletedSetTimes();
+      const end = currentTimes.length ? currentTimes[0] : Date.now();
+      const diff = (end - prevLast) / 1000;
+      if (diff <= 0) return '';
+      return `前種目から ${formatTimerDuration(diff)}`;
+    }
+
     function getExerciseLogTimingText(sets) {
       const times = (sets || [])
         .map(set => Number(set.completedAt))
@@ -7229,6 +7282,19 @@ function init() {
       const end = formatSetClockTime(times[times.length - 1]);
       const elapsed = formatTimerDuration((times[times.length - 1] - times[0]) / 1000);
       return `${start}〜${end}・${elapsed}`;
+    }
+
+    function getLatestCompletedSetIndex() {
+      let latestIndex = -1;
+      let latestTime = 0;
+      currentSets.forEach((set, index) => {
+        const completedAt = Number(set.completedAt);
+        if (Number.isFinite(completedAt) && completedAt > latestTime) {
+          latestTime = completedAt;
+          latestIndex = index;
+        }
+      });
+      return latestIndex;
     }
 
     function getSetComparisonHtml(set) {
@@ -7286,12 +7352,15 @@ function init() {
       const recordedAt = formatSetClockTime(set.completedAt);
       if (recordedAt) {
         const idx = currentSets.indexOf(set);
+        const isLatestCompleted = idx === getLatestCompletedSetIndex();
         parts.push(`<span class="same">記録 ${recordedAt}</span>`);
-        parts.push(`<span class="same" data-live-rest="${idx}" data-start="${Number(set.completedAt) || 0}">経過 ${formatTimerDuration((Date.now() - Number(set.completedAt)) / 1000)}</span>`);
+        if (isLatestCompleted) {
+          parts.push(`<span class="live-rest" data-live-rest="${idx}" data-start="${Number(set.completedAt) || 0}">休憩中 ${formatTimerDuration((Date.now() - Number(set.completedAt)) / 1000)}</span>`);
+        }
         const prevDone = currentSets.slice(0, idx).reverse().find(item => Number(item.completedAt) > 0);
         if (prevDone) {
           const diff = (Number(set.completedAt) - Number(prevDone.completedAt)) / 1000;
-          if (diff > 0) parts.push(`<span class="same">前セットから ${formatTimerDuration(diff)}</span>`);
+          if (diff > 0) parts.push(`<span class="same">前セット間隔 ${formatTimerDuration(diff)}</span>`);
         }
       }
       return parts.filter(Boolean).join('');
@@ -7306,8 +7375,9 @@ function init() {
       document.querySelectorAll('[data-live-rest]').forEach(el => {
         const start = Number(el.dataset.start);
         if (!Number.isFinite(start) || start <= 0) return;
-        el.textContent = `経過 ${formatTimerDuration((Date.now() - start) / 1000)}`;
+        el.textContent = `休憩中 ${formatTimerDuration((Date.now() - start) / 1000)}`;
       });
+      updateExerciseQuickBar();
     }
 
     function createBlankSet() {
@@ -7444,7 +7514,8 @@ function init() {
         const nextIndex = currentSets.findIndex(set => set.weight === '' && set.reps === '');
         const currentLabel = nextIndex >= 0 ? nextIndex + 1 : Math.max(1, currentSets.length);
         const elapsed = getExerciseElapsedText();
-        status.textContent = `${currentLabel}セット目・入力 ${entered}/${currentSets.length}${elapsed ? `・${elapsed}` : ''}`;
+        const transition = getPreviousExerciseTransitionText();
+        status.textContent = `${currentLabel}セット目・入力 ${entered}/${currentSets.length}${elapsed ? `・${elapsed}` : ''}${transition ? `・${transition}` : ''}`;
       }
       if (timer) {
         const minutes = Math.floor(intervalTimerRemaining / 60);
