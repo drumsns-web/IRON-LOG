@@ -157,7 +157,7 @@
     .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
     .draft-status-row .saving { color:var(--accent-brand); }
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
-    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(72px, calc(var(--keyboard-inset, 0px) + 12px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
+    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
     .exercise-quick-bar.suppressed { display:none !important; }
     .exercise-quick-info { min-width:0; }
@@ -349,7 +349,8 @@
 
 
     /* Ex Selection Bottom Sheet */
-    .sheet-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; z-index: 100; backdrop-filter: blur(2px); transition: opacity 0.2s; opacity: 0; }
+    .sheet-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; z-index: 100; backdrop-filter: blur(2px); transition: opacity 0.2s; opacity: 0; pointer-events:none; }
+    .sheet-overlay.active { pointer-events:auto; }
     .sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-radius: 20px 20px 0 0; padding: 0; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 101; display: flex; flex-direction: column; max-height: min(90vh, calc(100vh - 112px)); max-height: min(90dvh, calc(100dvh - 112px)); }
     .sheet-header { padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); }
     .sheet-header h3 { margin: 0; font-size: 16px; }
@@ -2004,18 +2005,71 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       window.addEventListener('focus', syncIntervalTimerAfterResume);
     }
 
-    
+    const sheetPanelIds = ['exSheet', 'rmSheet', 'settingsSheet', 'reorderSheet', 'aiSheet'];
+
+    function isSheetPanelOpen(id) {
+      const el = document.getElementById(id);
+      if (!el) return false;
+      const transform = el.style.transform || '';
+      return transform === 'translateY(0)' || transform === 'translateY(0px)';
+    }
+
+    function openSheetOverlay() {
+      const overlay = document.getElementById('sheetOverlay');
+      if (!overlay) return;
+      overlay.style.display = 'block';
+      overlay.classList.add('active');
+      setTimeout(() => { overlay.style.opacity = '1'; }, 10);
+    }
+
+    function syncSheetOverlayState() {
+      const overlay = document.getElementById('sheetOverlay');
+      if (!overlay) return;
+      const hasOpenSheet = sheetPanelIds.some(isSheetPanelOpen);
+      overlay.classList.toggle('active', hasOpenSheet);
+      if (hasOpenSheet) {
+        overlay.style.display = 'block';
+        overlay.style.opacity = '1';
+      } else {
+        overlay.style.opacity = '0';
+        overlay.style.display = 'none';
+      }
+    }
+
+    function closeSheetOverlayWhenIdle(delay = 300) {
+      setTimeout(syncSheetOverlayState, delay);
+    }
+
+    const exercisePopupModalIds = [
+      'setMetricModal',
+      'setBulkModal',
+      'quickTimerModal',
+      'planOverviewModal',
+      'draftHistoryModal',
+      'previousSetModal',
+      'techniqueModal'
+    ];
+
+    function closeExerciseTransientModals() {
+      exercisePopupModalIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      editingMetricSetIndex = -1;
+      editingTechniqueSetIndex = -1;
+    }
+
     function closeAllSheets() {
       closeExSheet();
       closeRmSheet();
       closeAiSheet();
       closeReorderSheet();
       closeSettingsSheet();
+      closeSheetOverlayWhenIdle();
     }
 
     function openRmSheet() {
-      document.getElementById('sheetOverlay').style.display = 'block';
-      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      openSheetOverlay();
       document.getElementById('rmSheet').style.transform = 'translateY(0)';
 
       if (window.lastValidSetData) {
@@ -2031,12 +2085,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     function closeRmSheet() {
       document.getElementById('sheetOverlay').style.opacity = '0';
       document.getElementById('rmSheet').style.transform = 'translateY(100%)';
-      setTimeout(() => {
-        // Only hide overlay if no other sheets are open
-        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('exSheet').style.transform !== 'translateY(0px)') {
-          document.getElementById('sheetOverlay').style.display = 'none';
-        }
-      }, 300);
+      closeSheetOverlayWhenIdle();
     }
 
     function renderRmTable() {
@@ -2077,22 +2126,14 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     
     function openReorderSheet() {
       renderReorderList();
-      document.getElementById('sheetOverlay').style.display = 'block';
-      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      openSheetOverlay();
       document.getElementById('reorderSheet').style.transform = 'translateY(0)';
     }
 
     function closeReorderSheet() {
       document.getElementById('sheetOverlay').style.opacity = '0';
       document.getElementById('reorderSheet').style.transform = 'translateY(100%)';
-      setTimeout(() => {
-        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('exSheet').style.transform !== 'translateY(0px)' &&
-           document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0px)' &&
-           document.getElementById('aiSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)' &&
-           document.getElementById('reorderSheet').style.transform !== 'translateY(0)' && document.getElementById('reorderSheet').style.transform !== 'translateY(0px)') {
-          document.getElementById('sheetOverlay').style.display = 'none';
-        }
-      }, 300);
+      closeSheetOverlayWhenIdle();
     }
 
     function renderReorderList() {
@@ -2140,8 +2181,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     
     function openSettingsSheet() {
-      document.getElementById('sheetOverlay').style.display = 'block';
-      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      openSheetOverlay();
       document.getElementById('settingsSheet').style.transform = 'translateY(0)';
       loadSetTextColor();
       renderCatColorSettings();
@@ -2241,15 +2281,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     function closeSettingsSheet() {
       document.getElementById('sheetOverlay').style.opacity = '0';
       document.getElementById('settingsSheet').style.transform = 'translateY(100%)';
-      setTimeout(() => {
-        if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('exSheet').style.transform !== 'translateY(0px)' &&
-           document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0px)' &&
-           document.getElementById('aiSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)' &&
-           document.getElementById('reorderSheet').style.transform !== 'translateY(0)' && document.getElementById('reorderSheet').style.transform !== 'translateY(0px)' &&
-           document.getElementById('settingsSheet').style.transform !== 'translateY(0)' && document.getElementById('settingsSheet').style.transform !== 'translateY(0px)') {
-          document.getElementById('sheetOverlay').style.display = 'none';
-        }
-      }, 300);
+      closeSheetOverlayWhenIdle();
     }
 
     function buildBackupData(includeAiIcon = true) {
@@ -3136,6 +3168,9 @@ function closePlanOverviewModal(event) {
 }
 
 let workoutRecallSourceDate = '';
+let workoutRecallCompositeGroups = null;
+let workoutRecallCompositeLabel = '';
+const WORKOUT_RECALL_COMPOSITE = '__planComposite__';
 
 function getWorkoutDatesBefore(targetDateStr) {
   return [...new Set(logs.filter(log => log.date < targetDateStr).map(log => log.date))]
@@ -3159,7 +3194,34 @@ function getPreviousSamePlanDate(targetDateStr) {
     )) || '';
 }
 
+function getPreviousDateForCycleSlot(slot, targetDateStr) {
+  return getWorkoutDatesBefore(targetDateStr)
+    .find(date => logs.some(log =>
+      log.date === date &&
+      log.planMode === 'cycle' &&
+      getCycleSlotsFromLog(log).includes(slot)
+    )) || '';
+}
+
+function getCompositePlanRecallGroups(targetDateStr) {
+  const slots = getCyclePlanSlots(targetDateStr);
+  const processedDates = new Set();
+  const groups = [];
+  const sourceParts = [];
+  slots.forEach(slot => {
+    const date = getPreviousDateForCycleSlot(slot, targetDateStr);
+    if (!date || processedDates.has(date)) return;
+    processedDates.add(date);
+    sourceParts.push(`${slot}:${getRecallDateLabel(date)}`);
+    getWorkoutRecallGroups(date).forEach(group => {
+      if (!groups.some(item => item.exercise === group.exercise)) groups.push(group);
+    });
+  });
+  return { groups, label: sourceParts.join(' / ') };
+}
+
 function getWorkoutRecallGroups(dateStr) {
+  if (dateStr === WORKOUT_RECALL_COMPOSITE) return workoutRecallCompositeGroups || [];
   const dayLogs = logs.filter(log => log.date === dateStr).sort((a, b) => a.id - b.id);
   const groups = [];
   dayLogs.forEach(log => {
@@ -3174,6 +3236,7 @@ function getWorkoutRecallGroups(dateStr) {
 }
 
 function getRecallDateLabel(dateStr) {
+  if (dateStr === WORKOUT_RECALL_COMPOSITE) return workoutRecallCompositeLabel || '複合プラン';
   if (!dateStr) return '記録なし';
   const date = new Date(dateStr + 'T00:00:00');
   return `${date.getMonth() + 1}/${date.getDate()}（${dayNames[date.getDay()]}）`;
@@ -3187,13 +3250,17 @@ function refreshWorkoutRecallChoices() {
   const weekdayLabel = document.getElementById('recallWeekdayLabel');
   const planLabel = document.getElementById('recallPlanLabel');
   const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+  const currentSlots = mode === 'cycle' ? getCyclePlanSlots() : [];
+  const composite = mode === 'cycle' && currentSlots.length > 1
+    ? getCompositePlanRecallGroups(currentDateStr)
+    : null;
 
   if (weekdayBtn) weekdayBtn.disabled = !weekdayDate;
   if (weekdayLabel) weekdayLabel.textContent = getRecallDateLabel(weekdayDate);
-  if (planBtn) planBtn.disabled = mode !== 'cycle' || !planDate;
+  if (planBtn) planBtn.disabled = mode !== 'cycle' || (composite ? !composite.groups.length : !planDate);
   if (planLabel) {
     planLabel.textContent = mode === 'cycle'
-      ? `${getCyclePlanSlots().join('+')}：${getRecallDateLabel(planDate)}`
+      ? `${currentSlots.join('+')}：${composite ? (composite.label || '記録なし') : getRecallDateLabel(planDate)}`
       : 'A〜G方式で利用できます';
   }
 
@@ -3208,6 +3275,8 @@ function refreshWorkoutRecallChoices() {
 
 function openWorkoutRecallModal() {
   workoutRecallSourceDate = '';
+  workoutRecallCompositeGroups = null;
+  workoutRecallCompositeLabel = '';
   refreshWorkoutRecallChoices();
   renderWorkoutRecallPreview('');
   const modal = document.getElementById('workoutRecallModal');
@@ -3219,9 +3288,26 @@ function closeWorkoutRecallModal(event) {
   const modal = document.getElementById('workoutRecallModal');
   if (modal) modal.style.display = 'none';
   workoutRecallSourceDate = '';
+  workoutRecallCompositeGroups = null;
+  workoutRecallCompositeLabel = '';
 }
 
 function selectWorkoutRecallSource(type) {
+  if (type === 'plan' && (localStorage.getItem(STORE_TMPL_MODE) || 'weekday') === 'cycle') {
+    const slots = getCyclePlanSlots(currentDateStr);
+    if (slots.length > 1) {
+      const composite = getCompositePlanRecallGroups(currentDateStr);
+      if (!composite.groups.length) {
+        renderWorkoutRecallPreview('', 'A〜G複合プランの過去記録がありません');
+        return;
+      }
+      workoutRecallSourceDate = WORKOUT_RECALL_COMPOSITE;
+      workoutRecallCompositeGroups = composite.groups;
+      workoutRecallCompositeLabel = composite.label || `${slots.join('+')}の直近記録`;
+      renderWorkoutRecallPreview(WORKOUT_RECALL_COMPOSITE);
+      return;
+    }
+  }
   const date = type === 'plan'
     ? getPreviousSamePlanDate(currentDateStr)
     : getPreviousSameWeekdayDate(currentDateStr);
@@ -3229,6 +3315,8 @@ function selectWorkoutRecallSource(type) {
 }
 
 function selectWorkoutRecallDate(dateStr) {
+  workoutRecallCompositeGroups = null;
+  workoutRecallCompositeLabel = '';
   if (!dateStr) {
     renderWorkoutRecallPreview('', '日付を選択してください');
     return;
@@ -3509,6 +3597,8 @@ function init() {
       if (target) target.classList.add('active');
       document.getElementById('exerciseQuickBar')?.classList.toggle('visible', viewId === 'view-exercise');
       syncQuickBarOverlapGuard();
+      if (viewId !== 'view-exercise') closeExerciseTransientModals();
+      if (viewId === 'view-daily' || viewId === 'view-report') closeSheetOverlayWhenIdle(0);
 
       document.querySelectorAll('.floating-nav-btn').forEach(i => i.classList.remove('active'));
       if (viewId === 'view-daily' || viewId === 'view-exercise') {
@@ -5041,8 +5131,7 @@ function init() {
     // --- Sheet ---
     function openExSheet(insertIndex = null) {
       pendingExerciseInsertIndex = insertIndex !== null && Number.isFinite(Number(insertIndex)) ? Number(insertIndex) : null;
-      document.getElementById('sheetOverlay').style.display = 'block';
-      setTimeout(() => document.getElementById('sheetOverlay').style.opacity = '1', 10);
+      openSheetOverlay();
       document.getElementById('exSheet').style.transform = 'translateY(0)';
       isEditMode = false;
       document.getElementById('editExBtn').textContent = '編集';
@@ -5054,7 +5143,7 @@ function init() {
     function closeExSheet() {
       document.getElementById('sheetOverlay').style.opacity = '0';
       document.getElementById('exSheet').style.transform = 'translateY(100%)';
-      setTimeout(() => document.getElementById('sheetOverlay').style.display = 'none', 300);
+      closeSheetOverlayWhenIdle();
     }
     function renderCatTabs() {
       const tabsDiv = document.getElementById('catTabs');
@@ -6890,7 +6979,7 @@ function init() {
         <div class="history-item-summary">
           ${bestEstimate ? `最高推定1RM ${formatEstimatedLoadLabel(bestEstimate, selectedExercise)}・` : ''}総量 ${formatVolumeNumber(totalVolume)}kg
           <div style="margin-top:8px; display:grid; gap:5px;">
-            ${sets.map((set, setIndex) => `<div>${setIndex + 1}セット目: ${escapeHtml(formatSimpleAiSet({ ...set, exercise:selectedExercise }))}</div>`).join('')}
+            ${sets.map((set, setIndex) => `<div>${setIndex + 1}セット目: ${escapeHtml(formatSimpleAiSet({ ...set, exercise:selectedExercise }, setIndex, sets))}</div>`).join('')}
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:10px;">
             <button type="button" onclick="selectComparisonDateFromHistory('${session.date}')">この日を指定</button>
@@ -7772,7 +7861,10 @@ function init() {
       if (editingMetricSetIndex < 0) return;
       const idx = editingMetricSetIndex;
       updateSetMetricType(idx, type);
-      closeSetMetricModal();
+      document.querySelectorAll('[data-metric-choice]').forEach(button => {
+        button.classList.toggle('active', button.dataset.metricChoice === type);
+      });
+      setTimeout(() => closeSetMetricModal(), 140);
     }
 
     function openSetBulkModal() {
@@ -8184,13 +8276,22 @@ function init() {
       aiSheetSource = source || 'exercise';
       populateAiExercisePicker();
       populateAiGoalFromPlan();
-      document.getElementById('sheetOverlay').style.display = 'block';
-      setTimeout(function(){ document.getElementById('sheetOverlay').style.opacity = '1'; }, 10);
+      openSheetOverlay();
       document.getElementById('aiSheet').style.transform = 'translateY(0)';
     }
-    function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; setTimeout(function(){ if(document.getElementById('exSheet').style.transform !== 'translateY(0)' && document.getElementById('rmSheet').style.transform !== 'translateY(0)' && document.getElementById('aiSheet').style.transform !== 'translateY(0px)') document.getElementById('sheetOverlay').style.display = 'none'; }, 300); }
+    function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; closeSheetOverlayWhenIdle(); }
 
-    function formatSimpleAiSet(s) {
+    function getAiSetIntervalText(set, index, sets) {
+      if (!Array.isArray(sets) || index <= 0) return '';
+      const currentTime = Number(set?.completedAt);
+      if (!Number.isFinite(currentTime) || currentTime <= 0) return '';
+      const previous = sets.slice(0, index).reverse().find(item => Number(item?.completedAt) > 0);
+      if (!previous) return '';
+      const diff = (currentTime - Number(previous.completedAt)) / 1000;
+      return diff > 0 ? ` 前セット間隔:${formatTimerDuration(diff)}` : '';
+    }
+
+    function formatSimpleAiSet(s, index, sets) {
       const metricType = inferLogMetricType(s, s.exercise);
       const effort = metricType === 'PR'
         ? `（${s.reps}回のうち${s.partialReps ?? 0}回がパーシャル）`
@@ -8199,7 +8300,8 @@ function init() {
       const technique = metricType !== 'PR' && normalizedTechnique.type === 'partial' ? '' : getTechniqueSummary(normalizedTechnique, s);
       const assistDetail = formatAssistMeta(s, s.exercise);
       const note = s.note ? ` メモ:${s.note}` : '';
-      return `${formatRecordedWeight(s, s.exercise)} ${s.reps}回 ${effort}${assistDetail ? ` ${assistDetail}` : ''}${technique && metricType !== 'PR' ? ` ${technique}` : ''}${note}`;
+      const interval = getAiSetIntervalText(s, index, sets);
+      return `${formatRecordedWeight(s, s.exercise)} ${s.reps}回 ${effort}${assistDetail ? ` ${assistDetail}` : ''}${technique && metricType !== 'PR' ? ` ${technique}` : ''}${interval}${note}`;
     }
 
     function showCopyToast(message) {
@@ -8302,8 +8404,8 @@ function init() {
         order.forEach(name => {
           const sets = grouped[name];
           lines.push(`${name} ${sets.length}セット`);
-          sets.forEach(s => {
-            lines.push(formatSimpleAiSet(s));
+          sets.forEach((s, setIndex) => {
+            lines.push(formatSimpleAiSet(s, setIndex, sets));
             dayVolume += calculateSetVolume(s);
             daySets += 1;
           });
@@ -8344,7 +8446,7 @@ function init() {
         const sets = grouped[name];
         lines.push('', `${name} ${sets.length}セット`);
         sets.forEach((set, index) => {
-          lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set)}`);
+          lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set, index, sets)}`);
           totalVolume += calculateSetVolume(set);
           totalSets += 1;
         });
@@ -8373,9 +8475,23 @@ function init() {
     }
 
     function buildPreviousComparableDayText() {
+      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
+      if (mode === 'cycle' && getCyclePlanSlots(currentDateStr).length > 1) {
+        const composite = getCompositePlanRecallGroups(currentDateStr);
+        if (composite.groups.length) {
+          const slots = getCyclePlanSlots(currentDateStr);
+          const lines = [`前回同プラン（${slots.join('+')}）: ${composite.label || '複合プラン'}`];
+          composite.groups.forEach(group => {
+            lines.push('', `${group.exercise} ${group.sets.length}セット`);
+            group.sets.forEach((set, index) => {
+              lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set, index, group.sets)}`);
+            });
+          });
+          return lines.join('\n');
+        }
+      }
       const date = findPreviousComparableWorkoutDate();
       if (!date) return '';
-      const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
       const prefix = mode === 'cycle' ? '前回同プラン: ' : '前回同曜日: ';
       return buildWorkoutDaySummaryText(date, prefix);
     }
@@ -8400,7 +8516,7 @@ function init() {
       if (!session || !session.sets || !session.sets.length) return '';
       const dateLabel = session.date ? formatComparisonDateLabel(session.date) : '';
       const lines = [`${session.label || session.shortLabel || '前回'} ${dateLabel}`, exName];
-      session.sets.forEach((set, index) => lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set)}`));
+      session.sets.forEach((set, index) => lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set, index, session.sets)}`));
       return lines.join('\n');
     }
 
@@ -8415,14 +8531,14 @@ function init() {
       if (type === 'lastSet') {
         const last = exerciseSets[exerciseSets.length - 1];
         if (!last) return showCopyToast('セット記録がありません');
-        text = `${exerciseSets.length}セット目: ${formatSimpleAiSet(last)}`;
+        text = `${exerciseSets.length}セット目: ${formatSimpleAiSet(last, exerciseSets.length - 1, exerciseSets)}`;
       } else if (type === 'exerciseSets') {
         if (!exerciseSets.length) return showCopyToast('セット記録がありません');
-        text = exerciseSets.map((set, index) => `${index + 1}セット目: ${formatSimpleAiSet(set)}`).join('\n');
+        text = exerciseSets.map((set, index) => `${index + 1}セット目: ${formatSimpleAiSet(set, index, exerciseSets)}`).join('\n');
       } else if (type === 'nextSet') {
         if (!aiExercise) return showCopyToast('種目を選択してください');
         const lines = [planLine, aiExercise].filter(Boolean);
-        if (exerciseSets.length) lines.push(...exerciseSets.map((set, index) => `${index + 1}セット目: ${formatSimpleAiSet(set)}`));
+        if (exerciseSets.length) lines.push(...exerciseSets.map((set, index) => `${index + 1}セット目: ${formatSimpleAiSet(set, index, exerciseSets)}`));
         text = lines.join('\n');
       } else if (type === 'exercise') {
         if (!allToday.length) return showCopyToast('本日の記録がありません');
@@ -8446,7 +8562,7 @@ function init() {
         const lines = [planLine].filter(Boolean);
         order.forEach(name => {
           lines.push(name);
-          lines.push(...grouped[name].map(formatSimpleAiSet));
+          lines.push(...grouped[name].map((set, index) => formatSimpleAiSet(set, index, grouped[name])));
         });
         text = lines.join('\n');
       } else if (type === 'periodSummary') {
