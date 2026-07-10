@@ -255,9 +255,12 @@
     .technique-actions button { min-height:44px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; }
     .metric-choice-list { display:grid; gap:10px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
     .metric-choice { width:100%; min-height:78px; display:grid; grid-template-columns:58px 1fr; gap:12px; align-items:center; padding:12px; border:1px solid #48484a; border-radius:10px; background:var(--surface-2); color:var(--text); text-align:left; cursor:pointer; }
-    .metric-choice.active { border-color:var(--accent-brand); background:rgba(208,253,62,.08); }
+    .metric-choice.active { border-color:var(--accent-brand); background:rgba(208,253,62,.12); box-shadow:0 0 0 2px rgba(208,253,62,.32) inset; }
+    .metric-choice.just-selected { border-color:var(--accent-brand); background:rgba(208,253,62,.18); box-shadow:0 0 0 3px rgba(208,253,62,.48) inset; }
     .metric-choice-code { color:var(--accent-brand); font-size:18px; font-weight:900; text-align:center; }
     .metric-choice.up .metric-choice-code { color:#ffd60a; }
+    .metric-choice.active .metric-choice-code,
+    .metric-choice.just-selected .metric-choice-code { color:var(--accent-brand); }
     .metric-choice-title { display:block; margin-bottom:4px; font-size:15px; font-weight:800; }
     .metric-choice-description { display:block; color:var(--muted); font-size:13px; font-weight:600; line-height:1.5; }
     .bulk-action-list { display:grid; gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
@@ -5438,9 +5441,11 @@ function init() {
       switchView('view-exercise');
       try {
         loadPrevSets();
+        ensureCurrentExerciseDraftExists();
         loadReferenceVideo();
       } catch (err) {
         console.error('exercise entry failed', err);
+        ensureCurrentExerciseDraftExists();
         showCopyToast('編集画面の読み込みをやり直してください');
       }
     }
@@ -5454,7 +5459,7 @@ function init() {
       const insertIndex = pendingExerciseInsertIndex;
       closeExSheet();
       enterExerciseInput(eName);
-      saveCurrentDraft();
+      ensureCurrentExerciseDraftExists();
       if (insertIndex !== null) {
         placeExerciseAtIndex(currentDateStr, eName, insertIndex);
         pendingExerciseInsertIndex = null;
@@ -5558,7 +5563,13 @@ function init() {
       if (!selectedExercise) return;
       saveCurrentDraft();
       saveExerciseInputPreference(selectedExercise, { comparisonMode: 'date', comparisonDate: dateStr || '' });
-      loadPrevSets();
+      renderComparisonControl();
+      try {
+        loadPrevSets();
+      } catch (err) {
+        console.error('comparison date load failed', err);
+        showCopyToast('日付は選択しました。再読み込みしてください');
+      }
     }
 
     function getComparisonEmptyMessage(session) {
@@ -6040,6 +6051,14 @@ function init() {
         setDraftSaveStatus(`自動保存済み ${time}`);
         updateExerciseQuickBar();
       }, 120);
+    }
+
+    function ensureCurrentExerciseDraftExists() {
+      if (!selectedExercise) return;
+      if (!Array.isArray(currentSets) || currentSets.length === 0) {
+        currentSets = [createBlankSet()];
+      }
+      saveCurrentDraft();
     }
 
     function loadCurrentDraft() {
@@ -6979,9 +6998,12 @@ function init() {
       if (!session || !sets.length) {
         return `<div class="history-item"><div class="history-item-summary">この日の同種目記録がありません。</div></div>`;
       }
+      const pref = getExerciseComparisonPreference();
+      const isSelectedDate = pref.mode === 'date' && pref.date === session.date;
+      const selectedButtonStyle = isSelectedDate ? 'border-color:var(--accent-brand); background:rgba(208,253,62,.12); color:var(--accent-brand);' : '';
       const bestEstimate = Math.max(...sets.map(set => estimateSet1RM({ ...set, exercise:selectedExercise })).filter(value => value != null), 0);
       const totalVolume = sets.reduce((sum, set) => sum + (calculateSetVolume({ ...set, exercise:selectedExercise }) || 0), 0);
-      return `<div class="history-item">
+      return `<div class="history-item" style="${isSelectedDate ? 'border-color:rgba(208,253,62,.55);' : ''}">
         <div class="history-item-head"><span>${index + 1}. ${formatComparisonDateLabel(session.date)}</span><span>${sets.length}セット</span></div>
         <div class="history-item-summary">
           ${bestEstimate ? `最高推定1RM ${formatEstimatedLoadLabel(bestEstimate, selectedExercise)}・` : ''}総量 ${formatVolumeNumber(totalVolume)}kg
@@ -6989,7 +7011,7 @@ function init() {
             ${sets.map((set, setIndex) => `<div>${setIndex + 1}セット目: ${escapeHtml(formatSimpleAiSet({ ...set, exercise:selectedExercise }, setIndex, sets))}</div>`).join('')}
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:10px;">
-            <button type="button" onclick="selectComparisonDateFromHistory('${session.date}')">この日を指定</button>
+            <button type="button" style="${selectedButtonStyle}" onclick="selectComparisonDateFromHistory('${session.date}')">${isSelectedDate ? '指定中' : 'この日を指定'}</button>
             <button type="button" onclick="loadExerciseDraftFromHistory('${session.date}')">下書き追加</button>
           </div>
         </div>
@@ -6999,8 +7021,14 @@ function init() {
     function selectComparisonDateFromHistory(dateStr) {
       saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:dateStr });
       renderComparisonControl();
-      loadPrevSets();
       closePreviousSetModal();
+      try {
+        loadPrevSets();
+      } catch (err) {
+        console.error('history comparison load failed', err);
+        showCopyToast('日付は選択しました。再読み込みしてください');
+        return;
+      }
       showCopyToast(`${formatComparisonDateLabel(dateStr)}を指定しました`);
     }
 
@@ -7854,6 +7882,7 @@ function init() {
       document.getElementById('setMetricModalTitle').textContent = `セット${idx + 1}の入力方式`;
       document.querySelectorAll('[data-metric-choice]').forEach(button => {
         button.classList.toggle('active', button.dataset.metricChoice === currentSets[idx].metricType);
+        button.classList.remove('just-selected');
       });
       document.getElementById('setMetricModal').style.display = 'flex';
     }
@@ -7867,11 +7896,12 @@ function init() {
     function selectSetMetricFromModal(type) {
       if (editingMetricSetIndex < 0) return;
       const idx = editingMetricSetIndex;
-      updateSetMetricType(idx, type);
       document.querySelectorAll('[data-metric-choice]').forEach(button => {
         button.classList.toggle('active', button.dataset.metricChoice === type);
+        button.classList.toggle('just-selected', button.dataset.metricChoice === type);
       });
-      setTimeout(() => closeSetMetricModal(), 140);
+      requestAnimationFrame(() => updateSetMetricType(idx, type));
+      setTimeout(() => closeSetMetricModal(), 260);
     }
 
     function openSetBulkModal() {
@@ -8633,13 +8663,16 @@ function detectPersonalRecords(exercise, dateStr, sets) {
     }
 
 function saveWorkout() {
-      // Find rows that are marked done and have values
-      const validSets = currentSets.filter(s => s.done && s.weight !== '' && s.reps !== '');
+      // Save every row with entered weight and reps. The check mark is useful timing data, but it should not block saving.
+      const validSets = currentSets.filter(s => s.weight !== '' && s.reps !== '');
 
       if(validSets.length === 0) {
         alert('保存するセットがありません。\n重量と回数を入力してください。');
         return;
       }
+      validSets.forEach(s => {
+        if (!s.done) markSetDone(s);
+      });
       const incompleteResults = validSets.map(getIncompleteResultLabel).filter(Boolean);
       if (incompleteResults.length) {
         const preview = incompleteResults.slice(0, 4).join('\n');
