@@ -8687,6 +8687,27 @@ function detectPersonalRecords(exercise, dateStr, sets) {
       return '';
     }
 
+    function persistLogsSafely(nextLogs) {
+      const payload = JSON.stringify(nextLogs);
+      try {
+        localStorage.setItem(STORE_LOGS, payload);
+        return true;
+      } catch (err) {
+        console.warn('log save failed, clearing auxiliary storage and retrying', err);
+      }
+      [STORE_LOCAL_BACKUPS, STORE_DRAFT_HISTORY].forEach(key => {
+        try { localStorage.removeItem(key); } catch (ignored) {}
+      });
+      try {
+        localStorage.setItem(STORE_LOGS, payload);
+        return true;
+      } catch (err) {
+        console.error('log save retry failed', err);
+        alert('保存容量が不足しているため、記録を保存できませんでした。\n設定からJSONバックアップを出力したあと、古い端末内バックアップを減らしてください。');
+        return false;
+      }
+    }
+
 function saveWorkoutCore() {
       // Save every row with entered weight and reps. The check mark is useful timing data, but it should not block saving.
       const validSets = currentSets.filter(s => s.weight !== '' && s.reps !== '');
@@ -8705,8 +8726,13 @@ function saveWorkoutCore() {
         if (!confirm(`結果が未入力の項目があります。\n\n${preview}${more}\n\n未入力のまま保存しますか？`)) return;
       }
 
-      const memoText = document.getElementById('sessionMemo').value.trim();
-      const planInfo = getActivePlanInfo();
+      const memoText = document.getElementById('sessionMemo')?.value?.trim() || '';
+      let planInfo = { label:'', text:'', slots:null };
+      try {
+        planInfo = getActivePlanInfo() || planInfo;
+      } catch (err) {
+        console.warn('plan info fallback used', err);
+      }
       const planMode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
       const weightMode = getExerciseWeightMode(selectedExercise);
       validSets.forEach(normalizeCurrentSetMetric);
@@ -8726,7 +8752,12 @@ function saveWorkoutCore() {
         assistMode: s.assistMode || null,
         note: (s.note || '').trim()
       }));
-      const personalRecords = detectPersonalRecords(selectedExercise, currentDateStr, recordCandidates);
+      let personalRecords = [];
+      try {
+        personalRecords = detectPersonalRecords(selectedExercise, currentDateStr, recordCandidates);
+      } catch (err) {
+        console.warn('personal record detection failed', err);
+      }
 
       // Maintain order: use the original first set's ID if this exercise was already started today
       const todayLogsForEx = logs.filter(l => l.date === currentDateStr && l.exercise === selectedExercise);
@@ -8762,14 +8793,19 @@ function saveWorkoutCore() {
         });
       });
 
-      localStorage.setItem(STORE_LOGS, JSON.stringify(logs));
-      createDailyLocalBackup();
-      markCyclePlanCompleted(currentDateStr, planInfo.slots);
-      clearCurrentDraft();
+      if (!persistLogsSafely(logs)) return;
+      try { createDailyLocalBackup(); } catch (err) { console.warn('daily local backup failed', err); }
+      try { markCyclePlanCompleted(currentDateStr, planInfo.slots); } catch (err) { console.warn('cycle completion update failed', err); }
+      try { clearCurrentDraft(); } catch (err) { console.warn('draft clear failed', err); }
 
       // Go back to daily view
-      switchView('view-daily');
-      selectDate(currentDateStr); // refresh
+      try {
+        switchView('view-daily');
+        selectDate(currentDateStr); // refresh
+      } catch (err) {
+        console.warn('post-save navigation failed', err);
+        location.reload();
+      }
       if (personalRecords.length) {
         setTimeout(() => showCopyToast(`自己ベスト更新：${personalRecords.join('・')}`), 120);
       }
@@ -8780,7 +8816,8 @@ function saveWorkoutCore() {
         return saveWorkoutCore();
       } catch (err) {
         console.error('save workout failed', err);
-        alert('保存時にエラーが出ました。\n画面を再読み込みしても直らない場合は、この状態のまま相談してください。');
+        const detail = err?.message ? `\n\n原因: ${err.message}` : '';
+        alert(`保存時にエラーが出ました。${detail}\n\n画面を再読み込みしても直らない場合は、この状態のまま相談してください。`);
       }
     }
 
