@@ -5468,12 +5468,14 @@ function init() {
       switchView('view-exercise');
       try {
         loadPrevSets();
-        ensureCurrentExerciseDraftExists();
+      } catch (err) {
+        console.warn('previous set load failed', err);
+      }
+      ensureCurrentExerciseDraftExists();
+      try {
         loadReferenceVideo();
       } catch (err) {
-        console.error('exercise entry failed', err);
-        ensureCurrentExerciseDraftExists();
-        showCopyToast('編集画面の読み込みをやり直してください');
+        console.warn('reference video load failed', err);
       }
     }
 
