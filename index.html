@@ -157,7 +157,7 @@
     .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
     .draft-status-row .saving { color:var(--accent-brand); }
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
-    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
+    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
     .exercise-quick-bar.suppressed,
     .exercise-quick-bar.save-guard-hidden { display:none !important; }
@@ -170,6 +170,7 @@
     .exercise-quick-icon { width:42px; height:42px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:20px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .exercise-quick-icon.primary { border-color:var(--accent-brand); background:var(--accent-brand); color:#000; }
     .exercise-quick-icon.ai { color:var(--accent-brand); font-size:12px; font-weight:950; letter-spacing:0; }
+    .exercise-quick-icon.save { width:54px; border-color:var(--accent-brand); background:var(--accent-brand); color:#000; font-size:12px; font-weight:950; letter-spacing:0; }
     .exercise-quick-icon.ai img { width:24px; height:24px; display:block; object-fit:cover; border-radius:6px; }
     #view-exercise.active { padding-bottom:calc(220px + env(safe-area-inset-bottom)) !important; }
     .history-list { display:grid; gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); overflow-y:auto; }
@@ -178,8 +179,11 @@
     .history-item-summary { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
     .history-item button { min-height:34px; padding:0 11px; border:1px solid var(--accent-brand); border-radius:7px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:800; cursor:pointer; }
     @media (max-width:360px) {
-      .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto auto; }
+      .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto auto auto; }
       .exercise-quick-timer { grid-row:1; }
+      .exercise-quick-icon.copy { display:none; }
+    }
+    @media (max-width:430px) {
       .exercise-quick-icon.copy { display:none; }
     }
     .interval-timer { display:flex; align-items:center; gap:12px; padding:12px; margin-bottom:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); }
@@ -952,7 +956,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     <div id="adviceBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.1); border:1px solid rgba(208, 253, 62, 0.2); color:var(--accent-brand); font-size:13px; line-height:1.5;"></div>
 
     
-    <button id="saveWorkoutBtn" type="button" class="save-btn" onclick="saveWorkout()">入力済みセットを保存</button>
+    <button id="saveWorkoutBtn" type="button" class="save-btn" onclick="saveWorkout()" ontouchend="event.preventDefault(); saveWorkout()">入力済みセットを保存</button>
     <button class="ai-copy-btn" onclick="openAiSheet()">
       <span class="ai-button-icon" data-ai-icon>AI</span> AIに相談する（状況をコピー）
     </button>
@@ -973,6 +977,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
     <button type="button" class="exercise-quick-icon copy" onclick="duplicatePreviousSet()" title="直前セットを複製" aria-label="直前セットを複製">⧉</button>
     <button type="button" class="exercise-quick-icon primary" onclick="addSetRow()" title="セットを追加" aria-label="セットを追加">＋</button>
+    <button type="button" class="exercise-quick-icon save" onclick="saveWorkout()" ontouchend="event.preventDefault(); saveWorkout()" title="入力済みセットを保存" aria-label="入力済みセットを保存">保存</button>
     <button type="button" class="exercise-quick-icon ai" onclick="openAiSheet()" title="AIに相談" aria-label="AIに相談" data-ai-icon>AI</button>
   </div>
 
