@@ -178,6 +178,7 @@
     .history-item-head { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--text); font-size:13px; font-weight:800; }
     .history-item-summary { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
     .history-item button { min-height:34px; padding:0 11px; border:1px solid var(--accent-brand); border-radius:7px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:800; cursor:pointer; }
+    .history-item button.just-selected { border-color:var(--accent-brand); background:rgba(208,253,62,.16); color:var(--accent-brand); box-shadow:0 0 0 3px rgba(208,253,62,.42) inset; }
     @media (max-width:360px) {
       .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto auto auto; }
       .exercise-quick-timer { grid-row:1; }
@@ -5464,12 +5465,14 @@ function init() {
     
     function enterExerciseInput(eName) {
       selectedExercise = eName;
+      document.getElementById('copyToast')?.classList.remove('show');
       document.getElementById('headerTitle').textContent = eName;
       switchView('view-exercise');
       try {
         loadPrevSets();
       } catch (err) {
         console.warn('previous set load failed', err);
+        loadPrevSetsFallback();
       }
       ensureCurrentExerciseDraftExists();
       try {
@@ -5554,6 +5557,10 @@ function init() {
       return `${d.getMonth() + 1}/${d.getDate()}（${dayNames[d.getDay()]}）`;
     }
 
+    function isValidLogDate(value) {
+      return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    }
+
     function getExerciseComparisonPreference(exName = selectedExercise) {
       const pref = getExerciseInputPreference(exName);
       const mode = ['auto', 'latest', 'sameWeekday', 'samePlan', 'sameOrder', 'date'].includes(pref.comparisonMode)
@@ -5585,7 +5592,12 @@ function init() {
           .sort((a, b) => b.localeCompare(a))[0] || '';
         if (latest) saveExerciseInputPreference(selectedExercise, { comparisonDate: latest });
       }
-      loadPrevSets();
+      try {
+        loadPrevSets();
+      } catch (err) {
+        console.warn('comparison mode load failed', err);
+        loadPrevSetsFallback();
+      }
     }
 
     function setExerciseComparisonDate(dateStr) {
@@ -5612,8 +5624,8 @@ function init() {
 
     function getExerciseComparisonSession(exName, targetDateStr, includeCurrentDate = false, requestedMode = 'auto', requestedDate = '') {
       const setsOnDate = date => logs
-        .filter(set => set.exercise === exName && set.date === date)
-        .sort((a, b) => a.id - b.id);
+        .filter(set => set && set.exercise === exName && set.date === date)
+        .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
       const normalizedMode = ['auto', 'latest', 'sameWeekday', 'samePlan', 'sameOrder', 'date'].includes(requestedMode)
         ? requestedMode
         : 'auto';
@@ -5670,7 +5682,7 @@ function init() {
       }
 
       const candidateDates = [...new Set(logs
-        .filter(set => set.exercise === exName && set.date < targetDateStr)
+        .filter(set => set && set.exercise === exName && isValidLogDate(set.date) && set.date < targetDateStr)
         .map(set => set.date))]
         .sort((a, b) => b.localeCompare(a));
       if (!candidateDates.length) return null;
@@ -6133,7 +6145,7 @@ function init() {
             const date = new Date(item.savedAt || item.id);
             const time = date.toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
             return `<div class="history-item">
-              <div class="history-item-head"><span>${time}</span><button type="button" onclick="restoreDraftVersion(${index})">この状態に戻す</button></div>
+              <div class="history-item-head"><span>${time}</span><button type="button" class="draft-restore-btn" data-draft-restore-index="${index}" onclick="selectDraftRestoreButton(${index})">この状態に戻す</button></div>
               <div class="history-item-summary">${escapeHtml(formatDraftHistorySummary(item.draft))}</div>
             </div>`;
           }).join('')
@@ -6145,6 +6157,13 @@ function init() {
       if (event && event.target !== event.currentTarget) return;
       const modal = document.getElementById('draftHistoryModal');
       if (modal) modal.style.display = 'none';
+    }
+
+    function selectDraftRestoreButton(index) {
+      document.querySelectorAll('[data-draft-restore-index]').forEach(button => {
+        button.classList.toggle('just-selected', Number(button.dataset.draftRestoreIndex) === Number(index));
+      });
+      setTimeout(() => restoreDraftVersion(index), 180);
     }
 
     function restoreDraftVersion(index) {
@@ -6825,19 +6844,59 @@ function init() {
       return `<span class="carryover-advice">次回反映メモ: ${notes.slice(0, 2).join('。')}</span>`;
     }
 
+    function loadPrevSetsFallback() {
+      try {
+        currentSets = [];
+        const latestSameExerciseSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
+        const fallbackSets = Array.isArray(latestSameExerciseSession?.sets) ? latestSameExerciseSession.sets : [];
+        if (fallbackSets.length) {
+          fallbackSets.forEach(s => {
+            const metricType = inferLogMetricType(s, selectedExercise);
+            const rStr = metricType === 'UP' ? 'UP' : (s.rpe || 8);
+            currentSets.push({
+              prevWeight:s.weight ?? '', prevReps:s.reps ?? '', prevRpe:rStr,
+              prevRir:s.rir ?? getRirFromRpeValue(rStr), prevPartialReps:s.partialReps ?? '',
+              prevBodyWeight:s.bodyWeight ?? '', prevAssistAmount:s.assistAmount ?? '', prevAssistMode:s.assistMode ?? '',
+              prevMetricType:metricType, prevTechnique:normalizeTechnique(s.technique),
+              prevComparisonLabel:'直近同種目', prevComparisonDate:latestSameExerciseSession.date || '',
+              prevNote:s.note || '',
+              weight:'', reps:'', rpe:rStr, rir:metricType === 'RIR' ? (s.rir ?? getRirFromRpeValue(rStr)) : '',
+              partialReps:'', note:'', metricType, technique:{type:'none'}, done:false, manualCheckRequired:true, completedAt:null
+            });
+          });
+        } else {
+          for (let i = 0; i < 3; i++) currentSets.push(createBlankSet());
+        }
+        renderSetRows();
+        updateAssistCalcVisibility();
+        calcAdvice();
+        setDraftSaveStatus('入力内容は自動保存されます');
+      } catch (fallbackErr) {
+        console.error('fallback previous set load failed', fallbackErr);
+        currentSets = [createBlankSet()];
+        renderSetRows();
+      }
+    }
+
     function loadPrevSets() {
       applyExerciseTimerPreference(selectedExercise);
       renderWeightModeControl();
       renderComparisonControl();
       const comparisonPreference = getExerciseComparisonPreference();
-      const comparisonSession = getExerciseComparisonSession(
-        selectedExercise,
-        currentDateStr,
-        comparisonPreference.mode === 'auto',
-        comparisonPreference.mode,
-        comparisonPreference.date
-      );
-      const prevSets = comparisonSession ? comparisonSession.sets : [];
+      let comparisonSession = null;
+      try {
+        comparisonSession = getExerciseComparisonSession(
+          selectedExercise,
+          currentDateStr,
+          comparisonPreference.mode === 'auto',
+          comparisonPreference.mode,
+          comparisonPreference.date
+        );
+      } catch (err) {
+        console.warn('comparison session load failed', err);
+        comparisonSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
+      }
+      const prevSets = Array.isArray(comparisonSession?.sets) ? comparisonSession.sets : [];
       const latestSameExerciseSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
       const latestSameExerciseSets = latestSameExerciseSession ? latestSameExerciseSession.sets : [];
 
@@ -6845,13 +6904,14 @@ function init() {
 
       const prevMemoBox = document.getElementById('prevMemoBox');
       const prevMemoSet = prevSets.find(s => s.memo);
-      if (prevMemoSet && prevMemoSet.memo) {
+      if (prevMemoBox && prevMemoSet && prevMemoSet.memo) {
         prevMemoBox.textContent = `${comparisonSession?.shortLabel || '前回'}のメモ: ${prevMemoSet.memo}`;
         prevMemoBox.style.display = 'block';
-      } else {
+      } else if (prevMemoBox) {
         prevMemoBox.style.display = 'none';
       }
-      document.getElementById('sessionMemo').value = '';
+      const sessionMemoEl = document.getElementById('sessionMemo');
+      if (sessionMemoEl) sessionMemoEl.value = '';
       updateAssistCalcVisibility();
 
       // 前回・今回が何種目目かを表示（疲労条件の差を可視化）
@@ -6966,7 +7026,7 @@ function init() {
 
     function getLatestSameExerciseSession(exName = selectedExercise, beforeDate = currentDateStr) {
       const dates = [...new Set(logs
-        .filter(set => set.exercise === exName && set.date < beforeDate)
+        .filter(set => set && set.exercise === exName && isValidLogDate(set.date) && set.date < beforeDate)
         .map(set => set.date))]
         .sort((a, b) => b.localeCompare(a));
       const date = dates[0];
@@ -6975,26 +7035,26 @@ function init() {
         date,
         shortLabel:'直近同種目',
         sets: logs
-          .filter(set => set.exercise === exName && set.date === date)
-          .sort((a, b) => a.id - b.id)
+          .filter(set => set && set.exercise === exName && set.date === date)
+          .sort((a, b) => Number(a.id || 0) - Number(b.id || 0))
       };
     }
 
     function getExerciseHistorySessions(exName = selectedExercise, beforeDate = currentDateStr, limit = 5) {
       const dates = [...new Set(logs
-        .filter(set => set.exercise === exName && set.date < beforeDate)
+        .filter(set => set && set.exercise === exName && isValidLogDate(set.date) && set.date < beforeDate)
         .map(set => set.date))]
         .sort((a, b) => b.localeCompare(a))
         .slice(0, limit);
       return dates.map(date => ({
         date,
-        sets: logs.filter(set => set.exercise === exName && set.date === date).sort((a, b) => a.id - b.id)
+        sets: logs.filter(set => set && set.exercise === exName && set.date === date).sort((a, b) => Number(a.id || 0) - Number(b.id || 0))
       }));
     }
 
     function getPlanHistoryDates(beforeDate = currentDateStr, limit = 5) {
       const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
-      const dates = [...new Set(logs.filter(set => set.date < beforeDate).map(set => set.date))]
+      const dates = [...new Set(logs.filter(set => set && isValidLogDate(set.date) && set.date < beforeDate).map(set => set.date))]
         .sort((a, b) => b.localeCompare(a));
       if (mode === 'cycle') {
         const targetSlots = getCyclePlanSlots(beforeDate);
@@ -8372,9 +8432,14 @@ function init() {
     }
 
     function showCopyToast(message) {
+      const text = String(message || 'コピーしました');
+      if (/編集画面.*読み込み|読み込み.*やり直/.test(text)) {
+        console.warn('suppressed non-blocking load toast:', text);
+        return;
+      }
       const toast = document.getElementById('copyToast');
       if (!toast) return;
-      toast.textContent = message || 'コピーしました';
+      toast.textContent = text;
       toast.classList.add('show');
       clearTimeout(window.copyToastTimer);
       window.copyToastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
