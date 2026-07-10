@@ -159,8 +159,7 @@
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
     .exercise-quick-bar { position:fixed; z-index:90; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
-    .exercise-quick-bar.suppressed,
-    .exercise-quick-bar.save-guard-hidden { display:none !important; }
+    .exercise-quick-bar.suppressed { display:none !important; }
     .exercise-quick-info { min-width:0; }
     .exercise-quick-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-size:13px; font-weight:800; }
     .exercise-quick-meta { margin-top:3px; color:var(--muted); font-size:11px; font-weight:700; }
@@ -3541,24 +3540,11 @@ function updateTodayTemplate() {
       return display !== 'none';
     }
 
-    function isSaveButtonInTapZone() {
-      const view = document.getElementById('view-exercise');
-      const btn = document.getElementById('saveWorkoutBtn');
-      if (!view?.classList.contains('active') || !btn) return false;
-      const rect = btn.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return false;
-      const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
-      const viewportTop = window.visualViewport?.offsetTop || 0;
-      const viewportBottom = viewportTop + viewportHeight;
-      return rect.bottom > viewportTop && rect.top < viewportBottom;
-    }
-
     function syncQuickBarOverlapGuard() {
       const bar = document.getElementById('exerciseQuickBar');
       if (!bar) return;
       const shouldSuppress = quickBarBlockingPanelIds.some(id => isBlockingPanelOpen(document.getElementById(id)));
       bar.classList.toggle('suppressed', shouldSuppress);
-      bar.classList.toggle('save-guard-hidden', !shouldSuppress && isSaveButtonInTapZone());
     }
 
     function initQuickBarOverlapGuard() {
@@ -3568,12 +3554,6 @@ function updateTodayTemplate() {
         if (el) observer.observe(el, { attributes:true, attributeFilter:['style', 'class'] });
       });
       document.addEventListener('transitionend', syncQuickBarOverlapGuard, true);
-      window.addEventListener('scroll', syncQuickBarOverlapGuard, { passive:true });
-      window.addEventListener('resize', syncQuickBarOverlapGuard);
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', syncQuickBarOverlapGuard);
-        window.visualViewport.addEventListener('scroll', syncQuickBarOverlapGuard);
-      }
       syncQuickBarOverlapGuard();
     }
 
