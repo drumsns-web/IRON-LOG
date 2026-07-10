@@ -166,6 +166,7 @@
     .exercise-quick-meta { margin-top:3px; color:var(--muted); font-size:11px; font-weight:700; }
     .exercise-quick-timer-group { display:flex; align-items:center; gap:4px; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     .exercise-quick-timer { min-width:58px; min-height:42px; padding:0 7px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--accent-brand); font-size:13px; font-weight:850; font-variant-numeric:tabular-nums; cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+    .exercise-quick-timer.active { border-color:var(--accent-brand); background:rgba(208,253,62,.12); color:var(--accent-brand); }
     .exercise-quick-timer-menu { width:32px; min-height:42px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:900; cursor:pointer; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     .exercise-quick-icon { width:42px; height:42px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:20px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .exercise-quick-icon.primary { border-color:var(--accent-brand); background:var(--accent-brand); color:#000; }
@@ -1957,8 +1958,9 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       localStorage.setItem('ironlog-interval-minutes', value);
       if (selectedExercise) saveExerciseInputPreference(selectedExercise, { timerMinutes:value });
       resetIntervalTimer(false);
+      startIntervalTimer();
       closeQuickTimerModal();
-      showCopyToast(`タイマーを${formatTimerDuration(Number(value) * 60)}にしました`);
+      showCopyToast(`${formatTimerDuration(Number(value) * 60)}で開始しました`);
     }
 
     function tickIntervalTimer() {
@@ -7671,6 +7673,7 @@ function init() {
         const seconds = intervalTimerRemaining % 60;
         timer.textContent = `${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
         timer.title = intervalTimerActive ? 'タイマーをリセット' : 'タイマーを開始';
+        timer.classList.toggle('active', intervalTimerActive);
       }
     }
 
