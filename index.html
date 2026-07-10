@@ -273,6 +273,7 @@
     .quick-timer-options { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); }
     .quick-timer-options button { min-height:54px; border:1px solid #48484a; border-radius:9px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:850; cursor:pointer; }
     .quick-timer-options button.active { border-color:var(--accent-brand); background:rgba(208,253,62,.12); color:var(--accent-brand); }
+    .quick-timer-options button.just-selected { border-color:var(--accent-brand); background:rgba(208,253,62,.18); color:var(--accent-brand); box-shadow:0 0 0 3px rgba(208,253,62,.42) inset; }
     #quickTimerModal { align-items:flex-end; padding:12px 12px max(12px, calc(var(--keyboard-inset, 0px) + 12px)); }
     #quickTimerModal .technique-dialog { max-height:min(48vh, 360px); border-radius:16px; }
     .plan-overview-list { display:grid; gap:9px; padding:14px 16px max(30px, env(safe-area-inset-bottom)); overflow-y:auto; }
@@ -972,7 +973,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <div id="quickSetStatus" class="exercise-quick-meta">セット入力</div>
     </div>
     <div class="exercise-quick-timer-group">
-      <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="handleQuickTimerClick(event)" oncontextmenu="event.preventDefault()" title="タイマーを開始・リセット">02:00</button>
+      <button id="quickTimerButton" type="button" class="exercise-quick-timer" onclick="handleQuickTimerClick(event)" ontouchend="event.preventDefault(); handleQuickTimerClick(event)" oncontextmenu="event.preventDefault()" title="タップで開始・リセット">02:00</button>
       <button type="button" class="exercise-quick-timer-menu" onclick="openQuickTimerModal()" oncontextmenu="event.preventDefault()" title="時間を選択" aria-label="タイマー時間を選択">▼</button>
     </div>
     <button type="button" class="exercise-quick-icon copy" onclick="duplicatePreviousSet()" title="直前セットを複製" aria-label="直前セットを複製">⧉</button>
@@ -1930,7 +1931,12 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     }
 
     function handleQuickTimerClick(event) {
-      toggleIntervalTimer();
+      if (event) event.preventDefault();
+      if (intervalTimerActive) {
+        resetIntervalTimer(true);
+        return;
+      }
+      startIntervalTimer();
     }
 
     function openQuickTimerModal() {
@@ -1940,7 +1946,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       box.innerHTML = intervalMinuteOptions.map(value => {
         const seconds = Math.round(Number(value) * 60);
         const active = value === currentValue ? 'active' : '';
-        return `<button type="button" class="${active}" onclick="selectQuickTimerDuration('${value}')">${formatTimerDuration(seconds)}</button>`;
+        return `<button type="button" class="${active}" data-quick-timer-value="${value}" onclick="selectQuickTimerDuration('${value}')">${formatTimerDuration(seconds)}</button>`;
       }).join('');
       document.getElementById('quickTimerModal').style.display = 'flex';
     }
@@ -1952,14 +1958,28 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     }
 
     function selectQuickTimerDuration(value) {
+      if (!intervalMinuteOptions.includes(String(value))) return;
+      document.querySelectorAll('[data-quick-timer-value]').forEach(button => {
+        const selected = button.dataset.quickTimerValue === String(value);
+        button.classList.toggle('active', selected);
+        button.classList.toggle('just-selected', selected);
+      });
       const select = document.getElementById('timerMinutes');
       if (select) select.value = value;
       localStorage.setItem('ironlog-interval-minutes', value);
       if (selectedExercise) saveExerciseInputPreference(selectedExercise, { timerMinutes:value });
-      resetIntervalTimer(false);
-      startIntervalTimer();
-      closeQuickTimerModal();
-      showCopyToast(`${formatTimerDuration(Number(value) * 60)}で開始しました`);
+      intervalTimerActive = false;
+      clearInterval(intervalTimerId);
+      intervalTimerId = null;
+      intervalTimerTotal = Math.round(Number(value) * 60);
+      intervalTimerRemaining = intervalTimerTotal;
+      updateExerciseQuickBar();
+      renderIntervalTimer();
+      setTimeout(() => {
+        startIntervalTimer();
+        closeQuickTimerModal();
+        showCopyToast(`${formatTimerDuration(Number(value) * 60)}で開始しました`);
+      }, 220);
     }
 
     function tickIntervalTimer() {
