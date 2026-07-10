@@ -157,7 +157,7 @@
     .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
     .draft-status-row .saving { color:var(--accent-brand); }
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
-    .exercise-quick-bar { position:fixed; z-index:360; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
+    .exercise-quick-bar { position:fixed; z-index:90; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
     .exercise-quick-bar.suppressed,
     .exercise-quick-bar.save-guard-hidden { display:none !important; }
@@ -282,7 +282,7 @@
     .plan-overview-text { color:var(--text); font-size:14px; font-weight:700; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
     .plan-overview-empty { color:var(--muted); font-weight:700; }
 
-    .save-btn { position:relative; z-index:380; width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer; touch-action:manipulation; -webkit-tap-highlight-color:rgba(208,253,62,.35);}
+    .save-btn { position:relative; z-index:20; width: 100%; padding: 16px; background: var(--accent-brand); border: none; border-radius: 12px; color: #000; font-size: 16px; font-weight: 700; margin-top: 10px; cursor: pointer; touch-action:manipulation; -webkit-tap-highlight-color:rgba(208,253,62,.35);}
     
     .save-btn:active { transform: scale(0.98); }
     .ai-copy-btn { width: 100%; padding: 14px; background: transparent; border: 1px solid var(--line); border-radius: 12px; color: #fff; font-size: 14px; font-weight: 600; margin-top: 12px; cursor: pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:0.2s;}
@@ -8811,13 +8811,19 @@ function saveWorkoutCore() {
       }
     }
 
+    let isSavingWorkout = false;
+
     function saveWorkout() {
+      if (isSavingWorkout) return;
+      isSavingWorkout = true;
       try {
         return saveWorkoutCore();
       } catch (err) {
         console.error('save workout failed', err);
         const detail = err?.message ? `\n\n原因: ${err.message}` : '';
         alert(`保存時にエラーが出ました。${detail}\n\n画面を再読み込みしても直らない場合は、この状態のまま相談してください。`);
+      } finally {
+        setTimeout(() => { isSavingWorkout = false; }, 700);
       }
     }
 
