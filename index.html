@@ -3612,7 +3612,11 @@ function init() {
       createDailyLocalBackup();
       renderLocalBackups();
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) syncAppDateAfterResume();
+        if (document.hidden) {
+          if (document.getElementById('view-exercise')?.classList.contains('active')) saveCurrentDraft();
+        } else {
+          syncAppDateAfterResume();
+        }
       });
       window.addEventListener('pageshow', syncAppDateAfterResume);
       window.addEventListener('focus', syncAppDateAfterResume);
@@ -3623,6 +3627,8 @@ function init() {
 
     // --- View Navigation ---
     function switchView(viewId) {
+      const leavingExercise = document.getElementById('view-exercise')?.classList.contains('active') && viewId !== 'view-exercise';
+      if (leavingExercise) saveCurrentDraft();
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       const target = document.getElementById(viewId);
       if (target) target.classList.add('active');
@@ -5026,16 +5032,16 @@ function init() {
           <button class="swipe-delete" onclick="deleteLogGroupByExercise('${safeExercise}')">${deleteText}</button>
           <div class="swipe-main" id="swipe-${gIdx}" ontouchstart="swipeStart(event, ${gIdx})" ontouchmove="swipeMove(event, ${gIdx})" ontouchend="swipeEnd(event, ${gIdx})">
             <div class="log-group" style="background:var(--bg); border:none; border-radius:0; margin-bottom:0;">
-              <div class="log-group-header" onclick="${g.draft ? `editExercise('${safeExercise}')` : `toggleLogGroup(${gIdx})`}" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+              <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
                 <div style="width:4px; height:24px; background:${catColors[getCategoryForExercise(g.exercise)] || catColors['その他']}; border-radius:2px; margin-right:12px;"></div>
                 <div style="flex:1;">
                   <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
                   <div style="font-size:12px; color:${g.draft ? 'var(--accent-brand)' : 'var(--muted)'}; font-weight:normal;">${summaryWithTime}</div>
                 </div>
                 <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'))" style="margin-right:10px; min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
-                <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
+                <div style="color:var(--muted); font-size:16px; transform:${g.draft ? 'rotate(90deg)' : 'rotate(0deg)'}; transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
               </div>
-              <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
+              <div id="sets-${gIdx}" style="display:${g.draft ? 'block' : 'none'}; padding: 0 16px 16px 28px;">
                 <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
               ${(() => {
                 const memoText = g.draft ? g.draftMemo : ((g.sets.find(s => s.memo) || {}).memo || '');
@@ -7260,7 +7266,7 @@ function init() {
       return session ? `前回 ${formatComparisonDateLabel(session.date)}` : '前回なし';
     }
 
-    function formatPreviousSetDetail(set, index) {
+    function formatPreviousSetDetail(set, index, sourceKey = '', targetIndex = -1) {
       if (!set) return '';
       const metricType = inferLogMetricType(set, set.exercise || selectedExercise);
       const effort = metricType === 'UP'
@@ -7274,10 +7280,45 @@ function init() {
       const techniqueText = getTechniqueSummary(technique, set);
       const note = set.note || '';
       const assist = formatAssistMeta(set, set.exercise || selectedExercise);
+      const applyButton = sourceKey && targetIndex >= 0
+        ? `<button type="button" onclick="applyPreviousSetAsDraft(${targetIndex}, '${sourceKey}', ${index})" style="margin-top:9px; min-height:34px; width:100%; border:1px solid var(--accent-brand); border-radius:8px; background:rgba(208,253,62,.08); color:var(--accent-brand); font-size:12px; font-weight:850; cursor:pointer;">このセットを${targetIndex + 1}セット目へ下書き</button>`
+        : '';
       return `<div class="history-item">
         <div class="history-item-head"><span>${index + 1}セット目</span><span>${formatRecordedWeight(set, set.exercise || selectedExercise)} × ${set.reps ?? '-'}回</span></div>
         <div class="history-item-summary">${escapeHtml(effort)}${assist ? `・${escapeHtml(assist)}` : ''}${techniqueText ? `・${escapeHtml(techniqueText)}` : ''}${note ? `<br>メモ: ${escapeHtml(note)}` : ''}</div>
+        ${applyButton}
       </div>`;
+    }
+
+    function getPreviousSetModalSource(sourceKey) {
+      const preference = getExerciseComparisonPreference();
+      if (sourceKey === 'comparison') {
+        return getExerciseComparisonSession(selectedExercise, currentDateStr, false, preference.mode, preference.date);
+      }
+      if (sourceKey === 'latest') return getLatestSameExerciseSession();
+      if (sourceKey.startsWith('date:')) {
+        const date = sourceKey.slice(5);
+        const sets = logs.filter(set => set.exercise === selectedExercise && set.date === date).sort((a, b) => a.id - b.id);
+        return sets.length ? { date, sets, label:'指定日', shortLabel:'指定日' } : null;
+      }
+      return null;
+    }
+
+    function applyPreviousSetAsDraft(targetIndex, sourceKey, sourceIndex) {
+      if (!currentSets[targetIndex]) return;
+      const session = getPreviousSetModalSource(sourceKey);
+      const sourceSet = session?.sets?.[sourceIndex];
+      if (!sourceSet) return showCopyToast('反映できるセットがありません');
+      captureSetEditUndo(`セット${targetIndex + 1}へ前回下書き`);
+      const copied = createDraftSetFromSource({ ...sourceSet, date:session.date }, selectedExercise);
+      currentSets[targetIndex] = copied;
+      renderSetRows();
+      updateAssistCalcVisibility();
+      calcAdvice();
+      saveCurrentDraft();
+      closePreviousSetModal();
+      showUndoToast(`セット${targetIndex + 1}へ前回下書き`);
+      showCopyToast(`${formatComparisonDateLabel(session.date)}の${sourceIndex + 1}セット目を反映しました`);
     }
 
     function openPreviousSetModal(index) {
@@ -7296,7 +7337,7 @@ function init() {
             <div class="history-item-head"><span>このセット番号</span><span>${formatRecordedWeight(selected, selectedExercise)} × ${selected.reps ?? '-'}回</span></div>
             <div class="history-item-summary">${escapeHtml(formatSimpleAiSet({ ...selected, exercise:selectedExercise }))}</div>
           </div>` : ''}
-          ${session.sets.map(formatPreviousSetDetail).join('')}`;
+          ${session.sets.map((set, setIndex) => formatPreviousSetDetail(set, setIndex, highlight ? 'comparison' : 'latest', index)).join('')}`;
       };
       if ((!comparisonSession || !comparisonSession.sets?.length) && (!latestSession || !latestSession.sets?.length)) {
         title.textContent = '前回同種目';
