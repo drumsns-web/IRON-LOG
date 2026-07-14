@@ -181,7 +181,13 @@
     .history-item-summary { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
     .history-item button { min-height:34px; padding:0 11px; border:1px solid var(--accent-brand); border-radius:7px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:800; cursor:pointer; }
     .history-item button.just-selected { border-color:var(--accent-brand); background:rgba(208,253,62,.16); color:var(--accent-brand); box-shadow:0 0 0 3px rgba(208,253,62,.42) inset; }
-    .daily-exercise-actions { display:flex; align-items:center; gap:6px; margin-right:8px; }
+    .daily-log-accent { width:4px; height:24px; background:var(--accent-brand); border-radius:2px; margin:5px 12px 0 0; flex:0 0 auto; }
+    .daily-exercise-main { min-width:0; flex:1; display:grid; gap:6px; }
+    .daily-exercise-title { min-width:0; color:var(--text); font-size:16px; font-weight:700; line-height:1.28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .daily-exercise-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; }
+    .daily-exercise-summary { min-width:0; flex:1; font-size:12px; line-height:1.45; color:var(--muted); font-weight:600; }
+    .daily-exercise-summary.draft { color:var(--accent-brand); }
+    .daily-exercise-actions { display:flex; align-items:center; gap:6px; flex:0 0 auto; }
     .daily-order-btn { width:34px; min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:900; cursor:pointer; }
     .daily-order-btn:disabled { opacity:.25; cursor:default; }
     .daily-insert-btn { min-height:34px; padding:0 9px; border:1px dashed rgba(208,253,62,.5); border-radius:8px; background:rgba(208,253,62,.06); color:var(--accent-brand); font-size:11px; font-weight:850; cursor:pointer; }
@@ -5052,18 +5058,20 @@ function init() {
           <button class="swipe-delete" onclick="deleteLogGroupByExercise('${safeExercise}')">${deleteText}</button>
           <div class="swipe-main" id="swipe-${gIdx}" ontouchstart="swipeStart(event, ${gIdx})" ontouchmove="swipeMove(event, ${gIdx})" ontouchend="swipeEnd(event, ${gIdx})">
             <div class="log-group" style="background:var(--bg); border:none; border-radius:0; margin-bottom:0;">
-              <div class="log-group-header" onclick="${g.draft ? `editExercise('${safeExercise}')` : `toggleLogGroup(${gIdx})`}" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
-                <div style="width:4px; height:24px; background:${catColors[getCategoryForExercise(g.exercise)] || catColors['その他']}; border-radius:2px; margin-right:12px;"></div>
-                <div style="flex:1;">
-                  <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}${g.draft && g.recalledFrom ? `<span class="draft-source-label">${escapeHtml(getRecallDateLabel(g.recalledFrom))}下書き</span>` : ''}</div>
-                  <div style="font-size:12px; color:${g.draft ? 'var(--accent-brand)' : 'var(--muted)'}; font-weight:normal;">${summaryWithTime}</div>
+              <div class="log-group-header" onclick="${g.draft ? `editExercise('${safeExercise}')` : `toggleLogGroup(${gIdx})`}" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:flex-start;">
+                <div class="daily-log-accent" style="background:${catColors[getCategoryForExercise(g.exercise)] || catColors['その他']};"></div>
+                <div class="daily-exercise-main">
+                  <div class="daily-exercise-title">${g.exercise}${g.draft && g.recalledFrom ? `<span class="draft-source-label">${escapeHtml(getRecallDateLabel(g.recalledFrom))}下書き</span>` : ''}</div>
+                  <div class="daily-exercise-bottom">
+                    <div class="daily-exercise-summary ${g.draft ? 'draft' : ''}">${summaryWithTime}</div>
+                    <div class="daily-exercise-actions">
+                      <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), -1)" ${gIdx === 0 ? 'disabled' : ''} title="上へ">↑</button>
+                      <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), 1)" ${gIdx === groups.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
+                      <button type="button" class="daily-insert-btn" onclick="event.stopPropagation(); openExerciseInsertAfterName(decodeURIComponent('${encodedExercise}'))">下に追加</button>
+                      <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'))" style="min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
+                    </div>
+                  </div>
                 </div>
-                <div class="daily-exercise-actions">
-                  <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), -1)" ${gIdx === 0 ? 'disabled' : ''} title="上へ">↑</button>
-                  <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), 1)" ${gIdx === groups.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
-                  <button type="button" class="daily-insert-btn" onclick="event.stopPropagation(); openExerciseInsertAfterName(decodeURIComponent('${encodedExercise}'))">下に追加</button>
-                </div>
-                <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'))" style="margin-right:10px; min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
                 <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
               </div>
               <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
