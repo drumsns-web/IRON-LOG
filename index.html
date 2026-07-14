@@ -124,6 +124,8 @@
     .set-technique-summary { min-width:0; flex:1; color:var(--set-value-text); font-size:14px; font-weight:750; line-height:1.4; white-space:normal; overflow-wrap:anywhere; }
     .set-extra-line { display:grid; grid-template-columns:74px minmax(0,1fr); gap:8px; padding:0 16px 11px 70px; align-items:center; }
     .set-prev-btn { min-height:34px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--set-label-text); font-size:12px; font-weight:800; cursor:pointer; }
+    .set-prev-btn.has-prev { border-color:rgba(208,253,62,.48); color:var(--accent-brand); background:rgba(208,253,62,.08); }
+    .set-prev-btn:active, .set-prev-btn.just-selected { border-color:var(--accent-brand); background:rgba(208,253,62,.18); color:var(--accent-brand); box-shadow:0 0 0 3px rgba(208,253,62,.32) inset; }
     .set-prev-btn:disabled { opacity:.42; cursor:default; }
     .set-note-input { width:100%; min-height:34px; border:1px solid var(--line); border-radius:7px; outline:none; background:var(--surface-2); color:var(--set-value-text); padding:0 10px; font-size:13px; font-weight:650; }
     .set-note-input::placeholder { color:var(--set-ghost-text); opacity:1; }
@@ -179,6 +181,13 @@
     .history-item-summary { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
     .history-item button { min-height:34px; padding:0 11px; border:1px solid var(--accent-brand); border-radius:7px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:800; cursor:pointer; }
     .history-item button.just-selected { border-color:var(--accent-brand); background:rgba(208,253,62,.16); color:var(--accent-brand); box-shadow:0 0 0 3px rgba(208,253,62,.42) inset; }
+    .daily-exercise-actions { display:flex; align-items:center; gap:6px; margin-right:8px; }
+    .daily-order-btn { width:34px; min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:15px; font-weight:900; cursor:pointer; }
+    .daily-order-btn:disabled { opacity:.25; cursor:default; }
+    .daily-insert-btn { min-height:34px; padding:0 9px; border:1px dashed rgba(208,253,62,.5); border-radius:8px; background:rgba(208,253,62,.06); color:var(--accent-brand); font-size:11px; font-weight:850; cursor:pointer; }
+    .draft-only-set { color:var(--set-ghost-text); opacity:.72; }
+    .draft-only-set .tag { opacity:.72; }
+    .draft-source-label { display:inline-flex; align-items:center; margin-left:6px; padding:1px 6px; border:1px solid rgba(208,253,62,.36); border-radius:999px; color:var(--accent-brand); font-size:10px; font-weight:850; }
     @media (max-width:360px) {
       .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto auto auto; }
       .exercise-quick-timer { grid-row:1; }
@@ -2205,6 +2214,26 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       renderDailyLogs();
     }
 
+    function moveExerciseByName(exName, direction) {
+      const groups = getExerciseOrderForDate(currentDateStr);
+      const idx = groups.indexOf(exName);
+      if (idx === -1) return;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= groups.length) return;
+      const temp = groups[idx];
+      groups[idx] = groups[newIdx];
+      groups[newIdx] = temp;
+      saveDailyExerciseOrder(currentDateStr, groups);
+      renderDailyLogs();
+      showCopyToast(`${exName}を${direction < 0 ? '上' : '下'}へ移動しました`);
+    }
+
+    function openExerciseInsertAfterName(exName) {
+      const groups = getExerciseOrderForDate(currentDateStr);
+      const idx = groups.indexOf(exName);
+      openExerciseInsertAt(idx === -1 ? groups.length : idx + 1);
+    }
+
     function openExerciseInsertAt(index) {
       closeReorderSheet();
       openExSheet(index);
@@ -2615,9 +2644,6 @@ function saveDailyReadiness() {
   if (hasValue) data[currentDateStr] = entry;
   else delete data[currentDateStr];
   localStorage.setItem(STORE_READINESS, JSON.stringify(data));
-  if (Number.isFinite(entry.weight) && entry.weight > 0) {
-    localStorage.setItem('ironlog-body-weight', String(entry.weight));
-  }
   const label = document.getElementById('readinessSavedLabel');
   if (label) {
     label.textContent = '保存済み';
@@ -3438,16 +3464,16 @@ function applyWorkoutRecall() {
         prevAssistMode: set.assistMode ?? '',
         prevMetricType: inferLogMetricType(set, group.exercise),
         prevNote: set.note || '',
-        weight: String(set.weight),
-        reps: String(set.reps),
+        weight: '',
+        reps: '',
         rpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
         rir: set.rir ?? '',
-        partialReps: set.partialReps ?? '',
-        bodyWeight: set.bodyWeight ?? '',
-        assistAmount: set.assistAmount ?? '',
+        partialReps: '',
+        bodyWeight: '',
+        assistAmount: '',
         assistMode: set.assistMode ?? '',
         metricType: inferLogMetricType(set, group.exercise),
-        technique: normalizeTechnique(set.technique),
+        technique: { type:'none' },
         note: '',
         done: false,
         manualCheckRequired: true,
@@ -3612,11 +3638,7 @@ function init() {
       createDailyLocalBackup();
       renderLocalBackups();
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          if (document.getElementById('view-exercise')?.classList.contains('active')) saveCurrentDraft();
-        } else {
-          syncAppDateAfterResume();
-        }
+        if (!document.hidden) syncAppDateAfterResume();
       });
       window.addEventListener('pageshow', syncAppDateAfterResume);
       window.addEventListener('focus', syncAppDateAfterResume);
@@ -3627,8 +3649,6 @@ function init() {
 
     // --- View Navigation ---
     function switchView(viewId) {
-      const leavingExercise = document.getElementById('view-exercise')?.classList.contains('active') && viewId !== 'view-exercise';
-      if (leavingExercise) saveCurrentDraft();
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       const target = document.getElementById(viewId);
       if (target) target.classList.add('active');
@@ -5032,16 +5052,21 @@ function init() {
           <button class="swipe-delete" onclick="deleteLogGroupByExercise('${safeExercise}')">${deleteText}</button>
           <div class="swipe-main" id="swipe-${gIdx}" ontouchstart="swipeStart(event, ${gIdx})" ontouchmove="swipeMove(event, ${gIdx})" ontouchend="swipeEnd(event, ${gIdx})">
             <div class="log-group" style="background:var(--bg); border:none; border-radius:0; margin-bottom:0;">
-              <div class="log-group-header" onclick="toggleLogGroup(${gIdx})" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
+              <div class="log-group-header" onclick="${g.draft ? `editExercise('${safeExercise}')` : `toggleLogGroup(${gIdx})`}" style="background:transparent; padding:16px 8px; cursor:pointer; display:flex; align-items:center;">
                 <div style="width:4px; height:24px; background:${catColors[getCategoryForExercise(g.exercise)] || catColors['その他']}; border-radius:2px; margin-right:12px;"></div>
                 <div style="flex:1;">
-                  <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}</div>
+                  <div style="font-size:16px; font-weight:600; margin-bottom:4px;">${g.exercise}${g.draft && g.recalledFrom ? `<span class="draft-source-label">${escapeHtml(getRecallDateLabel(g.recalledFrom))}下書き</span>` : ''}</div>
                   <div style="font-size:12px; color:${g.draft ? 'var(--accent-brand)' : 'var(--muted)'}; font-weight:normal;">${summaryWithTime}</div>
                 </div>
+                <div class="daily-exercise-actions">
+                  <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), -1)" ${gIdx === 0 ? 'disabled' : ''} title="上へ">↑</button>
+                  <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), 1)" ${gIdx === groups.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
+                  <button type="button" class="daily-insert-btn" onclick="event.stopPropagation(); openExerciseInsertAfterName(decodeURIComponent('${encodedExercise}'))">下に追加</button>
+                </div>
                 <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'))" style="margin-right:10px; min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
-                <div style="color:var(--muted); font-size:16px; transform:${g.draft ? 'rotate(90deg)' : 'rotate(0deg)'}; transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
+                <div style="color:var(--muted); font-size:16px; transform: rotate(0deg); transition: transform 0.2s;" id="arrow-${gIdx}">›</div>
               </div>
-              <div id="sets-${gIdx}" style="display:${g.draft ? 'block' : 'none'}; padding: 0 16px 16px 28px;">
+              <div id="sets-${gIdx}" style="display:none; padding: 0 16px 16px 28px;">
                 <div style="background:var(--surface); border-radius:8px; border:1px solid var(--line); overflow:hidden;">
               ${(() => {
                 const memoText = g.draft ? g.draftMemo : ((g.sets.find(s => s.memo) || {}).memo || '');
@@ -5052,10 +5077,11 @@ function init() {
                 const tag = metricType === 'PR'
                   ? `内PR ${s.partialReps ?? '-'}`
                   : (metricType === 'UP' ? 'UP' : (metricType === 'RIR' ? `RIR ${s.rir ?? '-'}` : `RPE ${s.rpe}`));
+                const hasActualInput = s.weight !== '' && s.weight != null && s.reps !== '' && s.reps != null;
                 const weightText = s.weight !== '' && s.weight != null
                   ? formatRecordedWeight({ ...s, exercise:g.exercise }, g.exercise)
-                  : '-kg';
-                const repsText = s.reps !== '' && s.reps != null ? s.reps : '-';
+                  : (s.prevWeight !== '' && s.prevWeight != null ? formatRecordedWeight({ ...s, weight:s.prevWeight, exercise:g.exercise }, g.exercise) : '-kg');
+                const repsText = s.reps !== '' && s.reps != null ? s.reps : (s.prevReps !== '' && s.prevReps != null ? s.prevReps : '-');
                 const techniqueText = getTechniqueSummary(s.technique, s);
                 const setTimeText = formatSetClockTime(s.completedAt);
                 const assistText = formatAssistMeta(s, g.exercise);
@@ -5063,7 +5089,7 @@ function init() {
                 const setNote = s.note || '';
                 return `
                 <div style="border-bottom:1px solid var(--line);">
-                  <div class="log-row" style="background:transparent; border-bottom:none;">
+                  <div class="log-row ${hasActualInput ? '' : 'draft-only-set'}" style="background:transparent; border-bottom:none;">
                     <div style="width:30px; color:var(--muted)">${idx+1}</div>
                     <div style="flex:1; font-weight:600;">${weightText} × ${repsText}回</div>
                     <div class="tag">${tag}</div>
@@ -6736,7 +6762,7 @@ function init() {
         : '体重 ＋ 追加重量 = 実際の負荷';
       if (bodyInput && !bodyInput.value) {
         const todayBodyWeight = getReadinessData()[currentDateStr]?.weight;
-        bodyInput.value = Number(todayBodyWeight) > 0 ? todayBodyWeight : (localStorage.getItem('ironlog-body-weight') || '');
+        bodyInput.value = Number(todayBodyWeight) > 0 ? todayBodyWeight : (getStoredBodyWeightValue() || '0');
       }
       updateAssistLoadPreview();
     }
@@ -6784,7 +6810,25 @@ function init() {
     function updateAssistLoadPreview() {
       const bodyInput = document.getElementById('assistBodyWeight');
       const result = document.getElementById('assistLoadResult');
-      if (bodyInput && bodyInput.value) localStorage.setItem('ironlog-body-weight', bodyInput.value);
+      const bodyValue = Number(bodyInput?.value || '');
+      if (Number.isFinite(bodyValue) && bodyValue > 0) {
+        localStorage.setItem('ironlog-body-weight', String(bodyValue));
+        localStorage.setItem('ironlog-body-weight-user-set-v1', '1');
+      }
+      if (Number.isFinite(bodyValue) && bodyValue > 0 && isBodyweightLoadExercise() && Array.isArray(currentSets)) {
+        const mode = isAssistExercise() ? 'assist' : 'add';
+        let changed = false;
+        currentSets.forEach(set => {
+          const amount = Number(set.assistAmount);
+          if (!Number.isFinite(amount)) return;
+          set.bodyWeight = Math.round(bodyValue * 10) / 10;
+          if (!set.assistMode) set.assistMode = mode;
+          const actual = (set.assistMode || mode) === 'assist' ? Math.max(0, set.bodyWeight - amount) : set.bodyWeight + amount;
+          set.weight = String(Math.round(actual * 10) / 10);
+          changed = true;
+        });
+        if (changed) saveCurrentDraft();
+      }
       const load = getAssistLoadValue();
       if (result) result.textContent = load === null ? '-- kg' : load + ' kg';
       return load;
@@ -6882,6 +6926,19 @@ function init() {
         currentSets = [createBlankSet()];
         renderSetRows();
       }
+    }
+
+    function hasSetFieldValue(value) {
+      return value !== '' && value != null;
+    }
+
+    function mergeComparisonIntoDraftSet(set, comparison, preserveExisting = false) {
+      if (!set || !comparison) return set;
+      Object.keys(comparison).forEach(key => {
+        if (preserveExisting && hasSetFieldValue(set[key])) return;
+        set[key] = comparison[key];
+      });
+      return set;
     }
 
     function loadPrevSets() {
@@ -7012,7 +7069,7 @@ function init() {
           const normalized = normalizeCurrentSetMetric(set);
           const freshComparison = comparisonTemplateSets[idx];
           if (freshComparison) {
-            Object.assign(normalized, freshComparison);
+            mergeComparisonIntoDraftSet(normalized, freshComparison, Boolean(draft.recalledFrom || normalized.prevComparisonDate));
             if (!normalized.done) normalized.manualCheckRequired = true;
           }
           return normalized;
@@ -7106,8 +7163,8 @@ function init() {
             ${sets.map((set, setIndex) => `<div>${setIndex + 1}セット目: ${escapeHtml(formatSimpleAiSet({ ...set, exercise:selectedExercise }, setIndex, sets))}</div>`).join('')}
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:10px;">
-            <button type="button" style="${selectedButtonStyle}" onclick="selectComparisonDateFromHistory('${session.date}')">${isSelectedDate ? '指定中' : 'この日を指定'}</button>
-            <button type="button" onclick="loadExerciseDraftFromHistory('${session.date}')">下書き追加</button>
+            <button type="button" style="${selectedButtonStyle}" onclick="selectComparisonDateButton(event, '${session.date}')">${isSelectedDate ? '指定中' : 'この日を指定'}</button>
+            <button type="button" onclick="loadExerciseDraftButton(event, '${session.date}')">下書き追加</button>
           </div>
         </div>
       </div>`;
@@ -7127,11 +7184,27 @@ function init() {
       showCopyToast(`${formatComparisonDateLabel(dateStr)}を指定しました`);
     }
 
+    function flashHistoryActionButton(event, callback) {
+      const button = event?.currentTarget;
+      if (!button) return callback();
+      document.querySelectorAll('.history-item button.just-selected').forEach(el => el.classList.remove('just-selected'));
+      button.classList.add('just-selected');
+      setTimeout(callback, 180);
+    }
+
+    function selectComparisonDateButton(event, dateStr) {
+      flashHistoryActionButton(event, () => selectComparisonDateFromHistory(dateStr));
+    }
+
     function loadExerciseDraftFromHistory(dateStr) {
       saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:dateStr });
       renderComparisonControl();
       loadExerciseDraftFromSelectedDate();
       closePreviousSetModal();
+    }
+
+    function loadExerciseDraftButton(event, dateStr) {
+      flashHistoryActionButton(event, () => loadExerciseDraftFromHistory(dateStr));
     }
 
     function openComparisonHistoryModal(mode = 'recent') {
@@ -7203,17 +7276,17 @@ function init() {
         prevComparisonLabel:'指定日',
         prevComparisonDate:set.date || '',
         prevNote: set.note || set.prevNote || '',
-        weight: String(weightValue),
-        reps: String(repsValue),
+        weight: '',
+        reps: '',
         rpe: rpeValue,
         rir: metricType === 'RIR' ? rirValue : '',
-        partialReps: metricType === 'PR' ? partialValue : '',
-        bodyWeight: set.bodyWeight ?? set.prevBodyWeight ?? '',
-        assistAmount: set.assistAmount ?? set.prevAssistAmount ?? '',
+        partialReps: '',
+        bodyWeight: '',
+        assistAmount: '',
         assistMode: set.assistMode ?? set.prevAssistMode ?? '',
-        note: set.note || '',
+        note: '',
         metricType,
-        technique: normalizeTechnique(set.technique),
+        technique: { type:'none' },
         done:false,
         manualCheckRequired:true,
         completedAt:null
@@ -7266,7 +7339,7 @@ function init() {
       return session ? `前回 ${formatComparisonDateLabel(session.date)}` : '前回なし';
     }
 
-    function formatPreviousSetDetail(set, index, sourceKey = '', targetIndex = -1) {
+    function formatPreviousSetDetail(set, index) {
       if (!set) return '';
       const metricType = inferLogMetricType(set, set.exercise || selectedExercise);
       const effort = metricType === 'UP'
@@ -7280,45 +7353,10 @@ function init() {
       const techniqueText = getTechniqueSummary(technique, set);
       const note = set.note || '';
       const assist = formatAssistMeta(set, set.exercise || selectedExercise);
-      const applyButton = sourceKey && targetIndex >= 0
-        ? `<button type="button" onclick="applyPreviousSetAsDraft(${targetIndex}, '${sourceKey}', ${index})" style="margin-top:9px; min-height:34px; width:100%; border:1px solid var(--accent-brand); border-radius:8px; background:rgba(208,253,62,.08); color:var(--accent-brand); font-size:12px; font-weight:850; cursor:pointer;">このセットを${targetIndex + 1}セット目へ下書き</button>`
-        : '';
       return `<div class="history-item">
         <div class="history-item-head"><span>${index + 1}セット目</span><span>${formatRecordedWeight(set, set.exercise || selectedExercise)} × ${set.reps ?? '-'}回</span></div>
         <div class="history-item-summary">${escapeHtml(effort)}${assist ? `・${escapeHtml(assist)}` : ''}${techniqueText ? `・${escapeHtml(techniqueText)}` : ''}${note ? `<br>メモ: ${escapeHtml(note)}` : ''}</div>
-        ${applyButton}
       </div>`;
-    }
-
-    function getPreviousSetModalSource(sourceKey) {
-      const preference = getExerciseComparisonPreference();
-      if (sourceKey === 'comparison') {
-        return getExerciseComparisonSession(selectedExercise, currentDateStr, false, preference.mode, preference.date);
-      }
-      if (sourceKey === 'latest') return getLatestSameExerciseSession();
-      if (sourceKey.startsWith('date:')) {
-        const date = sourceKey.slice(5);
-        const sets = logs.filter(set => set.exercise === selectedExercise && set.date === date).sort((a, b) => a.id - b.id);
-        return sets.length ? { date, sets, label:'指定日', shortLabel:'指定日' } : null;
-      }
-      return null;
-    }
-
-    function applyPreviousSetAsDraft(targetIndex, sourceKey, sourceIndex) {
-      if (!currentSets[targetIndex]) return;
-      const session = getPreviousSetModalSource(sourceKey);
-      const sourceSet = session?.sets?.[sourceIndex];
-      if (!sourceSet) return showCopyToast('反映できるセットがありません');
-      captureSetEditUndo(`セット${targetIndex + 1}へ前回下書き`);
-      const copied = createDraftSetFromSource({ ...sourceSet, date:session.date }, selectedExercise);
-      currentSets[targetIndex] = copied;
-      renderSetRows();
-      updateAssistCalcVisibility();
-      calcAdvice();
-      saveCurrentDraft();
-      closePreviousSetModal();
-      showUndoToast(`セット${targetIndex + 1}へ前回下書き`);
-      showCopyToast(`${formatComparisonDateLabel(session.date)}の${sourceIndex + 1}セット目を反映しました`);
     }
 
     function openPreviousSetModal(index) {
@@ -7337,7 +7375,7 @@ function init() {
             <div class="history-item-head"><span>このセット番号</span><span>${formatRecordedWeight(selected, selectedExercise)} × ${selected.reps ?? '-'}回</span></div>
             <div class="history-item-summary">${escapeHtml(formatSimpleAiSet({ ...selected, exercise:selectedExercise }))}</div>
           </div>` : ''}
-          ${session.sets.map((set, setIndex) => formatPreviousSetDetail(set, setIndex, highlight ? 'comparison' : 'latest', index)).join('')}`;
+          ${session.sets.map(formatPreviousSetDetail).join('')}`;
       };
       if ((!comparisonSession || !comparisonSession.sets?.length) && (!latestSession || !latestSession.sets?.length)) {
         title.textContent = '前回同種目';
@@ -7346,7 +7384,7 @@ function init() {
         title.textContent = `${selectedExercise}・前回確認`;
         const sameDate = comparisonSession?.date && comparisonSession.date === latestSession?.date;
         const historyButtons = getExerciseHistorySessions(selectedExercise, currentDateStr, 5)
-          .map(session => `<button type="button" onclick="selectComparisonDateFromHistory('${session.date}')" style="min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800;">${formatComparisonDateLabel(session.date)}</button>`)
+          .map(session => `<button type="button" onclick="selectComparisonDateButton(event, '${session.date}')" style="min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800;">${formatComparisonDateLabel(session.date)}</button>`)
           .join('');
         body.innerHTML = `${renderBlock(`比較対象（${comparisonSession?.shortLabel || '前回'}）`, comparisonSession, true)}
           ${sameDate ? '' : renderBlock('直近同種目', latestSession, false)}
@@ -7389,7 +7427,10 @@ function init() {
         const metricType = s.metricType;
         const technique = normalizeTechnique(s.technique);
         const techniqueSummary = getTechniqueSummary(technique, s);
-        const previousButtonLabel = getPreviousSetButtonLabel(latestSameExerciseSession);
+        const hasSetPrevious = s.prevWeight !== '' || s.prevReps !== '';
+        const previousButtonLabel = s.prevComparisonDate
+          ? `${s.prevComparisonLabel || '前回'} ${formatComparisonDateLabel(s.prevComparisonDate)}`
+          : getPreviousSetButtonLabel(latestSameExerciseSession);
         const metricInput = metricType === 'PR'
           ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">`
           : metricType === 'UP'
@@ -7432,7 +7473,7 @@ function init() {
           </div>
           <div class="set-comparison" id="set-comparison-${i}">${getSetComparisonHtml(s)}</div>
           <div class="set-extra-line">
-            <button type="button" class="set-prev-btn" onclick="openPreviousSetModal(${i})" ${latestSameExerciseSession ? '' : 'disabled'}>${previousButtonLabel}</button>
+            <button type="button" class="set-prev-btn ${hasSetPrevious ? 'has-prev' : ''}" onclick="event.currentTarget.classList.add('just-selected'); setTimeout(() => { event.currentTarget.classList.remove('just-selected'); openPreviousSetModal(${i}); }, 150)" ${latestSameExerciseSession || hasSetPrevious ? '' : 'disabled'}>${previousButtonLabel}</button>
             <input class="set-note-input" type="text" placeholder="${escapeHtml(getPreviousSetNotePlaceholder(i))}" value="${escapeHtml(s.note || '')}" oninput="updateSetNote(${i}, this.value)">
           </div>
           <div class="set-technique-line">
@@ -7650,13 +7691,20 @@ function init() {
     function getTodayBodyWeightValue() {
       const readinessWeight = Number(getReadinessData()[currentDateStr]?.weight);
       if (Number.isFinite(readinessWeight) && readinessWeight > 0) return readinessWeight;
-      const cachedWeight = Number(localStorage.getItem('ironlog-body-weight') || '');
+      const cachedWeight = Number(getStoredBodyWeightValue() || '');
       return Number.isFinite(cachedWeight) && cachedWeight > 0 ? cachedWeight : null;
+    }
+
+    function getStoredBodyWeightValue() {
+      if (localStorage.getItem('ironlog-body-weight-user-set-v1') !== '1') return '';
+      const cachedWeight = Number(localStorage.getItem('ironlog-body-weight') || '');
+      return Number.isFinite(cachedWeight) && cachedWeight > 0 ? String(cachedWeight) : '';
     }
 
     function refreshBodyweightSetLoadFromToday(set) {
       if (!set || !isBodyweightLoadExercise()) return set;
-      const todayBody = getTodayBodyWeightValue();
+      const setBody = Number(set.bodyWeight);
+      const todayBody = Number.isFinite(setBody) && setBody > 0 ? setBody : getTodayBodyWeightValue();
       const amount = Number(set.assistAmount);
       const mode = set.assistMode || (isAssistExercise() ? 'assist' : (isWeightedBodyweightExercise() ? 'add' : ''));
       if (!Number.isFinite(todayBody) || !Number.isFinite(amount) || !mode) return set;
