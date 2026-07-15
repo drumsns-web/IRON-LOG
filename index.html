@@ -265,6 +265,7 @@
     .technique-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
     .technique-option { min-height:44px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:700; cursor:pointer; }
     .technique-option.active { border-color:var(--accent-brand); background:rgba(208,253,62,.1); color:var(--accent-brand); }
+    .technique-option.just-selected, .technique-add-stage.just-selected, .technique-preset-btn.just-selected, .previous-draft-btn.just-selected { border-color:var(--accent-brand) !important; background:rgba(208,253,62,.18) !important; color:var(--accent-brand) !important; box-shadow:0 0 0 3px rgba(208,253,62,.42) inset !important; }
     .technique-form { margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
     .technique-form label { display:block; margin-bottom:5px; color:var(--muted); font-size:13px; }
     .technique-form input,.technique-form select { width:100%; min-height:42px; border:1px solid var(--line); border-radius:8px; background:var(--surface-3); color:var(--text); padding:0 10px; font-size:14px; outline:none; }
@@ -862,6 +863,10 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div style="font-size:12px; color:var(--muted); margin-bottom:7px;">インターバルタイマー</div>
         <div class="timer-controls">
           <select id="timerMinutes" onchange="changeTimerDuration()">
+            <option value="0.1666667">10秒</option>
+            <option value="0.3333333">20秒</option>
+            <option value="0.5">30秒</option>
+            <option value="0.6666667">40秒</option>
             <option value="1">1分</option>
             <option value="1.5">1分30秒</option>
             <option value="2" selected>2分</option>
@@ -1790,16 +1795,18 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     let intervalTimerActive = false;
     let intervalTimerTwentySecondNotified = false;
     let timerNoticeTimeout = null;
-    const intervalMinuteOptions = ['1','1.5','2','2.5','3','3.5','4','4.5','5'];
+    const intervalMinuteOptions = ['0.1666667','0.3333333','0.5','0.6666667','1','1.5','2','2.5','3','3.5','4','4.5','5'];
 
     function getTimerSelectedSeconds() {
       const select = document.getElementById('timerMinutes');
-      return Math.max(60, Math.min(300, Math.round(Number(select?.value || '2') * 60)));
+      return Math.max(10, Math.min(300, Math.round(Number(select?.value || '2') * 60)));
     }
 
     function getTimerOptionValue(totalSeconds) {
-      const minutes = Math.max(60, Math.min(300, Number(totalSeconds) || 120)) / 60;
-      return String(Math.round(minutes * 2) / 2);
+      const seconds = Math.max(10, Math.min(300, Math.round(Number(totalSeconds) || 120)));
+      const match = intervalMinuteOptions.find(value => Math.round(Number(value) * 60) === seconds);
+      if (match) return match;
+      return String(Math.round((seconds / 60) * 2) / 2);
     }
 
     function formatTimerDuration(totalSeconds) {
@@ -6369,13 +6376,18 @@ function init() {
 
     function selectTechniqueType(type) {
       if (!setTechniqueTypes[type]) return;
+      document.querySelectorAll('.technique-option').forEach(button => {
+        const selected = button.dataset.techniqueType === type;
+        button.classList.toggle('active', selected);
+        button.classList.toggle('just-selected', selected);
+      });
       const previous = editingTechniqueDraft;
       editingTechniqueDraft = { type };
       if (type === 'forced') editingTechniqueDraft.assistedReps = previous.assistedReps ?? '';
-      if (type === 'restPause') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
+      if (type === 'restPause') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'20' }];
       if (type === 'drop' || type === 'descending') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ weight:'', reps:'' }];
       if (type === 'mechanicalDrop') editingTechniqueDraft.stages = previous.type === type ? previous.stages : [{ variant:'', reps:'' }];
-      if (type === 'myo') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'' }];
+      if (type === 'myo') editingTechniqueDraft.clusters = previous.type === type ? previous.clusters : [{ reps:'', restSeconds:'20' }];
       if (type === 'superset') editingTechniqueDraft.partnerExercise = previous.partnerExercise || '';
       if (type === 'pause') {
         editingTechniqueDraft.pauseSeconds = previous.pauseSeconds ?? '';
@@ -6398,10 +6410,24 @@ function init() {
       editingTechniqueDraft[listKey][index][key] = value;
     }
 
-    function addTechniqueStage() {
+    function flashActionButton(event, delay = 160) {
+      const button = event?.currentTarget;
+      if (!button) return;
+      button.classList.add('just-selected');
+      setTimeout(() => button.classList.remove('just-selected'), delay);
+    }
+
+    function addTechniqueStage(event) {
+      flashActionButton(event);
       if (['drop','descending'].includes(editingTechniqueDraft.type)) editingTechniqueDraft.stages.push({ weight:'', reps:'' });
       else if (editingTechniqueDraft.type === 'mechanicalDrop') editingTechniqueDraft.stages.push({ variant:'', reps:'' });
-      else editingTechniqueDraft.clusters.push({ reps:'', restSeconds:'' });
+      else editingTechniqueDraft.clusters.push({ reps:'', restSeconds:'20' });
+      renderTechniqueModal();
+    }
+
+    function setTechniqueRestPreset(index, seconds, event) {
+      flashActionButton(event, 220);
+      updateTechniqueStage(index, 'restSeconds', String(seconds));
       renderTechniqueModal();
     }
 
@@ -6417,7 +6443,7 @@ function init() {
       const form = document.getElementById('techniqueForm');
       if (!grid || !form) return;
       grid.innerHTML = Object.entries(setTechniqueTypes).map(([type, label]) =>
-        `<button type="button" class="technique-option ${editingTechniqueDraft.type === type ? 'active' : ''}" onclick="selectTechniqueType('${type}')">${label}</button>`
+        `<button type="button" class="technique-option ${editingTechniqueDraft.type === type ? 'active' : ''}" data-technique-type="${type}" onclick="selectTechniqueType('${type}')">${label}</button>`
       ).join('');
       const type = editingTechniqueDraft.type;
       if (type === 'none') {
@@ -6437,14 +6463,14 @@ function init() {
             <input type="number" inputmode="decimal" placeholder="実際の重量 kg" value="${item.weight ?? ''}" oninput="updateTechniqueStage(${index},'weight',this.value)">
             <input type="number" inputmode="numeric" placeholder="実際の回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
             <button type="button" onclick="removeTechniqueStage(${index})">−</button>
-          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ${title}を追加</button>`;
+          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage(event)">＋ ${title}を追加</button>`;
       } else if (type === 'mechanicalDrop') {
         form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>重量はそのまま、姿勢・角度・握りなどを有利な形に変えて続ける技法です。</strong><br><span style="color:var(--muted);">最初の重量・回数は通常欄へ入力し、変更後の形と追加回数を実施後に追記します。</span></div><label>フォーム変更後の追加分</label>
           <div style="margin-top:9px;">${editingTechniqueDraft.stages.map((item,index) => `<div class="technique-stage">
             <input type="text" placeholder="例：反動あり・角度変更" value="${escapeHtml(item.variant ?? '')}" oninput="updateTechniqueStage(${index},'variant',this.value)">
             <input type="number" inputmode="numeric" placeholder="実際の追加回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
             <button type="button" onclick="removeTechniqueStage(${index})">−</button>
-          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ 変更後の形を追加</button>`;
+          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage(event)">＋ 変更後の形を追加</button>`;
       } else if (type === 'restPause' || type === 'myo') {
         const title = type === 'myo' ? '活性化セット後のミニセット' : '短い休憩後の追加反復';
         const effortNote = type === 'myo'
@@ -6453,9 +6479,9 @@ function init() {
         form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;">${effortNote}<br><span style="color:var(--muted);">追加回数と休憩時間は実施後の結果として入力してください。</span></div><label>${title}を順番に記録します。最初の回数は通常欄へ入力します。</label>
           <div style="margin-top:9px;">${editingTechniqueDraft.clusters.map((item,index) => `<div class="technique-stage">
             <input type="number" inputmode="numeric" placeholder="実際の追加回数" value="${item.reps ?? ''}" oninput="updateTechniqueStage(${index},'reps',this.value)">
-            <input type="number" inputmode="numeric" placeholder="実際の休憩 秒" value="${item.restSeconds ?? ''}" oninput="updateTechniqueStage(${index},'restSeconds',this.value)">
+            <div style="display:grid; gap:5px;"><input type="number" inputmode="numeric" placeholder="実際の休憩 秒" value="${item.restSeconds ?? ''}" oninput="updateTechniqueStage(${index},'restSeconds',this.value)"><div style="display:grid; grid-template-columns:repeat(4,1fr); gap:4px;">${[10,20,30,40].map(sec => `<button type="button" class="technique-preset-btn ${Number(item.restSeconds)==sec?'just-selected':''}" onclick="setTechniqueRestPreset(${index},${sec},event)" style="min-height:28px; border:1px solid var(--line); border-radius:6px; background:var(--surface-3); color:var(--text); font-size:11px; font-weight:800;">${sec}秒</button>`).join('')}</div></div>
             <button type="button" onclick="removeTechniqueStage(${index})">−</button>
-          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage()">＋ ミニセットを追加</button>`;
+          </div>`).join('')}</div><button type="button" class="technique-add-stage" onclick="addTechniqueStage(event)">＋ ミニセットを追加</button>`;
       } else if (type === 'superset') {
         const names = Object.values(exercises).flat().filter(name => name !== selectedExercise);
         form.innerHTML = `<div style="margin-bottom:9px; color:var(--text); font-size:12px; line-height:1.6;"><strong>限界とは限らないため、現在のRPEを維持します。</strong></div><label>続けて行う相手種目</label><select onchange="updateTechniqueField('partnerExercise',this.value)">
@@ -7339,15 +7365,38 @@ function init() {
     }
 
     function getPreviousSetNotePlaceholder(index) {
-      const value = currentSets[index]?.prevNote;
-      return value ? `前回メモ: ${value}` : 'セットメモ';
+      const set = currentSets[index];
+      const value = set?.prevNote;
+      return value && set?.prevComparisonDate ? `前回メモ: ${value}` : 'セットメモ';
     }
 
     function getPreviousSetButtonLabel(session) {
-      return session ? `前回 ${formatComparisonDateLabel(session.date)}` : '前回なし';
+      return session ? `過去記録 ${formatComparisonDateLabel(session.date)}` : '過去記録なし';
     }
 
-    function formatPreviousSetDetail(set, index) {
+    function getPreviousSetDraftButton(session, setIndex, targetIndex) {
+      if (!session?.date || !session.sets?.[setIndex]) return '';
+      return `<button type="button" class="previous-draft-btn" onclick="applyPreviousSetAsDraft('${session.date}',${setIndex},${targetIndex},event)" style="margin-top:9px; width:100%; min-height:34px; border:1px solid var(--accent-brand); border-radius:8px; background:transparent; color:var(--accent-brand); font-size:12px; font-weight:850;">この内容をセット${targetIndex + 1}の下書きにする</button>`;
+    }
+
+    function applyPreviousSetAsDraft(dateStr, setIndex, targetIndex, event) {
+      flashActionButton(event, 220);
+      const source = logs.filter(set => set.exercise === selectedExercise && set.date === dateStr).sort((a, b) => Number(a.id || 0) - Number(b.id || 0))[setIndex];
+      const target = currentSets[targetIndex];
+      if (!source || !target) return showCopyToast('読み込める過去記録がありません');
+      captureSetEditUndo(`セット${targetIndex + 1}を過去記録から下書き`);
+      const draft = createDraftSetFromSource({ ...source, date:dateStr }, selectedExercise);
+      currentSets[targetIndex] = { ...target, ...draft, note:target.note || '', done:false, completedAt:null, manualCheckRequired:true };
+      renderSetRows();
+      updateAssistCalcVisibility();
+      calcAdvice();
+      saveCurrentDraft();
+      setTimeout(() => closePreviousSetModal(), 180);
+      showUndoToast(`セット${targetIndex + 1}を過去記録から下書き`);
+      showCopyToast('過去記録を下書きにしました');
+    }
+
+    function formatPreviousSetDetail(set, index, session = null, targetIndex = -1) {
       if (!set) return '';
       const metricType = inferLogMetricType(set, set.exercise || selectedExercise);
       const effort = metricType === 'UP'
@@ -7364,7 +7413,16 @@ function init() {
       return `<div class="history-item">
         <div class="history-item-head"><span>${index + 1}セット目</span><span>${formatRecordedWeight(set, set.exercise || selectedExercise)} × ${set.reps ?? '-'}回</span></div>
         <div class="history-item-summary">${escapeHtml(effort)}${assist ? `・${escapeHtml(assist)}` : ''}${techniqueText ? `・${escapeHtml(techniqueText)}` : ''}${note ? `<br>メモ: ${escapeHtml(note)}` : ''}</div>
+        ${targetIndex >= 0 ? getPreviousSetDraftButton(session, index, targetIndex) : ''}
       </div>`;
+    }
+
+    function handlePreviousSetButtonClick(button, index) {
+      if (button) button.classList.add('just-selected');
+      setTimeout(() => {
+        if (button) button.classList.remove('just-selected');
+        openPreviousSetModal(index);
+      }, 150);
     }
 
     function openPreviousSetModal(index) {
@@ -7383,7 +7441,7 @@ function init() {
             <div class="history-item-head"><span>このセット番号</span><span>${formatRecordedWeight(selected, selectedExercise)} × ${selected.reps ?? '-'}回</span></div>
             <div class="history-item-summary">${escapeHtml(formatSimpleAiSet({ ...selected, exercise:selectedExercise }))}</div>
           </div>` : ''}
-          ${session.sets.map(formatPreviousSetDetail).join('')}`;
+          ${session.sets.map((set, setIndex) => formatPreviousSetDetail(set, setIndex, session, index)).join('')}`;
       };
       if ((!comparisonSession || !comparisonSession.sets?.length) && (!latestSession || !latestSession.sets?.length)) {
         title.textContent = '前回同種目';
@@ -7437,7 +7495,7 @@ function init() {
         const techniqueSummary = getTechniqueSummary(technique, s);
         const hasSetPrevious = s.prevWeight !== '' || s.prevReps !== '';
         const previousButtonLabel = s.prevComparisonDate
-          ? `${s.prevComparisonLabel || '前回'} ${formatComparisonDateLabel(s.prevComparisonDate)}`
+          ? `${s.prevComparisonLabel || '過去記録'} ${formatComparisonDateLabel(s.prevComparisonDate)}`
           : getPreviousSetButtonLabel(latestSameExerciseSession);
         const metricInput = metricType === 'PR'
           ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">`
@@ -7481,7 +7539,7 @@ function init() {
           </div>
           <div class="set-comparison" id="set-comparison-${i}">${getSetComparisonHtml(s)}</div>
           <div class="set-extra-line">
-            <button type="button" class="set-prev-btn ${hasSetPrevious ? 'has-prev' : ''}" onclick="event.currentTarget.classList.add('just-selected'); setTimeout(() => { event.currentTarget.classList.remove('just-selected'); openPreviousSetModal(${i}); }, 150)" ${latestSameExerciseSession || hasSetPrevious ? '' : 'disabled'}>${previousButtonLabel}</button>
+            <button type="button" class="set-prev-btn ${hasSetPrevious ? 'has-prev' : ''}" onclick="handlePreviousSetButtonClick(this, ${i})" ${latestSameExerciseSession || hasSetPrevious ? '' : 'disabled'}>${previousButtonLabel}</button>
             <input class="set-note-input" type="text" placeholder="${escapeHtml(getPreviousSetNotePlaceholder(i))}" value="${escapeHtml(s.note || '')}" oninput="updateSetNote(${i}, this.value)">
           </div>
           <div class="set-technique-line">
@@ -7792,7 +7850,7 @@ function init() {
         prevAssistMode: sourceAssistMode,
         prevMetricType: sourceMetricType,
         prevTechnique: sourceTechnique,
-        prevComparisonLabel: '前セット',
+        prevComparisonLabel: 'コピー元セット',
         prevComparisonDate: currentDateStr,
         compareToPreviousSet: true,
         weight: fillActual ? sourceWeight : '',
@@ -7804,7 +7862,7 @@ function init() {
         assistAmount: fillActual ? sourceAssistAmount : '',
         assistMode: fillActual ? sourceAssistMode : '',
         note: fillActual ? (normalizedSource.note || '') : '',
-        prevNote: normalizedSource.note || normalizedSource.prevNote || '',
+        prevNote: '',
         metricType: sourceMetricType,
         technique: sourceTechnique,
         done: false,
@@ -8738,13 +8796,25 @@ function init() {
       return `${plan.label}\n${plan.text}`;
     }
 
+    function getExerciseOrderContextText(exName, dateStr) {
+      if (!exName || !dateStr) return '';
+      const order = getExerciseOrderForDate(dateStr);
+      const index = order.indexOf(exName);
+      const parts = [];
+      if (index >= 0) parts.push(`${index + 1}種目目`);
+      const category = getCategoryForExercise(exName);
+      const sameCategoryBefore = order.slice(0, Math.max(index, 0)).filter(name => getCategoryForExercise(name) === category);
+      if (sameCategoryBefore.length) parts.push(`同部位の前: ${sameCategoryBefore.join(' → ')}`);
+      return parts.join('・');
+    }
     function buildPreviousExerciseText(exName) {
       if (!exName) return '';
       const preference = getExerciseComparisonPreference(exName);
       const session = getExerciseComparisonSession(exName, currentDateStr, false, preference.mode, preference.date);
       if (!session || !session.sets || !session.sets.length) return '';
       const dateLabel = session.date ? formatComparisonDateLabel(session.date) : '';
-      const lines = [`${session.label || session.shortLabel || '前回'} ${dateLabel}`, exName];
+      const orderInfo = getExerciseOrderContextText(exName, session.date);
+      const lines = [`${session.label || session.shortLabel || '前回'} ${dateLabel}`, exName + (orderInfo ? `（${orderInfo}）` : '')];
       session.sets.forEach((set, index) => lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set, index, session.sets)}`));
       return lines.join('\n');
     }
@@ -9042,4 +9112,6 @@ function saveWorkoutCore() {
 
 </body>
 </html>
+
+
 
