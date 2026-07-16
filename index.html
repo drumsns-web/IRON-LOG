@@ -3477,13 +3477,13 @@ function applyWorkoutRecall() {
         prevAssistMode: set.assistMode ?? '',
         prevMetricType: inferLogMetricType(set, group.exercise),
         prevNote: set.note || '',
-        weight: '',
-        reps: '',
+        weight: String(set.weight ?? ''),
+        reps: String(set.reps ?? ''),
         rpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
         rir: set.rir ?? '',
-        partialReps: '',
-        bodyWeight: '',
-        assistAmount: '',
+        partialReps: set.partialReps ?? '',
+        bodyWeight: set.bodyWeight ?? '',
+        assistAmount: set.assistAmount ?? '',
         assistMode: set.assistMode ?? '',
         metricType: inferLogMetricType(set, group.exercise),
         technique: { type:'none' },
@@ -7100,7 +7100,16 @@ function init() {
       const draft = loadCurrentDraft();
       if (draft && Array.isArray(draft.sets)) {
         currentSets = draft.sets.map((set, idx) => {
-          const normalized = normalizeCurrentSetMetric(set);
+          const restored = { ...set };
+          if (draft.recalledFrom) {
+            if (!hasSetFieldValue(restored.weight) && hasSetFieldValue(restored.prevWeight)) restored.weight = String(restored.prevWeight);
+            if (!hasSetFieldValue(restored.reps) && hasSetFieldValue(restored.prevReps)) restored.reps = String(restored.prevReps);
+            if (!hasSetFieldValue(restored.partialReps) && hasSetFieldValue(restored.prevPartialReps)) restored.partialReps = restored.prevPartialReps;
+            if (!hasSetFieldValue(restored.bodyWeight) && hasSetFieldValue(restored.prevBodyWeight)) restored.bodyWeight = restored.prevBodyWeight;
+            if (!hasSetFieldValue(restored.assistAmount) && hasSetFieldValue(restored.prevAssistAmount)) restored.assistAmount = restored.prevAssistAmount;
+            if (!hasSetFieldValue(restored.assistMode) && hasSetFieldValue(restored.prevAssistMode)) restored.assistMode = restored.prevAssistMode;
+          }
+          const normalized = normalizeCurrentSetMetric(restored);
           const freshComparison = comparisonTemplateSets[idx];
           if (freshComparison) {
             mergeComparisonIntoDraftSet(normalized, freshComparison, Boolean(draft.recalledFrom || normalized.prevComparisonDate));
@@ -9112,6 +9121,8 @@ function saveWorkoutCore() {
 
 </body>
 </html>
+
+
 
 
 
