@@ -7023,6 +7023,9 @@ function init() {
       const prevSets = Array.isArray(comparisonSession?.sets) ? comparisonSession.sets : [];
       const latestSameExerciseSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
       const latestSameExerciseSets = latestSameExerciseSession ? latestSameExerciseSession.sets : [];
+      const todayRecordedSets = logs
+        .filter(set => set && set.exercise === selectedExercise && set.date === currentDateStr)
+        .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
 
       currentSets = [];
 
@@ -7125,7 +7128,12 @@ function init() {
       }));
 
       const draft = loadCurrentDraft();
-      if (draft && Array.isArray(draft.sets)) {
+      const draftHasInput = Boolean(draft?.sets?.some(set =>
+        hasSetFieldValue(set?.weight) || hasSetFieldValue(set?.reps) ||
+        hasSetFieldValue(set?.partialReps) || hasSetFieldValue(set?.rir) ||
+        Boolean(set?.note) || Boolean(set?.done)
+      ));
+      if (draft && Array.isArray(draft.sets) && (!todayRecordedSets.length || draftHasInput)) {
         currentSets = draft.sets.map((set, idx) => {
           const restored = { ...set };
           if (draft.recalledFrom) {
@@ -7148,6 +7156,33 @@ function init() {
         if (memoEl) memoEl.value = draft.memo || '';
         const time = new Date(draft.updatedAt || Date.now()).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
         setDraftSaveStatus(`自動保存済み ${time}`);
+      } else if (todayRecordedSets.length) {
+        currentSets = todayRecordedSets.map((record, idx) => {
+          const metricType = inferLogMetricType(record, selectedExercise);
+          const rpeValue = metricType === 'UP' ? 'UP' : (record.rpe ?? 8);
+          const restored = normalizeCurrentSetMetric({
+            weight: record.weight != null ? String(record.weight) : '',
+            reps: record.reps != null ? String(record.reps) : '',
+            rpe: rpeValue,
+            rir: record.rir ?? '',
+            partialReps: record.partialReps ?? '',
+            bodyWeight: record.bodyWeight ?? '',
+            assistAmount: record.assistAmount ?? '',
+            assistMode: record.assistMode ?? '',
+            note: record.note || '',
+            metricType,
+            technique: normalizeTechnique(record.technique),
+            done: true,
+            manualCheckRequired: false,
+            completedAt: Number(record.completedAt) || null
+          });
+          const freshComparison = comparisonTemplateSets[idx];
+          if (freshComparison) mergeComparisonIntoDraftSet(restored, freshComparison, true);
+          return restored;
+        });
+        const memoEl = document.getElementById('sessionMemo');
+        if (memoEl) memoEl.value = todayRecordedSets.find(set => set.memo)?.memo || '';
+        setDraftSaveStatus('記録済み・編集内容は自動保存されます');
       } else {
         setDraftSaveStatus('入力内容は自動保存されます');
       }
