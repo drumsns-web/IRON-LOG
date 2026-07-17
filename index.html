@@ -1335,7 +1335,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div class="technique-form" id="techniqueForm"></div>
         <div class="technique-actions">
           <button type="button" onclick="clearSetTechnique()" style="background:transparent; border:1px solid var(--line); color:var(--muted);">通常セットに戻す</button>
-          <button type="button" onclick="saveSetTechnique()" style="background:var(--accent-brand); border:none; color:#000;">設定する</button>
+          <button id="saveTechniqueButton" type="button" onclick="saveSetTechnique(event)" style="background:var(--accent-brand); border:none; color:#000;">設定する</button>
         </div>
       </div>
     </div>
@@ -1916,6 +1916,27 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       return true;
     }
 
+    function setIntervalTimerDuration(value, { start = false } = {}) {
+      const nextValue = String(value);
+      if (!intervalMinuteOptions.includes(nextValue)) return false;
+      const select = document.getElementById('timerMinutes');
+      if (select) select.value = nextValue;
+      localStorage.setItem('ironlog-interval-minutes', nextValue);
+      if (selectedExercise) saveExerciseInputPreference(selectedExercise, { timerMinutes:nextValue });
+      clearInterval(intervalTimerId);
+      intervalTimerId = null;
+      intervalTimerActive = false;
+      intervalTimerStart = 0;
+      intervalTimerEnd = 0;
+      intervalTimerTotal = Math.round(Number(nextValue) * 60);
+      intervalTimerRemaining = intervalTimerTotal;
+      intervalTimerTwentySecondNotified = false;
+      saveIntervalTimerState();
+      renderIntervalTimer();
+      if (start) startIntervalTimer();
+      return true;
+    }
+
     function changeTimerDuration() {
       const select = document.getElementById('timerMinutes');
       const newValue = select?.value || '2';
@@ -1926,9 +1947,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           return;
         }
       }
-      localStorage.setItem('ironlog-interval-minutes', newValue);
-      if (selectedExercise) saveExerciseInputPreference(selectedExercise, { timerMinutes:newValue });
-      resetIntervalTimer(false);
+      setIntervalTimerDuration(newValue);
     }
 
     function startIntervalTimer() {
@@ -1987,19 +2006,9 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         button.classList.toggle('active', selected);
         button.classList.toggle('just-selected', selected);
       });
-      const select = document.getElementById('timerMinutes');
-      if (select) select.value = value;
-      localStorage.setItem('ironlog-interval-minutes', value);
-      if (selectedExercise) saveExerciseInputPreference(selectedExercise, { timerMinutes:value });
-      intervalTimerActive = false;
-      clearInterval(intervalTimerId);
-      intervalTimerId = null;
-      intervalTimerTotal = Math.round(Number(value) * 60);
-      intervalTimerRemaining = intervalTimerTotal;
-      updateExerciseQuickBar();
-      renderIntervalTimer();
+      setIntervalTimerDuration(value);
       setTimeout(() => {
-        startIntervalTimer();
+        setIntervalTimerDuration(value, { start:true });
         closeQuickTimerModal();
         showCopyToast(`${formatTimerDuration(Number(value) * 60)}で開始しました`);
       }, 220);
@@ -6523,8 +6532,18 @@ function init() {
       }
     }
 
-    function saveSetTechnique() {
-      if (editingTechniqueSetIndex < 0 || !currentSets[editingTechniqueSetIndex]) return;
+    let techniqueSavePending = false;
+
+    function saveSetTechnique(event) {
+      if (techniqueSavePending || editingTechniqueSetIndex < 0 || !currentSets[editingTechniqueSetIndex]) return;
+      techniqueSavePending = true;
+      const button = event?.currentTarget || document.getElementById('saveTechniqueButton');
+      const originalLabel = button?.textContent || '設定する';
+      if (button) {
+        button.disabled = true;
+        button.textContent = '設定しました ✓';
+        button.classList.add('just-selected');
+      }
       const set = currentSets[editingTechniqueSetIndex];
       set.technique = normalizeTechnique(editingTechniqueDraft);
       if (set.technique.type !== 'none') {
@@ -6535,7 +6554,15 @@ function init() {
       renderSupersetPartnerBox();
       calcAdvice();
       saveCurrentDraft();
-      closeTechniqueModal();
+      setTimeout(() => {
+        if (button) {
+          button.disabled = false;
+          button.textContent = originalLabel;
+          button.classList.remove('just-selected');
+        }
+        techniqueSavePending = false;
+        closeTechniqueModal();
+      }, 320);
     }
 
     function clearSetTechnique() {
