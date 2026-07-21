@@ -1334,7 +1334,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div class="technique-grid" id="techniqueTypeGrid"></div>
         <div class="technique-form" id="techniqueForm"></div>
         <div class="technique-actions">
-          <button type="button" onclick="clearSetTechnique()" style="background:transparent; border:1px solid var(--line); color:var(--muted);">通常セットに戻す</button>
+          <button type="button" onclick="clearSetTechnique(event)" style="background:transparent; border:1px solid var(--line); color:var(--muted);">通常セットに戻す</button>
           <button id="saveTechniqueButton" type="button" onclick="saveSetTechnique(event)" style="background:var(--accent-brand); border:none; color:#000;">設定する</button>
         </div>
       </div>
@@ -1760,6 +1760,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
 
     // Set UI state
     let currentSets = [];
+    let currentSetIdSequence = 0;
+    let skipNextExerciseExitDraftSave = false;
     let draftSaveStatusTimer = null;
     let lastSetEditSnapshot = null;
     let activeSetEditKey = '';
@@ -2006,12 +2008,11 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         button.classList.toggle('active', selected);
         button.classList.toggle('just-selected', selected);
       });
-      setIntervalTimerDuration(value);
+      if (!setIntervalTimerDuration(value, { start:true })) return;
       setTimeout(() => {
-        setIntervalTimerDuration(value, { start:true });
         closeQuickTimerModal();
         showCopyToast(`${formatTimerDuration(Number(value) * 60)}で開始しました`);
-      }, 220);
+      }, 160);
     }
 
     function tickIntervalTimer() {
@@ -3486,13 +3487,13 @@ function applyWorkoutRecall() {
         prevAssistMode: set.assistMode ?? '',
         prevMetricType: inferLogMetricType(set, group.exercise),
         prevNote: set.note || '',
-        weight: String(set.weight ?? ''),
-        reps: String(set.reps ?? ''),
+        weight: '',
+        reps: '',
         rpe: set.isWarmup ? 'UP' : (set.rpe ?? 8),
         rir: set.rir ?? '',
-        partialReps: set.partialReps ?? '',
-        bodyWeight: set.bodyWeight ?? '',
-        assistAmount: set.assistAmount ?? '',
+        partialReps: '',
+        bodyWeight: '',
+        assistAmount: '',
         assistMode: set.assistMode ?? '',
         metricType: inferLogMetricType(set, group.exercise),
         technique: { type:'none' },
@@ -3503,6 +3504,7 @@ function applyWorkoutRecall() {
       })),
       memo: '',
       recalledFrom: workoutRecallSourceDate,
+      recalledTemplate: true,
       orderIndex: groupIndex,
       updatedAt: baseTime + groupIndex
     };
@@ -3660,7 +3662,11 @@ function init() {
       createDailyLocalBackup();
       renderLocalBackups();
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) syncAppDateAfterResume();
+        if (document.hidden) {
+          try { saveCurrentDraft(); } catch (err) { console.warn('draft save while hidden failed', err); }
+        } else {
+          syncAppDateAfterResume();
+        }
       });
       window.addEventListener('pageshow', syncAppDateAfterResume);
       window.addEventListener('focus', syncAppDateAfterResume);
@@ -3671,6 +3677,14 @@ function init() {
 
     // --- View Navigation ---
     function switchView(viewId) {
+      const exerciseView = document.getElementById('view-exercise');
+      if (exerciseView?.classList.contains('active') && viewId !== 'view-exercise') {
+        if (skipNextExerciseExitDraftSave) {
+          skipNextExerciseExitDraftSave = false;
+        } else {
+          try { saveCurrentDraft(); } catch (err) { console.warn('draft save before leaving exercise failed', err); }
+        }
+      }
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       const target = document.getElementById(viewId);
       if (target) target.classList.add('active');
@@ -6121,6 +6135,7 @@ function init() {
     function saveCurrentDraft() {
       if (!selectedExercise || !Array.isArray(currentSets) || currentSets.length === 0) return;
       setDraftSaveStatus('保存中…', true);
+      syncVisibleSetInputs();
       currentSets.forEach(set => normalizeCurrentSetMetric(set));
       const memoEl = document.getElementById('sessionMemo');
       const drafts = getSetDrafts();
@@ -6168,6 +6183,7 @@ function init() {
       const drafts = getSetDrafts();
       delete drafts[getDraftKey()];
       setSetDrafts(drafts);
+      skipNextExerciseExitDraftSave = true;
       setDraftSaveStatus('記録へ保存済み');
     }
 
@@ -6361,6 +6377,8 @@ function init() {
       const currentTechnique = normalizeTechnique(currentSets[index]?.technique);
       if (currentTechnique.type !== 'none') {
         editingTechniqueDraft = currentTechnique;
+      } else if (currentSets[index]?.techniqueCleared) {
+        editingTechniqueDraft = { type:'none' };
       } else {
         const preferredType = getFrequentTechniqueType(selectedExercise);
         editingTechniqueDraft = setTechniqueTypes[preferredType] ? { type:preferredType } : { type:'none' };
@@ -6534,19 +6552,22 @@ function init() {
 
     let techniqueSavePending = false;
 
-    function saveSetTechnique(event) {
+    function saveSetTechnique(event, successMessage = '設定しました ✓') {
       if (techniqueSavePending || editingTechniqueSetIndex < 0 || !currentSets[editingTechniqueSetIndex]) return;
       techniqueSavePending = true;
       const button = event?.currentTarget || document.getElementById('saveTechniqueButton');
       const originalLabel = button?.textContent || '設定する';
+      const actionButtons = [...document.querySelectorAll('#techniqueModal .technique-actions button')];
+      actionButtons.forEach(action => { action.disabled = true; });
       if (button) {
-        button.disabled = true;
-        button.textContent = '設定しました ✓';
+        button.textContent = successMessage;
         button.classList.add('just-selected');
       }
       const set = currentSets[editingTechniqueSetIndex];
       set.technique = normalizeTechnique(editingTechniqueDraft);
+      set.techniqueCleared = set.technique.type === 'none';
       if (set.technique.type !== 'none') {
+        delete set.techniqueCleared;
         saveExerciseInputPreference(selectedExercise, { techniqueType:set.technique.type });
       }
       applyTechniqueMetricRules(set);
@@ -6556,18 +6577,18 @@ function init() {
       saveCurrentDraft();
       setTimeout(() => {
         if (button) {
-          button.disabled = false;
           button.textContent = originalLabel;
           button.classList.remove('just-selected');
         }
+        actionButtons.forEach(action => { action.disabled = false; });
         techniqueSavePending = false;
         closeTechniqueModal();
-      }, 320);
+      }, 460);
     }
 
-    function clearSetTechnique() {
+    function clearSetTechnique(event) {
       editingTechniqueDraft = { type:'none' };
-      saveSetTechnique();
+      saveSetTechnique(event, '通常セットに戻しました ✓');
     }
 
     function getSupersetPartners(exName = selectedExercise) {
@@ -6754,6 +6775,7 @@ function init() {
     }
 
     function normalizeCurrentSetMetric(set, exName = selectedExercise) {
+      ensureCurrentSetId(set);
       const metricType = set.metricType || inferLogMetricType(set, exName);
       set.metricType = ['RPE', 'RIR', 'PR', 'UP'].includes(metricType) ? metricType : getExerciseMetricDefault(exName);
       if (set.metricType === 'UP') set.rpe = 'UP';
@@ -7136,13 +7158,17 @@ function init() {
       if (draft && Array.isArray(draft.sets) && (!todayRecordedSets.length || draftHasInput)) {
         currentSets = draft.sets.map((set, idx) => {
           const restored = { ...set };
-          if (draft.recalledFrom) {
-            if (!hasSetFieldValue(restored.weight) && hasSetFieldValue(restored.prevWeight)) restored.weight = String(restored.prevWeight);
-            if (!hasSetFieldValue(restored.reps) && hasSetFieldValue(restored.prevReps)) restored.reps = String(restored.prevReps);
-            if (!hasSetFieldValue(restored.partialReps) && hasSetFieldValue(restored.prevPartialReps)) restored.partialReps = restored.prevPartialReps;
-            if (!hasSetFieldValue(restored.bodyWeight) && hasSetFieldValue(restored.prevBodyWeight)) restored.bodyWeight = restored.prevBodyWeight;
-            if (!hasSetFieldValue(restored.assistAmount) && hasSetFieldValue(restored.prevAssistAmount)) restored.assistAmount = restored.prevAssistAmount;
-            if (!hasSetFieldValue(restored.assistMode) && hasSetFieldValue(restored.prevAssistMode)) restored.assistMode = restored.prevAssistMode;
+          const isLegacyAutoFilledRecall = draft.recalledFrom && draft.recalledTemplate == null &&
+            !restored.done && !Number(restored.completedAt) &&
+            String(restored.weight ?? '') === String(restored.prevWeight ?? '') &&
+            String(restored.reps ?? '') === String(restored.prevReps ?? '');
+          if (isLegacyAutoFilledRecall) {
+            restored.weight = '';
+            restored.reps = '';
+            if (String(restored.partialReps ?? '') === String(restored.prevPartialReps ?? '')) restored.partialReps = '';
+            if (String(restored.bodyWeight ?? '') === String(restored.prevBodyWeight ?? '')) restored.bodyWeight = '';
+            if (String(restored.assistAmount ?? '') === String(restored.prevAssistAmount ?? '')) restored.assistAmount = '';
+            restored.recalledTemplate = true;
           }
           const normalized = normalizeCurrentSetMetric(restored);
           const freshComparison = comparisonTemplateSets[idx];
@@ -7542,6 +7568,55 @@ function init() {
       saveCurrentDraft();
     }
 
+    function createCurrentSetId() {
+      currentSetIdSequence += 1;
+      return `set-${Date.now().toString(36)}-${currentSetIdSequence}`;
+    }
+
+    function ensureCurrentSetId(set) {
+      if (set && !set._currentSetId) set._currentSetId = createCurrentSetId();
+      return set;
+    }
+
+    function getCurrentSetIndexById(setId) {
+      return currentSets.findIndex(set => set?._currentSetId === setId);
+    }
+
+    function updateSetById(setId, key, value) {
+      const index = getCurrentSetIndexById(setId);
+      if (index >= 0) updateSet(index, key, value);
+    }
+
+    function updatePartialRepsById(setId, value) {
+      const index = getCurrentSetIndexById(setId);
+      if (index >= 0) updatePartialReps(index, value);
+    }
+
+    function updateSetNoteById(setId, value) {
+      const index = getCurrentSetIndexById(setId);
+      if (index >= 0) updateSetNote(index, value);
+    }
+
+    function syncVisibleSetInputs() {
+      currentSets.forEach(set => {
+        ensureCurrentSetId(set);
+        const row = document.querySelector(`#setListContainer .set-row[data-set-id="${set._currentSetId}"]`);
+        if (!row) return;
+        const mainInputs = row.querySelectorAll('.input-box input');
+        if (mainInputs[0]) set.weight = mainInputs[0].value;
+        if (mainInputs[1]) set.reps = mainInputs[1].value;
+        const metricInput = row.querySelector('.partial-box .metric-value-select');
+        if (metricInput) {
+          if (set.metricType === 'RIR') set.rir = metricInput.value;
+          else if (set.metricType === 'RPE') set.rpe = metricInput.value;
+        }
+        const partialInput = row.querySelector('.partial-box input[type="number"]');
+        if (partialInput && set.metricType === 'PR') set.partialReps = partialInput.value;
+        const noteInput = row.querySelector('.set-note-input');
+        if (noteInput) set.note = noteInput.value;
+      });
+    }
+
     function renderSetRows() {
       const container = document.getElementById('setListContainer');
       const metricDefault = getExerciseMetricDefault();
@@ -7552,6 +7627,7 @@ function init() {
       const latestSameExerciseSession = getLatestSameExerciseSession();
       container.innerHTML = `<div class="set-insert-divider"><button type="button" onclick="insertSetRow(0)">＋ 1セット目の上にセットを差し込む</button></div>` + currentSets.map((s, i) => {
         normalizeCurrentSetMetric(s);
+        const setId = s._currentSetId;
         const isDone = s.done ? 'is-done' : '';
         const checkClass = s.done ? 'checked' : '';
         const checkIcon = s.done ? '✔' : '';
@@ -7569,14 +7645,14 @@ function init() {
           ? `${s.prevComparisonLabel || '過去記録'} ${formatComparisonDateLabel(s.prevComparisonDate)}`
           : getPreviousSetButtonLabel(latestSameExerciseSession);
         const metricInput = metricType === 'PR'
-          ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialReps(${i}, this.value)">`
+          ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialRepsById('${setId}', this.value)">`
           : metricType === 'UP'
             ? `<div class="metric-up-label">UP</div>`
             : metricType === 'RIR'
-              ? `<select class="metric-value-select" aria-label="RIR" onchange="updateSet(${i}, 'rir', this.value)">
+              ? `<select class="metric-value-select" aria-label="RIR" onchange="updateSetById('${setId}', 'rir', this.value)">
                   ${[0,0.5,1,1.5,2,2.5,3,3.5,4,4.5,5].map(value => `<option value="${value}" ${Number(s.rir)==value?'selected':''}>${value}</option>`).join('')}
                 </select>`
-            : `<select class="metric-value-select" aria-label="RPE" onchange="updateSet(${i}, 'rpe', this.value)">
+            : `<select class="metric-value-select" aria-label="RPE" onchange="updateSetById('${setId}', 'rpe', this.value)">
                 <option value="10" ${s.rpe==10?'selected':''}>10</option>
                 <option value="9.5" ${s.rpe==9.5?'selected':''}>9.5</option>
                 <option value="9" ${s.rpe==9?'selected':''}>9</option>
@@ -7592,14 +7668,14 @@ function init() {
 
         return `
         <div class="set-row-block">
-          <div class="set-row ${isDone}" id="set-row-${i}">
+          <div class="set-row ${isDone}" id="set-row-${i}" data-set-id="${setId}">
             <div class="set-label">${i+1}</div>
             <div class="input-box">
-              <input type="number" inputmode="decimal" placeholder="${pW}" value="${s.weight}" onfocus="this.select()" oninput="updateSet(${i}, 'weight', this.value)">
+              <input type="number" inputmode="decimal" placeholder="${pW}" value="${s.weight}" onfocus="this.select()" oninput="updateSetById('${setId}', 'weight', this.value)">
               <span>kg</span>
             </div>
             <div class="input-box">
-              <input type="number" inputmode="numeric" placeholder="${pR}" value="${s.reps}" onfocus="this.select()" oninput="updateSet(${i}, 'reps', this.value)">
+              <input type="number" inputmode="numeric" placeholder="${pR}" value="${s.reps}" onfocus="this.select()" oninput="updateSetById('${setId}', 'reps', this.value)">
               <span>回</span>
             </div>
             <div class="partial-box">
@@ -7611,7 +7687,7 @@ function init() {
           <div class="set-comparison" id="set-comparison-${i}">${getSetComparisonHtml(s)}</div>
           <div class="set-extra-line">
             <button type="button" class="set-prev-btn ${hasSetPrevious ? 'has-prev' : ''}" onclick="handlePreviousSetButtonClick(this, ${i})" ${latestSameExerciseSession || hasSetPrevious ? '' : 'disabled'}>${previousButtonLabel}</button>
-            <input class="set-note-input" type="text" placeholder="${escapeHtml(getPreviousSetNotePlaceholder(i))}" value="${escapeHtml(s.note || '')}" oninput="updateSetNote(${i}, this.value)">
+            <input class="set-note-input" type="text" placeholder="${escapeHtml(getPreviousSetNotePlaceholder(i))}" value="${escapeHtml(s.note || '')}" oninput="updateSetNoteById('${setId}', this.value)">
           </div>
           <div class="set-technique-line">
             <button type="button" class="set-technique-btn ${technique.type !== 'none' ? 'active' : ''}" onclick="openTechniqueModal(${i})">${technique.type === 'none' ? '＋ 技法' : setTechniqueTypes[technique.type]}</button>
@@ -7911,6 +7987,7 @@ function init() {
       const sourceTechnique = normalizeTechnique(normalizedSource.technique);
       const copied = {
         ...JSON.parse(JSON.stringify(normalizedSource)),
+        _currentSetId: createCurrentSetId(),
         prevWeight: sourceWeight,
         prevReps: sourceReps,
         prevRpe: sourceRpe,
@@ -8151,24 +8228,23 @@ function init() {
       const s = currentSets[idx];
 
       const row = document.getElementById(`set-row-${idx}`);
-      if (!row) return;
-      const btn = row.querySelector('.check-btn');
+      const btn = row?.querySelector('.check-btn');
 
       const hasMainValues = s.weight !== '' && s.reps !== '';
-      const shouldMarkDone = hasMainValues && (s.done || !s.manualCheckRequired);
+      const shouldMarkDone = hasMainValues && s.done;
       if (shouldMarkDone) {
         markSetDone(s);
-        row.classList.add('is-done');
-        btn.classList.add('checked');
-        btn.textContent = '✔';
+        row?.classList.add('is-done');
+        btn?.classList.add('checked');
+        if (btn) btn.textContent = '✔';
       } else {
         if (!hasMainValues) {
           s.done = false;
           s.completedAt = null;
         }
-        row.classList.remove('is-done');
-        btn.classList.remove('checked');
-        btn.textContent = '';
+        row?.classList.remove('is-done');
+        btn?.classList.remove('checked');
+        if (btn) btn.textContent = '';
       }
       updateSetComparison(idx);
       calcAdvice();
@@ -8626,6 +8702,7 @@ function init() {
     }
 
     function openAiSheet(source) {
+      if ((source || 'exercise') === 'exercise') saveCurrentDraft();
       aiSheetSource = source || 'exercise';
       populateAiExercisePicker();
       populateAiGoalFromPlan();
