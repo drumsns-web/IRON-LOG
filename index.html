@@ -1933,9 +1933,15 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       intervalTimerTotal = Math.round(Number(nextValue) * 60);
       intervalTimerRemaining = intervalTimerTotal;
       intervalTimerTwentySecondNotified = false;
+      const quickTimer = document.getElementById('quickTimerButton');
+      if (quickTimer) {
+        const quickMinutes = Math.floor(intervalTimerRemaining / 60);
+        const quickSeconds = intervalTimerRemaining % 60;
+        quickTimer.textContent = `${String(quickMinutes).padStart(2,'0')}:${String(quickSeconds).padStart(2,'0')}`;
+      }
       saveIntervalTimerState();
       renderIntervalTimer();
-      if (start) startIntervalTimer();
+      if (start) startIntervalTimer(intervalTimerTotal);
       return true;
     }
 
@@ -1952,8 +1958,11 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       setIntervalTimerDuration(newValue);
     }
 
-    function startIntervalTimer() {
-      intervalTimerTotal = getTimerSelectedSeconds();
+    function startIntervalTimer(totalSeconds = null) {
+      const requestedSeconds = Number(totalSeconds);
+      intervalTimerTotal = Number.isFinite(requestedSeconds) && requestedSeconds > 0
+        ? Math.round(requestedSeconds)
+        : getTimerSelectedSeconds();
       intervalTimerRemaining = intervalTimerTotal;
       intervalTimerStart = Date.now();
       intervalTimerEnd = intervalTimerStart + intervalTimerTotal * 1000;
@@ -1990,7 +1999,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       box.innerHTML = intervalMinuteOptions.map(value => {
         const seconds = Math.round(Number(value) * 60);
         const active = value === currentValue ? 'active' : '';
-        return `<button type="button" class="${active}" data-quick-timer-value="${value}" onclick="selectQuickTimerDuration('${value}')">${formatTimerDuration(seconds)}</button>`;
+        return `<button type="button" class="${active}" data-quick-timer-value="${value}" onclick="selectQuickTimerDuration('${value}',event)" ontouchend="event.preventDefault();selectQuickTimerDuration('${value}',event)">${formatTimerDuration(seconds)}</button>`;
       }).join('');
       document.getElementById('quickTimerModal').style.display = 'flex';
     }
@@ -2001,7 +2010,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       if (modal) modal.style.display = 'none';
     }
 
-    function selectQuickTimerDuration(value) {
+    function selectQuickTimerDuration(value, event = null) {
+      if (event) event.preventDefault();
       if (!intervalMinuteOptions.includes(String(value))) return;
       document.querySelectorAll('[data-quick-timer-value]').forEach(button => {
         const selected = button.dataset.quickTimerValue === String(value);
