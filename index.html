@@ -6990,6 +6990,30 @@ function init() {
     function loadPrevSetsFallback() {
       try {
         currentSets = [];
+        const todaySavedSets = logs
+          .filter(set => set && set.exercise === selectedExercise && set.date === currentDateStr)
+          .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+        if (todaySavedSets.length) {
+          currentSets = todaySavedSets.map(record => {
+            const metricType = inferLogMetricType(record, selectedExercise);
+            return normalizeCurrentSetMetric({
+              weight:record.weight != null ? String(record.weight) : '',
+              reps:record.reps != null ? String(record.reps) : '',
+              rpe:metricType === 'UP' ? 'UP' : (record.rpe ?? 8),
+              rir:record.rir ?? '', partialReps:record.partialReps ?? '',
+              bodyWeight:record.bodyWeight ?? '', assistAmount:record.assistAmount ?? '', assistMode:record.assistMode ?? '',
+              note:record.note || '', metricType, technique:normalizeTechnique(record.technique),
+              done:true, manualCheckRequired:false, completedAt:Number(record.completedAt) || null
+            });
+          });
+          const memoEl = document.getElementById('sessionMemo');
+          if (memoEl) memoEl.value = todaySavedSets.find(set => set.memo)?.memo || '';
+          renderSetRows();
+          updateAssistCalcVisibility();
+          calcAdvice();
+          setDraftSaveStatus('記録済み・編集内容は自動保存されます');
+          return;
+        }
         const latestSameExerciseSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
         const fallbackSets = Array.isArray(latestSameExerciseSession?.sets) ? latestSameExerciseSession.sets : [];
         if (fallbackSets.length) {
@@ -7160,11 +7184,15 @@ function init() {
       }));
 
       const draft = loadCurrentDraft();
-      const draftHasInput = Boolean(draft?.sets?.some(set =>
-        hasSetFieldValue(set?.weight) || hasSetFieldValue(set?.reps) ||
-        hasSetFieldValue(set?.partialReps) || hasSetFieldValue(set?.rir) ||
-        Boolean(set?.note) || Boolean(set?.done)
-      ));
+      const draftHasInput = Boolean(draft?.sets?.some(set => {
+        const hasActualEntry = hasSetFieldValue(set?.weight) || hasSetFieldValue(set?.reps) || Boolean(set?.note);
+        if (!hasActualEntry) return false;
+        const isUntouchedLegacyRecall = draft.recalledFrom && draft.recalledTemplate == null &&
+          !set?.done && !Number(set?.completedAt) && !set?.note &&
+          String(set?.weight ?? '') === String(set?.prevWeight ?? '') &&
+          String(set?.reps ?? '') === String(set?.prevReps ?? '');
+        return !isUntouchedLegacyRecall;
+      }));
       if (draft && Array.isArray(draft.sets) && (!todayRecordedSets.length || draftHasInput)) {
         currentSets = draft.sets.map((set, idx) => {
           const restored = { ...set };
