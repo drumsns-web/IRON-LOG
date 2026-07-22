@@ -3678,6 +3678,9 @@ function init() {
           syncAppDateAfterResume();
         }
       });
+      window.addEventListener('pagehide', () => {
+        try { saveCurrentDraft(); } catch (err) { console.warn('draft save on page hide failed', err); }
+      });
       window.addEventListener('pageshow', syncAppDateAfterResume);
       window.addEventListener('focus', syncAppDateAfterResume);
       clearInterval(dateRolloverTimer);
@@ -5108,7 +5111,7 @@ function init() {
                       <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), -1)" ${gIdx === 0 ? 'disabled' : ''} title="上へ">↑</button>
                       <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), 1)" ${gIdx === groups.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
                       <button type="button" class="daily-insert-btn" onclick="event.stopPropagation(); openExerciseInsertAfterName(decodeURIComponent('${encodedExercise}'))">下に追加</button>
-                      <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'), ${g.hasSavedRecord ? 'true' : 'false'})" style="min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
+                      <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'))" style="min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
                     </div>
                   </div>
                 </div>
@@ -5148,7 +5151,7 @@ function init() {
                 </div>`;
               }).join('')}
             </div>
-            <button onclick="editExercise('${safeExercise}', ${g.hasSavedRecord && !g.draft ? 'true' : 'false'})" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">${g.draft ? '入力を続ける' : 'この種目を編集 / セット追加'}</button>
+            <button onclick="editExercise('${safeExercise}')" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">${g.draft ? '入力を続ける' : 'この種目を編集 / セット追加'}</button>
           </div>
         </div>
           </div>
@@ -5565,13 +5568,15 @@ function init() {
     function editExercise(eName, preferSavedRecord = null) {
       pendingExerciseInsertIndex = null;
       const editDate = currentDateStr;
+      const existingDraft = getSetDrafts()[getDraftKey(editDate, eName)] || null;
       const savedRecords = logs
         .filter(set => set && set.date === editDate && set.exercise === eName)
         .sort((a, b) => Number(a.id || 0) - Number(b.id || 0))
         .map(set => JSON.parse(JSON.stringify(set)));
       const hasSavedRecord = savedRecords.length > 0;
+      const resumeDraft = draftContainsEnteredData(existingDraft);
       enterExerciseInput(eName, {
-        preferSavedRecord: preferSavedRecord == null ? hasSavedRecord : Boolean(preferSavedRecord),
+        preferSavedRecord: preferSavedRecord == null ? (hasSavedRecord && !resumeDraft) : Boolean(preferSavedRecord),
         savedRecords,
         editDate
       });
@@ -7075,6 +7080,26 @@ function init() {
       return value !== '' && value != null;
     }
 
+    function draftContainsEnteredData(draft) {
+      if (!draft || !Array.isArray(draft.sets)) return false;
+      if (String(draft.memo || '').trim()) return true;
+      return draft.sets.some(set => {
+        const techniqueType = normalizeTechnique(set?.technique).type;
+        const hasTechniqueEntry = techniqueType !== 'none' &&
+          !(techniqueType === 'partial' && !hasSetFieldValue(set?.partialReps));
+        const hasActualEntry = hasSetFieldValue(set?.weight) || hasSetFieldValue(set?.reps) ||
+          Boolean(String(set?.note || '').trim()) || Boolean(set?.done) || Number(set?.completedAt) > 0 ||
+          hasTechniqueEntry;
+        if (!hasActualEntry) return false;
+        const isUntouchedLegacyRecall = draft.recalledFrom && draft.recalledTemplate == null &&
+          !set?.done && !Number(set?.completedAt) && !set?.note &&
+          normalizeTechnique(set?.technique).type === 'none' &&
+          String(set?.weight ?? '') === String(set?.prevWeight ?? '') &&
+          String(set?.reps ?? '') === String(set?.prevReps ?? '');
+        return !isUntouchedLegacyRecall;
+      });
+    }
+
     function mergeComparisonIntoDraftSet(set, comparison, preserveExisting = false) {
       if (!set || !comparison) return set;
       Object.keys(comparison).forEach(key => {
@@ -7214,15 +7239,7 @@ function init() {
       }));
 
       const draft = loadCurrentDraft();
-      const draftHasInput = Boolean(draft?.sets?.some(set => {
-        const hasActualEntry = hasSetFieldValue(set?.weight) || hasSetFieldValue(set?.reps) || Boolean(set?.note);
-        if (!hasActualEntry) return false;
-        const isUntouchedLegacyRecall = draft.recalledFrom && draft.recalledTemplate == null &&
-          !set?.done && !Number(set?.completedAt) && !set?.note &&
-          String(set?.weight ?? '') === String(set?.prevWeight ?? '') &&
-          String(set?.reps ?? '') === String(set?.prevReps ?? '');
-        return !isUntouchedLegacyRecall;
-      }));
+      const draftHasInput = draftContainsEnteredData(draft);
       if (!preferSavedRecord && draft && Array.isArray(draft.sets) && (!todayRecordedSets.length || draftHasInput)) {
         currentSets = draft.sets.map((set, idx) => {
           const restored = { ...set };
