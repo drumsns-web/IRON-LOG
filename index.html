@@ -5035,7 +5035,7 @@ function init() {
         if(groups.length > 0 && groups[groups.length-1].exercise === l.exercise) {
           groups[groups.length-1].sets.push(l);
         } else {
-          groups.push({ exercise: l.exercise, sets: [l], id: groups.length, draft: false });
+          groups.push({ exercise: l.exercise, sets: [l], id: groups.length, draft: false, hasSavedRecord: true });
         }
       });
 
@@ -5048,7 +5048,7 @@ function init() {
           existing.recalledFrom = d.recalledFrom || '';
           existing.updatedAt = d.updatedAt || 0;
         } else {
-          groups.push({ exercise: d.exercise, sets: d.sets, id: groups.length, draft: true, draftSets: d.sets, draftMemo: d.memo || '', recalledFrom: d.recalledFrom || '', updatedAt: d.updatedAt || 0 });
+          groups.push({ exercise: d.exercise, sets: d.sets, id: groups.length, draft: true, hasSavedRecord: false, draftSets: d.sets, draftMemo: d.memo || '', recalledFrom: d.recalledFrom || '', updatedAt: d.updatedAt || 0 });
         }
       });
 
@@ -5108,7 +5108,7 @@ function init() {
                       <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), -1)" ${gIdx === 0 ? 'disabled' : ''} title="上へ">↑</button>
                       <button type="button" class="daily-order-btn" onclick="event.stopPropagation(); moveExerciseByName(decodeURIComponent('${encodedExercise}'), 1)" ${gIdx === groups.length - 1 ? 'disabled' : ''} title="下へ">↓</button>
                       <button type="button" class="daily-insert-btn" onclick="event.stopPropagation(); openExerciseInsertAfterName(decodeURIComponent('${encodedExercise}'))">下に追加</button>
-                      <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'))" style="min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
+                      <button type="button" onclick="event.stopPropagation(); editExercise(decodeURIComponent('${encodedExercise}'), ${g.hasSavedRecord ? 'true' : 'false'})" style="min-height:34px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800; cursor:pointer;">編集</button>
                     </div>
                   </div>
                 </div>
@@ -5148,7 +5148,7 @@ function init() {
                 </div>`;
               }).join('')}
             </div>
-            <button onclick="editExercise('${safeExercise}')" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">${g.draft ? '入力を続ける' : 'この種目を編集 / セット追加'}</button>
+            <button onclick="editExercise('${safeExercise}', ${g.hasSavedRecord && !g.draft ? 'true' : 'false'})" style="margin-top:12px; background:transparent; border:1px solid var(--line); color:var(--text); padding:10px 16px; border-radius:8px; font-size:14px; width:100%; font-weight:600; cursor:pointer;">${g.draft ? '入力を続ける' : 'この種目を編集 / セット追加'}</button>
           </div>
         </div>
           </div>
@@ -5543,16 +5543,16 @@ function init() {
 
     // --- Exercise Entry Flow ---
     
-    function enterExerciseInput(eName) {
+    function enterExerciseInput(eName, options = {}) {
       selectedExercise = eName;
       document.getElementById('copyToast')?.classList.remove('show');
       document.getElementById('headerTitle').textContent = eName;
       switchView('view-exercise');
       try {
-        loadPrevSets();
+        loadPrevSets(options);
       } catch (err) {
         console.warn('previous set load failed', err);
-        loadPrevSetsFallback();
+        loadPrevSetsFallback(options);
       }
       ensureCurrentExerciseDraftExists();
       try {
@@ -5562,9 +5562,10 @@ function init() {
       }
     }
 
-    function editExercise(eName) {
+    function editExercise(eName, preferSavedRecord = null) {
       pendingExerciseInsertIndex = null;
-      enterExerciseInput(eName);
+      const hasSavedRecord = logs.some(set => set && set.date === currentDateStr && set.exercise === eName);
+      enterExerciseInput(eName, { preferSavedRecord: preferSavedRecord == null ? hasSavedRecord : Boolean(preferSavedRecord) });
     }
 
     function chooseEx(eName) {
@@ -6987,7 +6988,7 @@ function init() {
       return `<span class="carryover-advice">次回反映メモ: ${notes.slice(0, 2).join('。')}</span>`;
     }
 
-    function loadPrevSetsFallback() {
+    function loadPrevSetsFallback(options = {}) {
       try {
         currentSets = [];
         const todaySavedSets = logs
@@ -7058,7 +7059,8 @@ function init() {
       return set;
     }
 
-    function loadPrevSets() {
+    function loadPrevSets(options = {}) {
+      const preferSavedRecord = Boolean(options.preferSavedRecord);
       applyExerciseTimerPreference(selectedExercise);
       renderWeightModeControl();
       renderComparisonControl();
@@ -7193,7 +7195,7 @@ function init() {
           String(set?.reps ?? '') === String(set?.prevReps ?? '');
         return !isUntouchedLegacyRecall;
       }));
-      if (draft && Array.isArray(draft.sets) && (!todayRecordedSets.length || draftHasInput)) {
+      if (!preferSavedRecord && draft && Array.isArray(draft.sets) && (!todayRecordedSets.length || draftHasInput)) {
         currentSets = draft.sets.map((set, idx) => {
           const restored = { ...set };
           const isLegacyAutoFilledRecall = draft.recalledFrom && draft.recalledTemplate == null &&
