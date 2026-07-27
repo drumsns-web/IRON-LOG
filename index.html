@@ -943,8 +943,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
 
     <div class="set-controls">
-      <button class="set-add-btn" onclick="addSetRow()">＋ セット追加</button>
-      <button class="set-copy-btn" onclick="duplicatePreviousSet()">⧉ 複製</button>
+      <button class="set-add-btn" onclick="addSetRow()">＋ 空セット</button>
+      <button class="set-copy-btn" onclick="duplicatePreviousSet()">⧉ 直前複製</button>
       <button class="set-bulk-btn" onclick="openSetBulkModal()">一括</button>
       <button class="set-remove-btn" onclick="removeSetRow()">− 削除</button>
     </div>
@@ -1151,7 +1151,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
             <strong>前回の同じ曜日</strong><span id="recallWeekdayLabel">記録を検索</span>
           </button>
           <button id="recallPlanBtn" class="recall-choice" onclick="selectWorkoutRecallSource('plan')">
-            <strong>前回の同じ予定</strong><span id="recallPlanLabel">A〜Gを検索</span>
+            <strong>前回の同じ予定</strong><span id="recallPlanLabel">ローテーションを検索</span>
           </button>
         </div>
         <div class="recall-date-row">
@@ -1385,7 +1385,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <summary>トレーニング予定テンプレート</summary>
       <div class="template-body">
         <div style="font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.4;">
-          曜日固定、または休んでもずれないA〜Gローテーションを選べます。
+          曜日固定、またはA〜BからA〜Gまで範囲を選べるローテーションを使えます。
         </div>
         <div class="preset-controls">
           <div style="font-size:12px; color:var(--text); font-weight:700;">保存したメニュー</div>
@@ -1399,14 +1399,14 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
             <button type="button" class="save" onclick="saveCurrentPlanPreset()">現在の内容を保存</button>
           </div>
           <div style="font-size:10px; color:var(--muted); line-height:1.5;">
-            曜日またはA〜Gの内容をセットで保存します。同じ名前で保存すると上書きできます。
+            曜日または選択したローテーション範囲の内容をセットで保存します。同じ名前で保存すると上書きできます。
           </div>
         </div>
         <div class="template-row">
           <label>予定の方式</label>
           <select id="templateMode" onchange="saveTemplateMode()" style="width:100%; background:var(--surface-3); border:1px solid var(--line); color:#fff; border-radius:8px; padding:11px 12px; font-size:14px; outline:none;">
             <option value="weekday">曜日固定（月〜日）</option>
-            <option value="cycle">A〜Gローテーション</option>
+            <option value="cycle">可変ローテーション（A〜任意）</option>
           </select>
         </div>
         <div id="weekdayTemplateInputs">
@@ -1422,13 +1422,20 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
           <div style="font-size:12px; color:var(--muted); margin-top:12px; line-height:1.5;">
             記録を保存したプランは、翌日以降に次の文字へ自動で進みます。休んで記録がなければ同じ文字のままです。ホームの矢印や選択欄からいつでも変更できます。
           </div>
-          <div class="template-row"><label>A</label><input type="text" id="cycle-A" placeholder="例: 胸・三頭" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
-          <div class="template-row"><label>B</label><input type="text" id="cycle-B" placeholder="例: 背中・二頭" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
-          <div class="template-row"><label>C</label><input type="text" id="cycle-C" placeholder="例: 脚" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
-          <div class="template-row"><label>D</label><input type="text" id="cycle-D" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
-          <div class="template-row"><label>E</label><input type="text" id="cycle-E" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
-          <div class="template-row"><label>F</label><input type="text" id="cycle-F" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
-          <div class="template-row"><label>G</label><input type="text" id="cycle-G" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row">
+            <label>ローテーション範囲</label>
+            <select id="cycleLengthSelect" onchange="saveCycleLength(this.value)" style="width:100%; background:var(--surface-3); border:1px solid var(--line); color:#fff; border-radius:8px; padding:11px 12px; font-size:14px; outline:none;">
+              <option value="2">A〜B（2枠）</option><option value="3">A〜C（3枠）</option><option value="4">A〜D（4枠）</option>
+              <option value="5">A〜E（5枠）</option><option value="6">A〜F（6枠）</option><option value="7">A〜G（7枠）</option>
+            </select>
+          </div>
+          <div class="template-row" data-cycle-template-slot="A"><label>A</label><input type="text" id="cycle-A" placeholder="例: プッシュ" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row" data-cycle-template-slot="B"><label>B</label><input type="text" id="cycle-B" placeholder="例: プル" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row" data-cycle-template-slot="C"><label>C</label><input type="text" id="cycle-C" placeholder="例: レッグ" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row" data-cycle-template-slot="D"><label>D</label><input type="text" id="cycle-D" placeholder="例: 休み" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row" data-cycle-template-slot="E"><label>E</label><input type="text" id="cycle-E" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row" data-cycle-template-slot="F"><label>F</label><input type="text" id="cycle-F" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
+          <div class="template-row" data-cycle-template-slot="G"><label>G</label><input type="text" id="cycle-G" placeholder="" onchange="saveCycleTemplates()" onfocus="scrollToInput(this)"></div>
         </div>
       </div>
     </details>
@@ -1644,14 +1651,14 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div class="ai-option-row">
           <div style="flex:1; min-width:0;">
             <div style="font-weight:700; font-size:14px; margin-bottom:3px;">今日のプランだけ</div>
-            <div style="font-size:11px; color:var(--muted);">曜日・A〜Gの予定内容だけをコピー</div>
+            <div style="font-size:11px; color:var(--muted);">曜日・ローテーションの予定内容だけをコピー</div>
           </div>
           <button class="ai-option-copy" onclick="copyAiOption('todayPlan')">コピー</button>
         </div>
         <div class="ai-option-row">
           <div style="flex:1; min-width:0;">
             <div style="font-weight:700; font-size:14px; margin-bottom:3px;">前回の同曜日／同プラン</div>
-            <div style="font-size:11px; color:var(--muted);">前週や前回A〜G日の全種目をコピー</div>
+            <div style="font-size:11px; color:var(--muted);">前週や前回同ローテーション日の全種目をコピー</div>
           </div>
           <button class="ai-option-copy" onclick="copyAiOption('previousComparableDay')">コピー</button>
         </div>
@@ -2387,6 +2394,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         weekdayTemplates: JSON.parse(localStorage.getItem(STORE_TMPL) || '{}'),
         templateMode: localStorage.getItem(STORE_TMPL_MODE) || 'weekday',
         cycleTemplates: JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}'),
+        cycleLength: getCycleLength(),
         cycleSlot: getCurrentCycleSlot(),
         cycleCompletedDate: localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '',
         cycleCompletedSlot: localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '',
@@ -2460,6 +2468,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       localStorage.setItem(STORE_TMPL, JSON.stringify(data.weekdayTemplates || {}));
       localStorage.setItem(STORE_TMPL_MODE, data.templateMode === 'cycle' ? 'cycle' : 'weekday');
       localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(data.cycleTemplates || {}));
+      localStorage.setItem(STORE_CYCLE_LENGTH, String(Math.max(2, Math.min(7, Number(data.cycleLength || 7)))));
       data.cycleSlot ? localStorage.setItem(STORE_CYCLE_SLOT, data.cycleSlot) : localStorage.removeItem(STORE_CYCLE_SLOT);
       data.cycleCompletedDate ? localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, data.cycleCompletedDate) : localStorage.removeItem(STORE_CYCLE_COMPLETED_DATE);
       data.cycleCompletedSlot ? localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, data.cycleCompletedSlot) : localStorage.removeItem(STORE_CYCLE_COMPLETED_SLOT);
@@ -2853,8 +2862,49 @@ const STORE_CYCLE_COMPLETED_DATE = 'ironlog-cycle-completed-date-v1';
 const STORE_CYCLE_COMPLETED_SLOT = 'ironlog-cycle-completed-slot-v1';
 const STORE_CYCLE_ADVANCED_DATE = 'ironlog-cycle-advanced-date-v1';
 const STORE_CYCLE_EXTRA_SLOTS = 'ironlog-cycle-extra-slots-v1';
+const STORE_CYCLE_LENGTH = 'ironlog-cycle-length-v1';
 const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 const cycleNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+function getCycleLength() {
+  const value = Number(localStorage.getItem(STORE_CYCLE_LENGTH) || 7);
+  return Math.max(2, Math.min(cycleNames.length, Number.isFinite(value) ? Math.round(value) : 7));
+}
+
+function getActiveCycleNames() {
+  return cycleNames.slice(0, getCycleLength());
+}
+
+function renderCycleLengthUi() {
+  const active = getActiveCycleNames();
+  const select = document.getElementById('cycleLengthSelect');
+  if (select) select.value = String(active.length);
+  document.querySelectorAll('[data-cycle-template-slot]').forEach(row => {
+    row.style.display = active.includes(row.dataset.cycleTemplateSlot) ? '' : 'none';
+  });
+  const slotSelect = document.getElementById('cycleSlotSelect');
+  if (slotSelect) {
+    const current = getCurrentCycleSlot();
+    slotSelect.innerHTML = active.map(slot => `<option value="${slot}">${slot}</option>`).join('');
+    slotSelect.value = current;
+  }
+}
+
+function saveCycleLength(value) {
+  const length = Math.max(2, Math.min(cycleNames.length, Number(value) || 7));
+  localStorage.setItem(STORE_CYCLE_LENGTH, String(length));
+  const active = getActiveCycleNames();
+  if (!active.includes(localStorage.getItem(STORE_CYCLE_SLOT) || 'A')) localStorage.setItem(STORE_CYCLE_SLOT, 'A');
+  const extras = getCycleExtraSlotMap();
+  Object.keys(extras).forEach(date => {
+    extras[date] = Array.isArray(extras[date]) ? extras[date].filter(slot => active.includes(slot)) : [];
+    if (!extras[date].length) delete extras[date];
+  });
+  localStorage.setItem(STORE_CYCLE_EXTRA_SLOTS, JSON.stringify(extras));
+  renderCycleLengthUi();
+  updateTodayTemplate();
+  showCopyToast(`A〜${active[active.length - 1]}の${active.length}枠に変更しました`);
+}
 
 function loadTemplates() {
   const data = JSON.parse(localStorage.getItem(STORE_TMPL)) || {};
@@ -2872,6 +2922,7 @@ function loadTemplates() {
   const mode = localStorage.getItem(STORE_TMPL_MODE) || 'weekday';
   const modeSelect = document.getElementById('templateMode');
   if (modeSelect) modeSelect.value = mode;
+  renderCycleLengthUi();
   updateTemplateModeUi();
   if (typeof currentDateStr !== 'undefined') {
       updateTodayTemplate();
@@ -2921,7 +2972,7 @@ function renderPlanPresets(preferredName = '') {
   const presets = getPlanPresets();
   const previous = preferredName || select.value;
   select.innerHTML = presets.length
-    ? presets.map(preset => `<option value="${escapeHtml(preset.name)}">${escapeHtml(preset.name)}（${preset.mode === 'cycle' ? 'A〜G' : '曜日'}）</option>`).join('')
+    ? presets.map(preset => `<option value="${escapeHtml(preset.name)}">${escapeHtml(preset.name)}（${preset.mode === 'cycle' ? `A〜${cycleNames[Math.max(1, Math.min(6, Number(preset.cycleLength || 7) - 1))]}` : '曜日'}）</option>`).join('')
     : '<option value="">保存したメニューはありません</option>';
   if (presets.some(preset => preset.name === previous)) select.value = previous;
 }
@@ -2942,6 +2993,7 @@ function saveCurrentPlanPreset() {
     mode: localStorage.getItem(STORE_TMPL_MODE) || 'weekday',
     weekday: JSON.parse(localStorage.getItem(STORE_TMPL) || '{}'),
     cycle: JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}'),
+    cycleLength: getCycleLength(),
     savedAt: Date.now()
   };
   const existingIndex = presets.findIndex(item => item.name === name);
@@ -2960,6 +3012,7 @@ function applySelectedPlanPreset() {
   localStorage.setItem(STORE_TMPL_MODE, preset.mode === 'cycle' ? 'cycle' : 'weekday');
   localStorage.setItem(STORE_TMPL, JSON.stringify(preset.weekday || {}));
   localStorage.setItem(STORE_CYCLE_TMPL, JSON.stringify(preset.cycle || {}));
+  localStorage.setItem(STORE_CYCLE_LENGTH, String(Math.max(2, Math.min(7, Number(preset.cycleLength || 7)))));
   loadTemplates();
   renderPlanPresets(name);
   showCopyToast(`${name}に切り替えました`);
@@ -2981,11 +3034,13 @@ function updateTemplateModeUi() {
   const cycleInputs = document.getElementById('cycleTemplateInputs');
   if (weekdayInputs) weekdayInputs.style.display = mode === 'weekday' ? 'block' : 'none';
   if (cycleInputs) cycleInputs.style.display = mode === 'cycle' ? 'block' : 'none';
+  if (mode === 'cycle') renderCycleLengthUi();
 }
 
 function getCurrentCycleSlot() {
+  const active = getActiveCycleNames();
   const saved = localStorage.getItem(STORE_CYCLE_SLOT) || 'A';
-  return cycleNames.includes(saved) ? saved : 'A';
+  return active.includes(saved) ? saved : 'A';
 }
 
 function getCycleExtraSlotMap() {
@@ -3001,13 +3056,13 @@ function getCycleExtraSlots(dateStr = currentDateStr) {
   const current = getCurrentCycleSlot();
   const data = getCycleExtraSlotMap();
   return Array.isArray(data[dateStr])
-    ? data[dateStr].filter(slot => cycleNames.includes(slot) && slot !== current)
+    ? data[dateStr].filter(slot => getActiveCycleNames().includes(slot) && slot !== current)
     : [];
 }
 
 function saveCycleExtraSlots(dateStr, slots) {
   const current = getCurrentCycleSlot();
-  const clean = [...new Set((slots || []).filter(slot => cycleNames.includes(slot) && slot !== current))];
+  const clean = [...new Set((slots || []).filter(slot => getActiveCycleNames().includes(slot) && slot !== current))];
   const data = getCycleExtraSlotMap();
   if (clean.length) data[dateStr] = clean;
   else delete data[dateStr];
@@ -3020,30 +3075,31 @@ function getCyclePlanSlots(dateStr = currentDateStr) {
 }
 
 function getFarthestCycleSlot(slots, baseSlot = getCurrentCycleSlot()) {
-  const baseIndex = cycleNames.indexOf(baseSlot);
+  const active = getActiveCycleNames();
+  const baseIndex = active.indexOf(baseSlot);
   if (baseIndex < 0) return baseSlot;
   return (slots || [baseSlot]).reduce((best, slot) => {
-    const slotIndex = cycleNames.indexOf(slot);
-    const bestIndex = cycleNames.indexOf(best);
-    const slotDistance = slotIndex >= 0 ? (slotIndex - baseIndex + cycleNames.length) % cycleNames.length : -1;
-    const bestDistance = bestIndex >= 0 ? (bestIndex - baseIndex + cycleNames.length) % cycleNames.length : -1;
+    const slotIndex = active.indexOf(slot);
+    const bestIndex = active.indexOf(best);
+    const slotDistance = slotIndex >= 0 ? (slotIndex - baseIndex + active.length) % active.length : -1;
+    const bestDistance = bestIndex >= 0 ? (bestIndex - baseIndex + active.length) % active.length : -1;
     return slotDistance > bestDistance ? slot : best;
   }, baseSlot);
 }
 
 function formatCyclePlanLabel(slots) {
-  const clean = (slots || []).filter(slot => cycleNames.includes(slot));
+  const clean = (slots || []).filter(slot => getActiveCycleNames().includes(slot));
   return `プラン${clean.length ? clean.join('+') : getCurrentCycleSlot()}`;
 }
 
 function formatCyclePlanText(slots, data) {
-  const clean = (slots || []).filter(slot => cycleNames.includes(slot));
+  const clean = (slots || []).filter(slot => getActiveCycleNames().includes(slot));
   if (clean.length <= 1) return data[clean[0] || getCurrentCycleSlot()] || '';
   return clean.map(slot => `【${slot}】${data[slot] || '未入力'}`).join('\n');
 }
 
 function toggleCycleExtraSlot(slot) {
-  if (!cycleNames.includes(slot) || slot === getCurrentCycleSlot()) return;
+  if (!getActiveCycleNames().includes(slot) || slot === getCurrentCycleSlot()) return;
   const extras = getCycleExtraSlots();
   const next = extras.includes(slot)
     ? extras.filter(item => item !== slot)
@@ -3066,7 +3122,7 @@ function renderCycleExtraPlanControls() {
   container.innerHTML = `
     <div class="cycle-extra-title">追加で行うプラン</div>
     <div class="cycle-extra-buttons">
-      ${cycleNames.filter(slot => slot !== current).map(slot => `
+      ${getActiveCycleNames().filter(slot => slot !== current).map(slot => `
         <button type="button" class="cycle-extra-btn ${extras.includes(slot) ? 'active' : ''}" onclick="toggleCycleExtraSlot('${slot}')">${slot}</button>
       `).join('')}
     </div>
@@ -3074,16 +3130,17 @@ function renderCycleExtraPlanControls() {
 }
 
 function setCycleSlot(slot) {
-  if (!cycleNames.includes(slot)) return;
+  if (!getActiveCycleNames().includes(slot)) return;
   localStorage.setItem(STORE_CYCLE_SLOT, slot);
   saveCycleExtraSlots(currentDateStr, getCycleExtraSlots(currentDateStr).filter(item => item !== slot));
   updateTodayTemplate();
 }
 
 function changeCycleSlot(delta) {
+  const active = getActiveCycleNames();
   const current = getCurrentCycleSlot();
-  const idx = cycleNames.indexOf(current);
-  const next = cycleNames[(idx + delta + cycleNames.length) % cycleNames.length];
+  const idx = active.indexOf(current);
+  const next = active[(idx + delta + active.length) % active.length];
   setCycleSlot(next);
 }
 
@@ -3099,13 +3156,16 @@ function markCyclePlanCompleted(dateStr, slots = getCyclePlanSlots(dateStr)) {
 }
 
 function getLatestRecordedCycleCompletion() {
+  const active = getActiveCycleNames();
   const candidates = logs
     .filter(log => log.planMode === 'cycle' && getCycleSlotsFromLog(log).length)
     .sort((a, b) => a.date.localeCompare(b.date) || Number(a.id || 0) - Number(b.id || 0));
-  if (!candidates.length) return null;
-  const latest = candidates[candidates.length - 1];
-  const slots = getCycleSlotsFromLog(latest);
-  return { date:latest.date, slot:getFarthestCycleSlot(slots, slots[0] || 'A') };
+  for (let index = candidates.length - 1; index >= 0; index--) {
+    const latest = candidates[index];
+    const slots = getCycleSlotsFromLog(latest).filter(slot => active.includes(slot));
+    if (slots.length) return { date:latest.date, slot:getFarthestCycleSlot(slots, slots[0] || 'A') };
+  }
+  return null;
 }
 
 function getCycleSlotsFromLog(log) {
@@ -3115,16 +3175,28 @@ function getCycleSlotsFromLog(log) {
   return match ? match[1].split('+').filter(slot => cycleNames.includes(slot)) : [];
 }
 
+function isCycleRestSlot(slot = getCurrentCycleSlot()) {
+  const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
+  return /休み|休養|完全休|オフ|rest/i.test(String(data[slot] || ''));
+}
+
+function addDaysToDateString(dateStr, days) {
+  const date = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+}
+
 function reconcileCycleCompletionState() {
   const recorded = getLatestRecordedCycleCompletion();
   const storedDate = localStorage.getItem(STORE_CYCLE_COMPLETED_DATE) || '';
   const storedSlot = localStorage.getItem(STORE_CYCLE_COMPLETED_SLOT) || '';
-  if (recorded && (!storedDate || recorded.date > storedDate || !cycleNames.includes(storedSlot))) {
+  if (recorded && (!storedDate || recorded.date > storedDate || !getActiveCycleNames().includes(storedSlot))) {
     localStorage.setItem(STORE_CYCLE_COMPLETED_DATE, recorded.date);
     localStorage.setItem(STORE_CYCLE_COMPLETED_SLOT, recorded.slot);
     return recorded;
   }
-  return storedDate && cycleNames.includes(storedSlot)
+  return storedDate && getActiveCycleNames().includes(storedSlot)
     ? { date:storedDate, slot:storedSlot }
     : recorded;
 }
@@ -3134,10 +3206,20 @@ function syncCycleSlotForDate(targetDateStr) {
   const completion = reconcileCycleCompletionState();
   if (!completion || completion.date >= targetDateStr) return;
   const advancedDate = localStorage.getItem(STORE_CYCLE_ADVANCED_DATE) || '';
-  if (advancedDate === completion.date) return;
+  if (advancedDate === completion.date) {
+    const current = getCurrentCycleSlot();
+    const restDate = addDaysToDateString(completion.date, 1);
+    if (isCycleRestSlot(current) && targetDateStr > restDate) {
+      const active = getActiveCycleNames();
+      const currentIndex = active.indexOf(current);
+      localStorage.setItem(STORE_CYCLE_SLOT, active[(currentIndex + 1) % active.length]);
+    }
+    return;
+  }
 
-  const idx = cycleNames.indexOf(completion.slot);
-  const next = cycleNames[(idx + 1) % cycleNames.length];
+  const active = getActiveCycleNames();
+  const idx = active.indexOf(completion.slot);
+  const next = active[(Math.max(0, idx) + 1) % active.length];
   localStorage.setItem(STORE_CYCLE_SLOT, next);
   localStorage.setItem(STORE_CYCLE_ADVANCED_DATE, completion.date);
 }
@@ -3208,8 +3290,8 @@ function getPlanOverviewRows() {
     const data = JSON.parse(localStorage.getItem(STORE_CYCLE_TMPL) || '{}');
     const activeSlots = getCyclePlanSlots();
     return {
-      title: 'A〜G予定一覧',
-      rows: cycleNames.map(name => ({
+      title: `A〜${getActiveCycleNames().slice(-1)[0]}予定一覧`,
+      rows: getActiveCycleNames().map(name => ({
         label: name,
         text: data[name] || '',
         active: activeSlots.includes(name)
@@ -3351,7 +3433,7 @@ function refreshWorkoutRecallChoices() {
   if (planLabel) {
     planLabel.textContent = mode === 'cycle'
       ? `${currentSlots.join('+')}：${composite ? (composite.label || '記録なし') : getRecallDateLabel(planDate)}`
-      : 'A〜G方式で利用できます';
+      : 'ローテーション方式で利用できます';
   }
 
   const dateInput = document.getElementById('recallDateInput');
@@ -3388,7 +3470,7 @@ function selectWorkoutRecallSource(type) {
     if (slots.length > 1) {
       const composite = getCompositePlanRecallGroups(currentDateStr);
       if (!composite.groups.length) {
-        renderWorkoutRecallPreview('', 'A〜G複合プランの過去記録がありません');
+        renderWorkoutRecallPreview('', '複合ローテーションの過去記録がありません');
         return;
       }
       workoutRecallSourceDate = WORKOUT_RECALL_COMPOSITE;
@@ -3570,6 +3652,7 @@ function updateTodayTemplate() {
     todayTask = formatCyclePlanText(slots, data);
     renderTodayTemplateTitle(`現在の予定（${slots.join('+')}）`, todayTask);
     const slotSelect = document.getElementById('cycleSlotSelect');
+    renderCycleLengthUi();
     if (slotSelect) slotSelect.value = slot;
     if (cycleControls) cycleControls.style.display = 'flex';
     renderCycleExtraPlanControls();
@@ -7777,6 +7860,7 @@ function init() {
           <div class="set-technique-line">
             <button type="button" class="set-technique-btn ${technique.type !== 'none' ? 'active' : ''}" onclick="openTechniqueModal(${i})">${technique.type === 'none' ? '＋ 技法' : setTechniqueTypes[technique.type]}</button>
             <div class="set-technique-summary">${escapeHtml(techniqueSummary)}</div>
+            ${i < currentSets.length - 1 ? `<button type="button" class="set-technique-btn" onclick="copySetToNext(${i})" title="このセットを下のセットへコピー">↓コピー</button>` : ''}
             <button type="button" class="set-row-delete" onclick="removeSetAt(${i})">削除</button>
           </div>
           <div class="set-insert-divider">
@@ -8246,6 +8330,32 @@ function init() {
       showUndoToast('セット複製');
     }
 
+    function copySetToNext(sourceIndex) {
+      syncVisibleSetInputs();
+      const source = currentSets[sourceIndex];
+      const target = currentSets[sourceIndex + 1];
+      if (!source || !target) return showCopyToast('下にコピー先のセットがありません');
+      if (source.weight === '' && source.reps === '') return showCopyToast('コピー元の重量・回数を入力してください');
+      const targetHasInput = target.weight !== '' || target.reps !== '' || target.done || Boolean(target.note);
+      if (targetHasInput && !confirm(`セット${sourceIndex + 2}の入力を、セット${sourceIndex + 1}の内容で上書きしますか？`)) return;
+      captureSetEditUndo(`セット${sourceIndex + 2}へコピー`);
+      const copied = createSetCopyFromSource(source, true);
+      [
+        'prevWeight','prevReps','prevRpe','prevRir','prevPartialReps','prevBodyWeight','prevAssistAmount',
+        'prevAssistMode','prevMetricType','prevTechnique','prevComparisonLabel','prevComparisonDate','prevNote'
+      ].forEach(key => { if (target[key] != null) copied[key] = JSON.parse(JSON.stringify(target[key])); });
+      copied._currentSetId = target._currentSetId || createCurrentSetId();
+      copied.done = false;
+      copied.completedAt = null;
+      copied.manualCheckRequired = true;
+      currentSets[sourceIndex + 1] = normalizeCurrentSetMetric(copied);
+      renderSetRows();
+      calcAdvice();
+      saveCurrentDraft();
+      showCopyToast(`セット${sourceIndex + 2}へコピーしました`);
+      showUndoToast(`セット${sourceIndex + 2}へコピー`);
+    }
+
     function insertSetRow(index) {
       const safeIndex = Math.max(0, Math.min(currentSets.length, Number(index) || 0));
       captureSetEditUndo('セット差し込み');
@@ -8260,13 +8370,13 @@ function init() {
     }
 
     function addSetRow() {
-      const source = currentSets[currentSets.length - 1];
       captureSetEditUndo('セット追加');
-      currentSets.push(source ? createSetCopyFromSource(source, true) : createBlankSet());
+      currentSets.push(createBlankSet());
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
-      showUndoToast('セット追加');
+      showCopyToast('空のセットを追加しました');
+      showUndoToast('空のセット追加');
       setTimeout(() => {
         document.querySelector(`#set-row-${currentSets.length - 1} .input-box input`)?.focus();
       }, 50);
@@ -8882,9 +8992,10 @@ function init() {
           break;
         }
       }
-      selectedDates = startIndex >= 0 ? selectedDates.slice(startIndex, startIndex + 7) : selectedDates.slice(-7);
+      const cycleLength = getCycleLength();
+      selectedDates = startIndex >= 0 ? selectedDates.slice(startIndex, startIndex + cycleLength) : selectedDates.slice(-cycleLength);
       const dateSet = new Set(selectedDates);
-      return { title: '直近のA〜G 1ループ', items: available.filter(l => dateSet.has(l.date)) };
+      return { title: `直近のA〜${getActiveCycleNames().slice(-1)[0]} 1ループ`, items: available.filter(l => dateSet.has(l.date)) };
     }
 
     function buildPeriodSummaryText() {
