@@ -5628,6 +5628,60 @@ function init() {
 
 
     // --- Exercise Entry Flow ---
+
+    function restoreExerciseEntrySnapshot(options = {}) {
+      const entryDate = options.editDate || currentDateStr;
+      const drafts = getSetDrafts();
+      const draft = drafts[getDraftKey(entryDate, selectedExercise)] || null;
+      const resumeDraft = draftContainsEnteredData(draft);
+      const suppliedRecords = Array.isArray(options.savedRecords) ? options.savedRecords : [];
+      const savedRecords = (suppliedRecords.length ? suppliedRecords : logs
+        .filter(set => set && set.date === entryDate && set.exercise === selectedExercise))
+        .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      const useDraft = resumeDraft && !Boolean(options.preferSavedRecord);
+      if (!useDraft && !savedRecords.length) return false;
+
+      applyExerciseTimerPreference(selectedExercise);
+      renderWeightModeControl();
+      renderComparisonControl();
+      const memoEl = document.getElementById('sessionMemo');
+
+      if (useDraft) {
+        currentSets = draft.sets.map(set => normalizeCurrentSetMetric(JSON.parse(JSON.stringify(set))));
+        if (memoEl) memoEl.value = draft.memo || '';
+        const time = new Date(draft.updatedAt || Date.now()).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+        setDraftSaveStatus(`入力途中から再開 ${time}`);
+      } else {
+        currentSets = savedRecords.map(record => {
+          const metricType = inferLogMetricType(record, selectedExercise);
+          return normalizeCurrentSetMetric({
+            weight:record.weight != null ? String(record.weight) : '',
+            reps:record.reps != null ? String(record.reps) : '',
+            rpe:metricType === 'UP' ? 'UP' : (record.rpe ?? 8),
+            rir:record.rir ?? '',
+            partialReps:record.partialReps ?? '',
+            bodyWeight:record.bodyWeight ?? '',
+            assistAmount:record.assistAmount ?? '',
+            assistMode:record.assistMode ?? '',
+            note:record.note || '',
+            metricType,
+            technique:normalizeTechnique(record.technique),
+            done:true,
+            manualCheckRequired:false,
+            completedAt:Number(record.completedAt) || null
+          });
+        });
+        if (memoEl) memoEl.value = savedRecords.find(set => set.memo)?.memo || '';
+        setDraftSaveStatus('保存済み記録を復元しました');
+      }
+
+      if (!currentSets.length) return false;
+      renderSetRows();
+      updateAssistCalcVisibility();
+      renderSupersetPartnerBox();
+      calcAdvice();
+      return true;
+    }
     
     function enterExerciseInput(eName, options = {}) {
       selectedExercise = eName;
@@ -5635,9 +5689,9 @@ function init() {
       document.getElementById('headerTitle').textContent = eName;
       switchView('view-exercise');
       try {
-        loadPrevSets(options);
+        if (!restoreExerciseEntrySnapshot(options)) loadPrevSets(options);
       } catch (err) {
-        console.warn('previous set load failed', err);
+        console.warn('exercise entry restore failed', err);
         loadPrevSetsFallback(options);
       }
       ensureCurrentExerciseDraftExists();
