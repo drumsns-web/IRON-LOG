@@ -1768,6 +1768,8 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     // Set UI state
     let currentSets = [];
     let currentSetIdSequence = 0;
+    const entryTabSessionId = `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    let currentEntryLastSavedAt = 0;
     let skipNextExerciseExitDraftSave = false;
     let draftSaveStatusTimer = null;
     let lastSetEditSnapshot = null;
@@ -3756,13 +3758,13 @@ function init() {
       renderLocalBackups();
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-          try { saveCurrentDraft(); } catch (err) { console.warn('draft save while hidden failed', err); }
+          try { saveCurrentDraft({ passive:true }); } catch (err) { console.warn('draft save while hidden failed', err); }
         } else {
           syncAppDateAfterResume();
         }
       });
       window.addEventListener('pagehide', () => {
-        try { saveCurrentDraft(); } catch (err) { console.warn('draft save on page hide failed', err); }
+        try { saveCurrentDraft({ passive:true }); } catch (err) { console.warn('draft save on page hide failed', err); }
       });
       window.addEventListener('pageshow', syncAppDateAfterResume);
       window.addEventListener('focus', syncAppDateAfterResume);
@@ -5629,10 +5631,21 @@ function init() {
 
     // --- Exercise Entry Flow ---
 
+    function runExerciseEntryUiStep(label, callback) {
+      try {
+        callback();
+        return true;
+      } catch (err) {
+        console.warn(`exercise entry ${label} failed`, err);
+        return false;
+      }
+    }
+
     function restoreExerciseEntrySnapshot(options = {}) {
       const entryDate = options.editDate || currentDateStr;
       const drafts = getSetDrafts();
       const draft = drafts[getDraftKey(entryDate, selectedExercise)] || null;
+      currentEntryLastSavedAt = Number(draft?.updatedAt) || 0;
       const resumeDraft = draftContainsEnteredData(draft);
       const suppliedRecords = Array.isArray(options.savedRecords) ? options.savedRecords : [];
       const savedRecords = (suppliedRecords.length ? suppliedRecords : logs
@@ -5641,20 +5654,24 @@ function init() {
       const useDraft = resumeDraft && !Boolean(options.preferSavedRecord);
       if (!useDraft && !savedRecords.length) return false;
 
-      applyExerciseTimerPreference(selectedExercise);
-      renderWeightModeControl();
-      renderComparisonControl();
       const memoEl = document.getElementById('sessionMemo');
 
       if (useDraft) {
-        currentSets = draft.sets.map(set => normalizeCurrentSetMetric(JSON.parse(JSON.stringify(set))));
+        currentSets = draft.sets.map(set => {
+          const restored = JSON.parse(JSON.stringify(set));
+          try { return normalizeCurrentSetMetric(restored); }
+          catch (err) {
+            console.warn('draft set normalization failed', err);
+            return { ...createBlankSet(), ...restored, _currentSetId:restored._currentSetId || createCurrentSetId() };
+          }
+        });
         if (memoEl) memoEl.value = draft.memo || '';
         const time = new Date(draft.updatedAt || Date.now()).toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
         setDraftSaveStatus(`入力途中から再開 ${time}`);
       } else {
         currentSets = savedRecords.map(record => {
           const metricType = inferLogMetricType(record, selectedExercise);
-          return normalizeCurrentSetMetric({
+          const restored = {
             weight:record.weight != null ? String(record.weight) : '',
             reps:record.reps != null ? String(record.reps) : '',
             rpe:metricType === 'UP' ? 'UP' : (record.rpe ?? 8),
@@ -5669,17 +5686,25 @@ function init() {
             done:true,
             manualCheckRequired:false,
             completedAt:Number(record.completedAt) || null
-          });
+          };
+          try { return normalizeCurrentSetMetric(restored); }
+          catch (err) {
+            console.warn('saved set normalization failed', err);
+            return { ...createBlankSet(), ...restored, _currentSetId:createCurrentSetId() };
+          }
         });
         if (memoEl) memoEl.value = savedRecords.find(set => set.memo)?.memo || '';
         setDraftSaveStatus('保存済み記録を復元しました');
       }
 
       if (!currentSets.length) return false;
-      renderSetRows();
-      updateAssistCalcVisibility();
-      renderSupersetPartnerBox();
-      calcAdvice();
+      runExerciseEntryUiStep('timer preference', () => applyExerciseTimerPreference(selectedExercise));
+      runExerciseEntryUiStep('weight mode', renderWeightModeControl);
+      runExerciseEntryUiStep('comparison control', renderComparisonControl);
+      runExerciseEntryUiStep('set rows', renderSetRows);
+      runExerciseEntryUiStep('assist display', updateAssistCalcVisibility);
+      runExerciseEntryUiStep('superset display', renderSupersetPartnerBox);
+      runExerciseEntryUiStep('advice', calcAdvice);
       return true;
     }
     
@@ -5688,11 +5713,15 @@ function init() {
       document.getElementById('copyToast')?.classList.remove('show');
       document.getElementById('headerTitle').textContent = eName;
       switchView('view-exercise');
-      try {
-        if (!restoreExerciseEntrySnapshot(options)) loadPrevSets(options);
-      } catch (err) {
-        console.warn('exercise entry restore failed', err);
-        loadPrevSetsFallback(options);
+      let restoredEntry = false;
+      try { restoredEntry = restoreExerciseEntrySnapshot(options); }
+      catch (err) { console.warn('exercise entry snapshot failed', err); }
+      if (!restoredEntry) {
+        try { loadPrevSets(options); }
+        catch (err) {
+          console.warn('previous set load failed', err);
+          loadPrevSetsFallback(options);
+        }
       }
       ensureCurrentExerciseDraftExists();
       try {
@@ -6294,7 +6323,7 @@ function init() {
       if (quick && saving) quick.textContent = text;
     }
 
-    function saveCurrentDraft() {
+    function saveCurrentDraft(options = {}) {
       if (!selectedExercise || !Array.isArray(currentSets) || currentSets.length === 0) return;
       setDraftSaveStatus('保存中…', true);
       syncVisibleSetInputs();
@@ -6302,8 +6331,15 @@ function init() {
       const memoEl = document.getElementById('sessionMemo');
       const drafts = getSetDrafts();
       const draftKey = getDraftKey();
+      const storedDraft = drafts[draftKey] || null;
+      if (options.passive && storedDraft && storedDraft.ownerTabId && storedDraft.ownerTabId !== entryTabSessionId &&
+          Number(storedDraft.updatedAt || 0) > Number(currentEntryLastSavedAt || 0)) {
+        setDraftSaveStatus('別タブの新しい入力内容を保持しています');
+        return;
+      }
       const recalledFrom = drafts[draftKey]?.recalledFrom || '';
       const orderIndex = drafts[draftKey]?.orderIndex;
+      const savedAt = Date.now();
       const nextDraft = {
         date: currentDateStr,
         exercise: selectedExercise,
@@ -6311,13 +6347,15 @@ function init() {
         memo: memoEl ? memoEl.value : '',
         recalledFrom: recalledFrom,
         ...(Number.isFinite(orderIndex) ? { orderIndex } : {}),
-        updatedAt: Date.now()
+        ownerTabId: entryTabSessionId,
+        updatedAt: savedAt
       };
       if (drafts[draftKey] && getDraftComparable(drafts[draftKey]) !== getDraftComparable(nextDraft)) {
         rememberDraftVersion(draftKey, drafts[draftKey]);
       }
       drafts[draftKey] = nextDraft;
       setSetDrafts(drafts);
+      currentEntryLastSavedAt = savedAt;
       getExerciseOrderForDate(currentDateStr);
       clearTimeout(draftSaveStatusTimer);
       draftSaveStatusTimer = setTimeout(() => {
@@ -6345,6 +6383,7 @@ function init() {
       const drafts = getSetDrafts();
       delete drafts[getDraftKey()];
       setSetDrafts(drafts);
+      currentEntryLastSavedAt = 0;
       skipNextExerciseExitDraftSave = true;
       setDraftSaveStatus('記録へ保存済み');
     }
@@ -7208,8 +7247,11 @@ function init() {
         setDraftSaveStatus('入力内容は自動保存されます');
       } catch (fallbackErr) {
         console.error('fallback previous set load failed', fallbackErr);
-        currentSets = [createBlankSet()];
-        renderSetRows();
+        if (!Array.isArray(currentSets) || currentSets.length === 0) currentSets = [createBlankSet()];
+        try { renderSetRows(); } catch (renderErr) { console.error('fallback set render failed', renderErr); }
+        setDraftSaveStatus(currentSets.some(set => hasSetFieldValue(set?.weight) || hasSetFieldValue(set?.reps))
+          ? '記録を保持しています（一部表示処理でエラー）'
+          : '入力内容は自動保存されます');
       }
     }
 
