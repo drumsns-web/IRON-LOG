@@ -129,6 +129,7 @@
     .set-prev-btn:disabled { opacity:.42; cursor:default; }
     .set-note-input { width:100%; min-height:34px; border:1px solid var(--line); border-radius:7px; outline:none; background:var(--surface-2); color:var(--set-value-text); padding:0 10px; font-size:13px; font-weight:650; }
     .set-note-input::placeholder { color:var(--set-ghost-text); opacity:1; }
+    .previous-memo-open { grid-column:2; width:100%; }
 
     .set-label { width: 44px; font-size: 15px; font-weight: 750; color: var(--set-label-text); text-align: center;}
 
@@ -1323,6 +1324,19 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
   </div>
 
+  <div class="technique-modal" id="previousMemoModal" onclick="closePreviousMemoModal(event)">
+    <div class="technique-dialog" onclick="event.stopPropagation()">
+      <div class="video-dialog-header">
+        <button type="button" onclick="closePreviousMemoModal()">閉じる</button>
+        <h3 id="previousMemoModalTitle">前回のセットメモ</h3>
+        <div style="width:56px;"></div>
+      </div>
+      <div class="technique-body">
+        <div id="previousMemoModalBody" style="padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:15px; line-height:1.75; white-space:pre-wrap; overflow-wrap:anywhere;"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="technique-modal" id="techniqueModal" onclick="closeTechniqueModal(event)">
     <div class="technique-dialog" onclick="event.stopPropagation()">
       <div class="video-dialog-header">
@@ -2129,6 +2143,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       'planOverviewModal',
       'draftHistoryModal',
       'previousSetModal',
+      'previousMemoModal',
       'techniqueModal'
     ];
 
@@ -3682,6 +3697,7 @@ function updateTodayTemplate() {
       'setBulkModal',
       'draftHistoryModal',
       'previousSetModal',
+      'previousMemoModal',
       'referenceVideoModal',
       'youtubePlayerModal',
       'workoutRecallModal',
@@ -5672,6 +5688,7 @@ function init() {
         currentSets = savedRecords.map(record => {
           const metricType = inferLogMetricType(record, selectedExercise);
           const restored = {
+            _sourceLogId:Number(record.id) || null,
             weight:record.weight != null ? String(record.weight) : '',
             reps:record.reps != null ? String(record.reps) : '',
             rpe:metricType === 'UP' ? 'UP' : (record.rpe ?? 8),
@@ -7204,6 +7221,7 @@ function init() {
           currentSets = todaySavedSets.map(record => {
             const metricType = inferLogMetricType(record, selectedExercise);
             return normalizeCurrentSetMetric({
+              _sourceLogId:Number(record.id) || null,
               weight:record.weight != null ? String(record.weight) : '',
               reps:record.reps != null ? String(record.reps) : '',
               rpe:metricType === 'UP' ? 'UP' : (record.rpe ?? 8),
@@ -7451,6 +7469,7 @@ function init() {
           const metricType = inferLogMetricType(record, selectedExercise);
           const rpeValue = metricType === 'UP' ? 'UP' : (record.rpe ?? 8);
           const restored = normalizeCurrentSetMetric({
+            _sourceLogId:Number(record.id) || null,
             weight: record.weight != null ? String(record.weight) : '',
             reps: record.reps != null ? String(record.reps) : '',
             rpe: rpeValue,
@@ -7731,6 +7750,24 @@ function init() {
       return value && set?.prevComparisonDate ? `前回メモ: ${value}` : 'セットメモ';
     }
 
+    function openPreviousMemoModal(index) {
+      const set = currentSets[index];
+      const memo = String(set?.prevNote || '').trim();
+      if (!memo) return showCopyToast('前回メモはありません');
+      const title = document.getElementById('previousMemoModalTitle');
+      const body = document.getElementById('previousMemoModalBody');
+      const modal = document.getElementById('previousMemoModal');
+      if (title) title.textContent = `セット${index + 1}の前回メモ`;
+      if (body) body.textContent = memo;
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closePreviousMemoModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      const modal = document.getElementById('previousMemoModal');
+      if (modal) modal.style.display = 'none';
+    }
+
     function getPreviousSetButtonLabel(session) {
       return session ? `過去記録 ${formatComparisonDateLabel(session.date)}` : '過去記録なし';
     }
@@ -7952,6 +7989,7 @@ function init() {
           <div class="set-extra-line">
             <button type="button" class="set-prev-btn ${hasSetPrevious ? 'has-prev' : ''}" onclick="handlePreviousSetButtonClick(this, ${i})" ${latestSameExerciseSession || hasSetPrevious ? '' : 'disabled'}>${previousButtonLabel}</button>
             <input class="set-note-input" type="text" placeholder="${escapeHtml(getPreviousSetNotePlaceholder(i))}" value="${escapeHtml(s.note || '')}" oninput="updateSetNoteById('${setId}', this.value)">
+            ${s.prevNote ? `<button type="button" class="set-prev-btn has-prev previous-memo-open" onclick="openPreviousMemoModal(${i})" title="前回メモを全文表示">前回メモを全文表示</button>` : ''}
           </div>
           <div class="set-technique-line">
             <button type="button" class="set-technique-btn ${technique.type !== 'none' ? 'active' : ''}" onclick="openTechniqueModal(${i})">${technique.type === 'none' ? '＋ 技法' : setTechniqueTypes[technique.type]}</button>
@@ -8253,6 +8291,7 @@ function init() {
       const copied = {
         ...JSON.parse(JSON.stringify(normalizedSource)),
         _currentSetId: createCurrentSetId(),
+        _sourceLogId: null,
         prevWeight: sourceWeight,
         prevReps: sourceReps,
         prevRpe: sourceRpe,
@@ -8289,14 +8328,14 @@ function init() {
       const title = document.getElementById('quickExerciseTitle');
       const status = document.getElementById('quickSetStatus');
       const timer = document.getElementById('quickTimerButton');
-      if (title) title.textContent = selectedExercise || '種目';
+      const transition = getPreviousExerciseTransitionText();
+      if (title) title.textContent = transition || '前種目から --:--';
       if (status) {
         const entered = currentSets.filter(set => set.weight !== '' || set.reps !== '').length;
         const nextIndex = currentSets.findIndex(set => set.weight === '' && set.reps === '');
         const currentLabel = nextIndex >= 0 ? nextIndex + 1 : Math.max(1, currentSets.length);
         const elapsed = getExerciseElapsedText();
-        const transition = getPreviousExerciseTransitionText();
-        status.textContent = `${currentLabel}セット目・入力 ${entered}/${currentSets.length}${elapsed ? `・${elapsed}` : ''}${transition ? `・${transition}` : ''}`;
+        status.textContent = `${currentLabel}セット目・入力 ${entered}/${currentSets.length}${elapsed ? `・${elapsed}` : ''}`;
       }
       if (timer) {
         const minutes = Math.floor(intervalTimerRemaining / 60);
@@ -8441,6 +8480,7 @@ function init() {
         'prevAssistMode','prevMetricType','prevTechnique','prevComparisonLabel','prevComparisonDate','prevNote'
       ].forEach(key => { if (target[key] != null) copied[key] = JSON.parse(JSON.stringify(target[key])); });
       copied._currentSetId = target._currentSetId || createCurrentSetId();
+      copied._sourceLogId = target._sourceLogId || null;
       copied.done = false;
       copied.completedAt = null;
       copied.manualCheckRequired = true;
@@ -8670,6 +8710,89 @@ function init() {
       if (changed) showUndoToast(`セット${idx + 1}の入力方式`);
     }
 
+    function autoSaveCheckedSet(idx) {
+      const set = currentSets[idx];
+      if (!set || !set.done || set.weight === '' || set.reps === '') return false;
+      normalizeCurrentSetMetric(set);
+
+      try {
+        const storedLogs = JSON.parse(localStorage.getItem(STORE_LOGS) || '[]');
+        if (Array.isArray(storedLogs)) logs = storedLogs;
+      } catch (err) {
+        console.warn('latest logs reload before checked save failed', err);
+      }
+
+      const sameExerciseLogs = logs
+        .filter(log => log.date === currentDateStr && log.exercise === selectedExercise)
+        .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+      let recordId = Number(set._sourceLogId) || 0;
+      let existingIndex = recordId
+        ? logs.findIndex(log => Number(log.id) === recordId && log.date === currentDateStr && log.exercise === selectedExercise)
+        : -1;
+      if (existingIndex < 0 && Number(set.completedAt)) {
+        const completedMatch = sameExerciseLogs.find(log => Number(log.completedAt) === Number(set.completedAt));
+        if (completedMatch) {
+          recordId = Number(completedMatch.id) || 0;
+          existingIndex = logs.findIndex(log => Number(log.id) === recordId);
+        }
+      }
+      if (existingIndex < 0 && sameExerciseLogs.length === currentSets.length && sameExerciseLogs[idx]) {
+        const candidateId = Number(sameExerciseLogs[idx].id) || 0;
+        const usedByOtherSet = currentSets.some((item, itemIndex) => itemIndex !== idx && Number(item._sourceLogId) === candidateId);
+        if (!usedByOtherSet) {
+          recordId = candidateId;
+          existingIndex = logs.findIndex(log => Number(log.id) === candidateId);
+        }
+      }
+      if (!recordId || existingIndex < 0) {
+        recordId = Date.now() + idx;
+        while (logs.some(log => Number(log.id) === recordId)) recordId += 1;
+        existingIndex = -1;
+      }
+
+      let planInfo = { label:'', text:'', slots:null };
+      try { planInfo = getActivePlanInfo() || planInfo; }
+      catch (err) { console.warn('checked set plan info failed', err); }
+      const metricType = inferLogMetricType(set, selectedExercise);
+      const record = {
+        id:recordId,
+        date:currentDateStr,
+        exercise:selectedExercise,
+        weight:parseFloat(set.weight),
+        weightMode:getExerciseWeightMode(selectedExercise),
+        reps:parseInt(set.reps),
+        metricType,
+        rpe:metricType === 'RPE' ? parseFloat(set.rpe) : null,
+        rir:metricType === 'RIR' ? parseFloat(set.rir) : null,
+        isWarmup:metricType === 'UP',
+        partialReps:metricType === 'PR' && set.partialReps !== '' ? parseInt(set.partialReps) : null,
+        technique:normalizeTechnique(set.technique),
+        completedAt:Number(set.completedAt) || Date.now(),
+        bodyWeight:set.bodyWeight !== '' && set.bodyWeight != null ? Number(set.bodyWeight) : null,
+        assistAmount:set.assistAmount !== '' && set.assistAmount != null ? Number(set.assistAmount) : null,
+        assistMode:set.assistMode || null,
+        note:(set.note || '').trim(),
+        planMode:localStorage.getItem(STORE_TMPL_MODE) || 'weekday',
+        planLabel:planInfo.label,
+        planText:planInfo.text,
+        planSlots:planInfo.slots || null,
+        memo:document.getElementById('sessionMemo')?.value?.trim() || ''
+      };
+      if (existingIndex >= 0) logs[existingIndex] = record;
+      else logs.push(record);
+      if (!persistLogsSafely(logs)) return false;
+
+      set._sourceLogId = recordId;
+      try { markCyclePlanCompleted(currentDateStr, planInfo.slots); }
+      catch (err) { console.warn('checked set cycle completion failed', err); }
+      saveCurrentDraft();
+      clearTimeout(draftSaveStatusTimer);
+      setDraftSaveStatus(`セット${idx + 1}を記録へ保存済み`);
+      updateExerciseQuickBar();
+      showCopyToast(`セット${idx + 1}を保存しました`);
+      return true;
+    }
+
     function toggleDone(idx) {
       const s = currentSets[idx];
       if (!s) return;
@@ -8678,6 +8801,14 @@ function init() {
       // Auto-fill from placeholder if empty and marking as done
       if (s.done) {
         applyPreviousValuesToSet(s);
+        if (s.weight === '' || s.reps === '') {
+          s.done = false;
+          s.completedAt = null;
+          renderSetRows();
+          saveCurrentDraft();
+          showCopyToast('重量と回数を入力してからチェックしてください');
+          return;
+        }
         s.manualCheckRequired = false;
         markSetDone(s);
       } else {
@@ -8687,6 +8818,7 @@ function init() {
       renderSetRows();
       calcAdvice();
       saveCurrentDraft();
+      if (s.done) autoSaveCheckedSet(idx);
     }
 
     function getExerciseSessionBestEstimates(exName, beforeDate, limit = 3) {
