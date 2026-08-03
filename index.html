@@ -1671,6 +1671,13 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         </div>
         <div class="ai-option-row">
           <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:3px;">本日の呼び出し下書き</div>
+            <div style="font-size:11px; color:var(--muted);">過去記録から読み込んだ全種目・全セットをコピー</div>
+          </div>
+          <button class="ai-option-copy" onclick="copyAiOption('recalledTodayPlan')">コピー</button>
+        </div>
+        <div class="ai-option-row">
+          <div style="flex:1; min-width:0;">
             <div style="font-weight:700; font-size:14px; margin-bottom:3px;">前回の同曜日／同プラン</div>
             <div style="font-size:11px; color:var(--muted);">前週や前回同ローテーション日の全種目をコピー</div>
           </div>
@@ -3595,6 +3602,8 @@ function applyWorkoutRecall() {
         prevAssistAmount: set.assistAmount ?? '',
         prevAssistMode: set.assistMode ?? '',
         prevMetricType: inferLogMetricType(set, group.exercise),
+        prevTechnique: normalizeTechnique(set.technique),
+        prevWeightMode: set.weightMode || getExerciseWeightMode(group.exercise),
         prevNote: set.note || '',
         weight: '',
         reps: '',
@@ -3745,17 +3754,37 @@ function updateTodayTemplate() {
       if (viewport) {
         inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
       }
+      if (inset < 80) inset = 0;
       document.documentElement.style.setProperty('--keyboard-inset', `${Math.round(inset)}px`);
+    }
+
+    let keyboardInsetResetTimers = [];
+    function scheduleKeyboardInsetUpdate(forceClosed = false) {
+      keyboardInsetResetTimers.forEach(clearTimeout);
+      keyboardInsetResetTimers = [0, 80, 220, 450].map(delay => setTimeout(() => {
+        const active = document.activeElement;
+        const editing = active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName);
+        if (forceClosed && !editing) {
+          document.documentElement.style.setProperty('--keyboard-inset', '0px');
+        } else {
+          updateKeyboardInset();
+        }
+      }, delay));
     }
 
     function initKeyboardInsetGuard() {
       updateKeyboardInset();
-      window.addEventListener('resize', updateKeyboardInset);
-      window.addEventListener('orientationchange', () => setTimeout(updateKeyboardInset, 80));
+      window.addEventListener('resize', () => scheduleKeyboardInsetUpdate());
+      window.addEventListener('orientationchange', () => scheduleKeyboardInsetUpdate());
       if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', updateKeyboardInset);
-        window.visualViewport.addEventListener('scroll', updateKeyboardInset);
+        window.visualViewport.addEventListener('resize', () => scheduleKeyboardInsetUpdate());
+        window.visualViewport.addEventListener('scroll', () => scheduleKeyboardInsetUpdate());
       }
+      document.addEventListener('focusin', () => scheduleKeyboardInsetUpdate());
+      document.addEventListener('focusout', () => scheduleKeyboardInsetUpdate(true));
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) scheduleKeyboardInsetUpdate(true);
+      });
     }
 
 function init() {
@@ -6336,8 +6365,6 @@ function init() {
         status.textContent = text;
         status.classList.toggle('saving', saving);
       }
-      const quick = document.getElementById('quickSetStatus');
-      if (quick && saving) quick.textContent = text;
     }
 
     function saveCurrentDraft(options = {}) {
@@ -6493,6 +6520,10 @@ function init() {
       return /レイズ|raise/i.test(exName || '');
     }
 
+    function usesOneSideWeightAsRecorded(exName = selectedExercise) {
+      return /ダンベル|dumbbell|サイド\s*レイズ|ラテラル(?:・|\s)*レイズ|side\s*raise|lateral\s*raise/i.test(exName || '');
+    }
+
     const setTechniqueTypes = {
       none: '通常',
       partial: 'パーシャル',
@@ -6574,7 +6605,10 @@ function init() {
 
     function calculateSetVolume(set) {
       const weight = getCalculationWeight(set, set.exercise) || 0;
-      const weightFactor = getExerciseWeightFactor(set.exercise || selectedExercise);
+      const setWeightMode = set?.weightMode === 'single' || set?.weightMode === 'total'
+        ? set.weightMode
+        : getExerciseWeightMode(set.exercise || selectedExercise);
+      const weightFactor = getExerciseWeightFactor(set.exercise || selectedExercise, setWeightMode);
       const reps = Number(set.reps) || 0;
       let volume = weight * reps;
       const technique = normalizeTechnique(set.technique);
@@ -6915,25 +6949,35 @@ function init() {
     function getExerciseWeightMode(exName = selectedExercise) {
       const preferred = getExerciseInputPreference(exName).weightMode;
       if (preferred === 'single' || preferred === 'total') return preferred;
+      if (usesOneSideWeightAsRecorded(exName)) return 'single';
       const latest = logs
         .filter(set => set.exercise === exName && (set.weightMode === 'single' || set.weightMode === 'total'))
         .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
       return latest?.weightMode === 'single' ? 'single' : 'total';
     }
 
-    function getExerciseWeightFactor(exName = selectedExercise) {
-      return getExerciseWeightMode(exName) === 'single' ? 2 : 1;
+    function getExerciseWeightFactor(exName = selectedExercise, mode = getExerciseWeightMode(exName)) {
+      return mode === 'single' && !usesOneSideWeightAsRecorded(exName) ? 2 : 1;
     }
 
     function getCalculationWeight(set, exName = set?.exercise || selectedExercise) {
       const entered = Number(set?.weight);
-      return Number.isFinite(entered) ? entered * getExerciseWeightFactor(exName) : NaN;
+      const mode = set?.weightMode === 'single' || set?.weightMode === 'total'
+        ? set.weightMode
+        : getExerciseWeightMode(exName);
+      return Number.isFinite(entered) ? entered * getExerciseWeightFactor(exName, mode) : NaN;
     }
 
     function formatRecordedWeight(set, exName = set?.exercise || selectedExercise) {
       const entered = Number(set?.weight);
       if (!Number.isFinite(entered)) return '-kg';
-      if (getExerciseWeightMode(exName) === 'single') {
+      const mode = set?.weightMode === 'single' || set?.weightMode === 'total'
+        ? set.weightMode
+        : getExerciseWeightMode(exName);
+      if (mode === 'single' && getExerciseWeightFactor(exName, mode) === 1) {
+        return `片側${entered}kg`;
+      }
+      if (mode === 'single') {
         const total = entered * 2;
         return `片側${entered}kg（両側合計${total}kg）`;
       }
@@ -6950,8 +6994,10 @@ function init() {
       singleBtn?.classList.toggle('active', mode === 'single');
       if (header) header.textContent = mode === 'single' ? 'kg／片側' : 'kg';
       if (note) {
-        note.textContent = mode === 'single'
-          ? 'ダンベルや左右独立マシンの片側重量として保存し、ボリューム・推定1RM・AI相談では2倍した両側合計重量を使います。過去記録にも反映します。'
+        note.textContent = mode === 'single' && usesOneSideWeightAsRecorded()
+          ? 'ダンベルやサイドレイズ系は片側重量をそのまま保存し、計算とAI相談でも2倍せず使います。'
+          : mode === 'single'
+          ? '左右独立マシンの片側重量として保存し、ボリューム・推定1RM・AI相談では2倍した両側合計重量を使います。過去記録にも反映します。'
           : 'ダンベル・マシンを含め、入力値を両側合計重量としてそのまま計算とAI相談に使います。';
       }
     }
@@ -6964,8 +7010,10 @@ function init() {
       calcAdvice();
       renderDailyLogs();
       if (document.getElementById('view-report')?.classList.contains('active')) renderReport();
-      showCopyToast(mode === 'single'
-        ? 'ダンベル／左右独立マシンの片側入力に変更しました。計算は両側合計です'
+      showCopyToast(mode === 'single' && usesOneSideWeightAsRecorded()
+        ? '片側重量として、2倍せず計算します'
+        : mode === 'single'
+        ? '左右独立マシンの片側入力に変更しました。計算は両側合計です'
         : '両側合計入力に変更しました');
     }
 
@@ -8029,9 +8077,10 @@ function init() {
 
     function formatEstimatedLoadLabel(value, exName = selectedExercise) {
       if (!Number.isFinite(value)) return '--';
-      if (getExerciseWeightMode(exName) === 'single') {
+      if (getExerciseWeightMode(exName) === 'single' && getExerciseWeightFactor(exName) === 2) {
         return `片側${formatVolumeNumber(value / 2)}kg換算`;
       }
+      if (getExerciseWeightMode(exName) === 'single') return `片側${formatVolumeNumber(value)}kg`;
       return `${formatVolumeNumber(value)}kg`;
     }
 
@@ -8067,16 +8116,20 @@ function init() {
 
     function getPreviousExerciseTransitionText() {
       if (!selectedExercise) return '';
-      const order = getExerciseOrderForDate(currentDateStr);
-      const selectedIndex = order.indexOf(selectedExercise);
-      if (selectedIndex <= 0) return '';
-      const prevName = order.slice(0, selectedIndex).reverse()
-        .find(name => getSetCompletedTimesForExercise(currentDateStr, name).length);
-      if (!prevName) return '';
-      const prevTimes = getSetCompletedTimesForExercise(currentDateStr, prevName);
-      const prevLast = prevTimes[prevTimes.length - 1];
       const currentTimes = getCompletedSetTimes();
       const end = currentTimes.length ? currentTimes[0] : Date.now();
+      const otherTimes = logs
+        .filter(set => set.date === currentDateStr && set.exercise !== selectedExercise)
+        .map(set => Number(set.completedAt) || (Number(set.id) > 1000000000000 ? Number(set.id) : 0));
+      getDraftGroupsForDate(currentDateStr).forEach(draft => {
+        if (draft.exercise === selectedExercise) return;
+        (draft.sets || []).forEach(set => otherTimes.push(Number(set.completedAt)));
+      });
+      const previousTimes = otherTimes
+        .filter(value => Number.isFinite(value) && value > 0 && value < end)
+        .sort((a, b) => a - b);
+      if (!previousTimes.length) return '';
+      const prevLast = previousTimes[previousTimes.length - 1];
       const diff = (end - prevLast) / 1000;
       if (diff <= 0) return '';
       return `前種目から ${formatTimerDuration(diff)}`;
@@ -8883,9 +8936,10 @@ function init() {
 
     function formatCoachLoad(weight, exName = selectedExercise) {
       if (!Number.isFinite(Number(weight))) return '--kg';
-      if (getExerciseWeightMode(exName) === 'single') {
+      if (getExerciseWeightMode(exName) === 'single' && getExerciseWeightFactor(exName) === 2) {
         return `片側${formatVolumeNumber(Number(weight) / 2)}kg`;
       }
+      if (getExerciseWeightMode(exName) === 'single') return `片側${formatVolumeNumber(Number(weight))}kg`;
       return `${formatVolumeNumber(Number(weight))}kg`;
     }
 
@@ -9327,10 +9381,10 @@ function init() {
           l.planMode === 'cycle' &&
           getCycleSlotsFromLog(l).some(slot => targetSlots.includes(slot))
         ));
-        if (samePlanDate) return samePlanDate;
+        return samePlanDate || '';
       }
       const targetDay = new Date(currentDateStr + 'T00:00:00').getDay();
-      return dates.find(date => new Date(date + 'T00:00:00').getDay() === targetDay) || dates[0] || '';
+      return dates.find(date => new Date(date + 'T00:00:00').getDay() === targetDay) || '';
     }
 
     function buildPreviousComparableDayText() {
@@ -9366,6 +9420,51 @@ function init() {
       const plan = getActivePlanInfo();
       if (!plan || !plan.text) return '';
       return `${plan.label}\n${plan.text}`;
+    }
+
+    function getRecalledDraftSetForAi(set, exercise) {
+      const hasActual = set.weight !== '' && set.weight != null && set.reps !== '' && set.reps != null;
+      const metricType = hasActual
+        ? inferLogMetricType(set, exercise)
+        : (set.prevMetricType || inferLogMetricType({
+            metricType:set.prevMetricType,
+            rpe:set.prevRpe,
+            rir:set.prevRir,
+            partialReps:set.prevPartialReps
+          }, exercise));
+      return {
+        ...set,
+        exercise,
+        weight: hasActual ? set.weight : set.prevWeight,
+        reps: hasActual ? set.reps : set.prevReps,
+        metricType,
+        rpe: hasActual ? set.rpe : set.prevRpe,
+        rir: hasActual ? set.rir : set.prevRir,
+        partialReps: hasActual ? set.partialReps : set.prevPartialReps,
+        bodyWeight: hasActual ? set.bodyWeight : set.prevBodyWeight,
+        assistAmount: hasActual ? set.assistAmount : set.prevAssistAmount,
+        assistMode: hasActual ? set.assistMode : set.prevAssistMode,
+        technique: hasActual ? set.technique : (set.prevTechnique || set.technique),
+        weightMode: hasActual ? set.weightMode : (set.prevWeightMode || set.weightMode),
+        note: hasActual ? set.note : (set.prevNote || set.note || '')
+      };
+    }
+
+    function buildRecalledTodayPlanText() {
+      const drafts = getDraftGroupsForDate(currentDateStr).filter(draft => draft.recalledFrom);
+      if (!drafts.length) return '';
+      const dateLabel = formatComparisonDateLabel(currentDateStr);
+      const lines = [`本日の呼び出し下書き: ${dateLabel}`];
+      drafts.forEach((draft, exerciseIndex) => {
+        const sets = (draft.sets || [])
+          .map(set => getRecalledDraftSetForAi(set, draft.exercise))
+          .filter(set => set.weight !== '' && set.weight != null && set.reps !== '' && set.reps != null);
+        if (!sets.length) return;
+        const source = getRecallDateLabel(draft.recalledFrom);
+        lines.push('', `${exerciseIndex + 1}. ${draft.exercise} ${sets.length}セット（${source}から呼び出し）`);
+        sets.forEach((set, index) => lines.push(`${index + 1}セット目: ${formatSimpleAiSet(set, index, sets)}`));
+      });
+      return lines.length > 1 ? lines.join('\n') : '';
     }
 
     function getExerciseOrderContextText(exName, dateStr) {
@@ -9442,6 +9541,9 @@ function init() {
       } else if (type === 'todayPlan') {
         text = buildTodayPlanText();
         if (!text) return showCopyToast('今日のプラン内容がありません');
+      } else if (type === 'recalledTodayPlan') {
+        text = buildRecalledTodayPlanText();
+        if (!text) return showCopyToast('本日に呼び出した下書きがありません');
       } else if (type === 'previousComparableDay') {
         text = buildPreviousComparableDayText();
         if (!text) return showCopyToast('前回の同曜日／同プラン記録がありません');
