@@ -160,7 +160,7 @@
     .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
     .draft-status-row .saving { color:var(--accent-brand); }
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
-    .exercise-quick-bar { position:fixed; z-index:90; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
+    .exercise-quick-bar { position:fixed; z-index:90; left:50%; width:min(calc(100% - 20px), 600px); bottom:max(calc(env(safe-area-inset-bottom) + 14px), calc(var(--keyboard-inset, 0px) + 8px)); min-height:64px; padding:8px 10px; display:none; grid-template-columns:minmax(0,1fr) auto auto auto auto; align-items:center; gap:7px; border:1px solid #45474c; border-radius:12px; background:rgba(24,25,28,.96); box-shadow:0 8px 30px rgba(0,0,0,.48); backdrop-filter:blur(14px); transform:translate3d(-50%,0,0); -webkit-transform:translate3d(-50%,0,0); will-change:transform; }
     .exercise-quick-bar.visible { display:grid; }
     .exercise-quick-bar.suppressed { display:none !important; }
     .exercise-quick-info { min-width:0; }
@@ -173,7 +173,6 @@
     .exercise-quick-icon { width:42px; height:42px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:20px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .exercise-quick-icon.primary { border-color:var(--accent-brand); background:var(--accent-brand); color:#000; }
     .exercise-quick-icon.ai { color:var(--accent-brand); font-size:12px; font-weight:950; letter-spacing:0; }
-    .exercise-quick-icon.save { width:54px; border-color:var(--accent-brand); background:var(--accent-brand); color:#000; font-size:12px; font-weight:950; letter-spacing:0; touch-action:pan-y; }
     .exercise-quick-icon.ai img { width:24px; height:24px; display:block; object-fit:cover; border-radius:6px; }
     #view-exercise.active { padding-bottom:calc(220px + env(safe-area-inset-bottom)) !important; }
     .history-list { display:grid; gap:9px; padding:14px 16px max(28px, env(safe-area-inset-bottom)); overflow-y:auto; }
@@ -196,7 +195,7 @@
     .draft-only-set .tag { opacity:.72; }
     .draft-source-label { display:inline-flex; align-items:center; margin-left:6px; padding:1px 6px; border:1px solid rgba(208,253,62,.36); border-radius:999px; color:var(--accent-brand); font-size:10px; font-weight:850; }
     @media (max-width:360px) {
-      .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto auto auto; }
+      .exercise-quick-bar { grid-template-columns:minmax(0,1fr) auto auto auto; }
       .exercise-quick-timer { grid-row:1; }
       .exercise-quick-icon.copy { display:none; }
     }
@@ -973,19 +972,17 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
         <div id="prevOrderBox" style="font-size:12px; color:var(--accent-brand); font-weight:600; display:none;"></div>
         <div id="prevMemoBox" style="font-size:12px; color:var(--muted); display:none;"></div>
       </div>
-      <input type="text" id="sessionMemo" placeholder="フォームの意識・メモを入力..." oninput="saveCurrentDraft()" style="width:100%; background:transparent; border:none; color:#fff; font-size:14px; outline:none;">
+      <input type="text" id="sessionMemo" placeholder="フォームの意識・メモを入力..." oninput="saveCurrentDraft({ skipCheckedSync:true })" onblur="saveCurrentDraft()" style="width:100%; background:transparent; border:none; color:#fff; font-size:14px; outline:none;">
     </div>
 
     <div id="adviceBox" class="card" style="display:none; padding:12px; margin-bottom:16px; background:rgba(208, 253, 62, 0.1); border:1px solid rgba(208, 253, 62, 0.2); color:var(--accent-brand); font-size:13px; line-height:1.5;"></div>
 
     
-    <button id="saveWorkoutBtn" type="button" class="save-btn" onpointerdown="trackSaveButtonPointer(event)" onpointermove="trackSaveButtonPointerMove(event)" onpointercancel="cancelSaveButtonPointer()" onclick="handleSaveButtonClick(event)">入力済みセットを保存</button>
     <button class="ai-copy-btn" onclick="openAiSheet()">
       <span class="ai-button-icon" data-ai-icon>AI</span> AIに相談する（状況をコピー）
     </button>
     <div style="text-align:center; font-size:12px; color:var(--muted); margin-top:12px;">
-
-      前回記録が自動で入力・チェックされています。<br>変更がある部分だけ上書きしてください。
+      チェック済みセットは記録へ自動保存されます。<br>未チェックの入力は下書きに残ります。
     </div>
   </div>
 
@@ -1000,7 +997,6 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     </div>
     <button type="button" class="exercise-quick-icon copy" onclick="duplicatePreviousSet()" title="直前セットを複製" aria-label="直前セットを複製">⧉</button>
     <button type="button" class="exercise-quick-icon primary" onclick="addSetRow()" title="セットを追加" aria-label="セットを追加">＋</button>
-    <button type="button" class="exercise-quick-icon save" onpointerdown="trackSaveButtonPointer(event)" onpointermove="trackSaveButtonPointerMove(event)" onpointercancel="cancelSaveButtonPointer()" onclick="handleSaveButtonClick(event)" title="入力済みセットを保存" aria-label="入力済みセットを保存">保存</button>
     <button type="button" class="exercise-quick-icon ai" onclick="openAiSheet()" title="AIに相談" aria-label="AIに相談" data-ai-icon>AI</button>
   </div>
 
@@ -6381,6 +6377,7 @@ function init() {
         setDraftSaveStatus('別タブの新しい入力内容を保持しています');
         return;
       }
+      const checkedSyncSucceeded = options.skipCheckedSync ? true : syncCheckedSetsToLogs();
       const recalledFrom = drafts[draftKey]?.recalledFrom || '';
       const orderIndex = drafts[draftKey]?.orderIndex;
       const savedAt = Date.now();
@@ -6404,7 +6401,7 @@ function init() {
       clearTimeout(draftSaveStatusTimer);
       draftSaveStatusTimer = setTimeout(() => {
         const time = new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
-        setDraftSaveStatus(`自動保存済み ${time}`);
+        setDraftSaveStatus(checkedSyncSucceeded ? `自動保存済み ${time}` : '下書きのみ保存・記録保存を再確認してください');
         updateExerciseQuickBar();
       }, 120);
     }
@@ -7008,6 +7005,7 @@ function init() {
       renderWeightModeControl();
       renderSetRows();
       calcAdvice();
+      saveCurrentDraft();
       renderDailyLogs();
       if (document.getElementById('view-report')?.classList.contains('active')) renderReport();
       showCopyToast(mode === 'single' && usesOneSideWeightAsRecorded()
@@ -8527,6 +8525,7 @@ function init() {
       const targetHasInput = target.weight !== '' || target.reps !== '' || target.done || Boolean(target.note);
       if (targetHasInput && !confirm(`セット${sourceIndex + 2}の入力を、セット${sourceIndex + 1}の内容で上書きしますか？`)) return;
       captureSetEditUndo(`セット${sourceIndex + 2}へコピー`);
+      if (!removeAutoSavedSetRecord(target, { silent:true })) return;
       const copied = createSetCopyFromSource(source, true);
       [
         'prevWeight','prevReps','prevRpe','prevRir','prevPartialReps','prevBodyWeight','prevAssistAmount',
@@ -8575,6 +8574,7 @@ function init() {
       if(currentSets.length > 1) {
         if (!confirm('最後のセットを削除しますか？')) return;
         captureSetEditUndo('セット削除');
+        if (!removeAutoSavedSetRecord(currentSets[currentSets.length - 1], { silent:true })) return;
         currentSets.pop();
         renderSetRows();
         calcAdvice();
@@ -8591,6 +8591,7 @@ function init() {
       }
       if (!confirm(`セット${idx + 1}を削除して、後ろのセットを繰り上げますか？`)) return;
       captureSetEditUndo(`セット${idx + 1}削除`);
+      if (!removeAutoSavedSetRecord(currentSets[idx], { silent:true })) return;
       currentSets.splice(idx, 1);
       renderSetRows();
       calcAdvice();
@@ -8606,6 +8607,8 @@ function init() {
 
     function updateSet(idx, key, val, options = {}) {
       if (!currentSets[idx]) return;
+      const wasDone = Boolean(currentSets[idx].done);
+      const previousCompletedAt = Number(currentSets[idx].completedAt) || 0;
       const changed = currentSets[idx][key] !== val;
       if (changed && !options.skipUndo) captureSetEditUndo(`セット${idx + 1}の${getSetFieldLabel(key)}`, `set:${idx}:${key}`);
       currentSets[idx][key] = val;
@@ -8624,6 +8627,7 @@ function init() {
       } else {
         if (!hasMainValues) {
           s.done = false;
+          if (wasDone) removeAutoSavedSetRecord(s, { silent:true, completedAt:previousCompletedAt });
           s.completedAt = null;
         }
         row?.classList.remove('is-done');
@@ -8763,10 +8767,48 @@ function init() {
       if (changed) showUndoToast(`セット${idx + 1}の入力方式`);
     }
 
-    function autoSaveCheckedSet(idx) {
+    function getCheckedSetSaveSignature(set) {
+      return JSON.stringify({
+        weight:set.weight,
+        reps:set.reps,
+        metricType:set.metricType,
+        rpe:set.rpe,
+        rir:set.rir,
+        partialReps:set.partialReps,
+        technique:normalizeTechnique(set.technique),
+        completedAt:Number(set.completedAt) || null,
+        bodyWeight:set.bodyWeight,
+        assistAmount:set.assistAmount,
+        assistMode:set.assistMode,
+        note:set.note || '',
+        weightMode:getExerciseWeightMode(selectedExercise),
+        memo:document.getElementById('sessionMemo')?.value?.trim() || ''
+      });
+    }
+
+    let checkedSetSyncInProgress = false;
+
+    function syncCheckedSetsToLogs() {
+      if (checkedSetSyncInProgress) return true;
+      checkedSetSyncInProgress = true;
+      let saved = true;
+      try {
+        currentSets.forEach((set, idx) => {
+          if (!set.done || set.weight === '' || set.reps === '') return;
+          if (!autoSaveCheckedSet(idx, { silent:true, skipDraftSave:true, onlyIfChanged:true })) saved = false;
+        });
+      } finally {
+        checkedSetSyncInProgress = false;
+      }
+      return saved;
+    }
+
+    function autoSaveCheckedSet(idx, options = {}) {
       const set = currentSets[idx];
       if (!set || !set.done || set.weight === '' || set.reps === '') return false;
       normalizeCurrentSetMetric(set);
+      const signature = getCheckedSetSaveSignature(set);
+      if (options.onlyIfChanged && set._lastAutoSavedSignature === signature && Number(set._sourceLogId)) return true;
 
       try {
         const storedLogs = JSON.parse(localStorage.getItem(STORE_LOGS) || '[]');
@@ -8836,19 +8878,48 @@ function init() {
       if (!persistLogsSafely(logs)) return false;
 
       set._sourceLogId = recordId;
+      set._lastAutoSavedSignature = signature;
       try { markCyclePlanCompleted(currentDateStr, planInfo.slots); }
       catch (err) { console.warn('checked set cycle completion failed', err); }
-      saveCurrentDraft();
-      clearTimeout(draftSaveStatusTimer);
-      setDraftSaveStatus(`セット${idx + 1}を記録へ保存済み`);
+      if (!options.skipDraftSave) saveCurrentDraft({ skipCheckedSync:true });
+      if (!options.silent) {
+        clearTimeout(draftSaveStatusTimer);
+        setDraftSaveStatus(`セット${idx + 1}を記録へ保存済み`);
+        showCopyToast(`セット${idx + 1}を保存しました`);
+      }
       updateExerciseQuickBar();
-      showCopyToast(`セット${idx + 1}を保存しました`);
+      return true;
+    }
+
+    function removeAutoSavedSetRecord(set, options = {}) {
+      if (!set) return true;
+      let storedLogs = logs;
+      try {
+        const latest = JSON.parse(localStorage.getItem(STORE_LOGS) || '[]');
+        if (Array.isArray(latest)) storedLogs = latest;
+      } catch (err) {
+        console.warn('latest logs reload before checked removal failed', err);
+      }
+      const sourceId = Number(set._sourceLogId) || 0;
+      const completedAt = Number(options.completedAt || set.completedAt) || 0;
+      const nextLogs = storedLogs.filter(log => {
+        if (log.date !== currentDateStr || log.exercise !== selectedExercise) return true;
+        if (sourceId && Number(log.id) === sourceId) return false;
+        if (!sourceId && completedAt && Number(log.completedAt) === completedAt) return false;
+        return true;
+      });
+      if (nextLogs.length !== storedLogs.length && !persistLogsSafely(nextLogs)) return false;
+      logs = nextLogs;
+      set._sourceLogId = null;
+      set._lastAutoSavedSignature = '';
+      if (!options.silent) showCopyToast('記録から外しました。入力内容は下書きに残っています');
       return true;
     }
 
     function toggleDone(idx) {
       const s = currentSets[idx];
       if (!s) return;
+      const previousCompletedAt = Number(s.completedAt) || 0;
       s.done = !s.done;
 
       // Auto-fill from placeholder if empty and marking as done
@@ -8865,13 +8936,29 @@ function init() {
         s.manualCheckRequired = false;
         markSetDone(s);
       } else {
+        if (!removeAutoSavedSetRecord(s, { completedAt:previousCompletedAt })) {
+          s.done = true;
+          s.completedAt = previousCompletedAt;
+          renderSetRows();
+          return;
+        }
         s.completedAt = null;
       }
 
       renderSetRows();
       calcAdvice();
-      saveCurrentDraft();
-      if (s.done) autoSaveCheckedSet(idx);
+      let checkedSaveFailed = false;
+      if (s.done && !autoSaveCheckedSet(idx, { skipDraftSave:true })) {
+        s.done = false;
+        s.completedAt = null;
+        checkedSaveFailed = true;
+        renderSetRows();
+      }
+      saveCurrentDraft({ skipCheckedSync:true });
+      if (checkedSaveFailed) {
+        clearTimeout(draftSaveStatusTimer);
+        setDraftSaveStatus('記録へ保存できなかったため、未チェックの下書きとして保持しました');
+      }
     }
 
     function getExerciseSessionBestEstimates(exName, beforeDate, limit = 3) {
