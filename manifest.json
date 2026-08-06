@@ -1,0 +1,19 @@
+{
+  "name": "Iron Log",
+  "short_name": "Iron Log",
+  "description": "トレーニング記録アプリ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#c7ff2e",
+  "icons": [
+    {
+      "src": "./icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
