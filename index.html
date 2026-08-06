@@ -157,6 +157,9 @@
     .set-bulk-btn { flex:0 0 74px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:14px; }
     .set-copy-btn { flex:0 0 76px; background:var(--surface-3); border:1px solid var(--line); color:var(--text); font-size:13px; }
     .set-remove-btn { flex: 0 0 82px; background: transparent; border: 1px solid rgba(255, 107, 107, 0.5); color: #ff8b8b; font-size: 13px; }
+    .exercise-bottom-back { width:100%; min-height:56px; margin:0 0 18px; padding:0 16px; border:none; border-radius:8px; background:var(--accent-brand); color:#050505; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 7px 22px rgba(208,253,62,.24); font-size:16px; font-weight:900; cursor:pointer; }
+    .exercise-bottom-back:active { transform:translateY(1px); background:#c4f02f; box-shadow:0 3px 12px rgba(208,253,62,.18); }
+    .exercise-bottom-back .back-symbol { font-size:28px; font-weight:600; line-height:1; }
     .draft-status-row { min-height:32px; margin:-12px 0 12px; display:flex; align-items:center; justify-content:flex-end; gap:10px; color:var(--muted); font-size:12px; font-weight:700; }
     .draft-status-row .saving { color:var(--accent-brand); }
     .draft-history-btn { min-height:30px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:750; cursor:pointer; }
@@ -948,6 +951,11 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
       <button class="set-bulk-btn" onclick="openSetBulkModal()">一括</button>
       <button class="set-remove-btn" onclick="removeSetRow()">− 削除</button>
     </div>
+
+    <button type="button" class="exercise-bottom-back" onclick="switchView('view-daily')">
+      <span class="back-symbol" aria-hidden="true">‹</span>
+      <span>今日の種目一覧へ戻る</span>
+    </button>
 
     <div class="card" style="padding:12px; margin-bottom:16px; background:var(--surface-2); border:1px solid var(--line);">
       <div class="comparison-control">
@@ -5153,6 +5161,19 @@ function init() {
       }
     }
 
+    function getUncheckedEnteredDraftSets(draft) {
+      if (!draft || !Array.isArray(draft.sets)) return [];
+      return draft.sets.filter(set =>
+        !set.done && (hasSetFieldValue(set.weight) || hasSetFieldValue(set.reps))
+      );
+    }
+
+    function draftHasActualSetNumbers(draft) {
+      return Boolean(draft && Array.isArray(draft.sets) && draft.sets.some(set =>
+        hasSetFieldValue(set.weight) || hasSetFieldValue(set.reps)
+      ));
+    }
+
     function renderDailyLogs() {
       const container = document.getElementById('dailyLogsContainer');
       const dayLogs = logs.filter(l => l.date === currentDateStr).sort((a,b) => a.id - b.id);
@@ -5170,14 +5191,18 @@ function init() {
 
       drafts.forEach(d => {
         const existing = groups.find(g => g.exercise === d.exercise);
+        const uncheckedEnteredSets = getUncheckedEnteredDraftSets(d);
+        const hasUncheckedInput = uncheckedEnteredSets.length > 0;
         if (existing) {
-          existing.draft = true;
+          existing.draft = hasUncheckedInput;
+          existing.hasUncheckedInput = hasUncheckedInput;
           existing.draftSets = d.sets;
           existing.draftMemo = d.memo || '';
           existing.recalledFrom = d.recalledFrom || '';
           existing.updatedAt = d.updatedAt || 0;
         } else {
-          groups.push({ exercise: d.exercise, sets: d.sets, id: groups.length, draft: true, hasSavedRecord: false, draftSets: d.sets, draftMemo: d.memo || '', recalledFrom: d.recalledFrom || '', updatedAt: d.updatedAt || 0 });
+          if (!draftHasActualSetNumbers(d) && !d.recalledFrom) return;
+          groups.push({ exercise: d.exercise, sets: d.sets, id: groups.length, draft: true, hasSavedRecord: false, hasUncheckedInput, draftSets: d.sets, draftMemo: d.memo || '', recalledFrom: d.recalledFrom || '', updatedAt: d.updatedAt || 0 });
         }
       });
 
@@ -5213,11 +5238,15 @@ function init() {
           if (!isNaN(weight) && !isNaN(reps)) totalVol += calculateSetVolume({ ...s, exercise:g.exercise });
         });
         const summaryText = g.draft
-          ? (g.recalledFrom ? `${getRecallDateLabel(g.recalledFrom)}から呼び出し` : '入力途中') + (completedDraftSets.length ? `・${completedDraftSets.length}セット入力済み` : '')
+          ? [
+              g.recalledFrom ? `${getRecallDateLabel(g.recalledFrom)}から呼び出し` : '',
+              g.hasUncheckedInput ? '入力途中' : '',
+              completedDraftSets.length ? `${completedDraftSets.length}セット記録済み` : ''
+            ].filter(Boolean).join('・') || '下書き'
           : `${displaySets.length}セット (${totalVol.toLocaleString()} kg)`;
         const timingText = getExerciseLogTimingText(displaySets);
         const summaryWithTime = `${summaryText}${timingText ? `・${timingText}` : ''}`;
-        const deleteText = g.draft ? '下書き削除' : '削除';
+        const deleteText = g.hasSavedRecord ? '削除' : '下書き削除';
         const safeExercise = String(g.exercise).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         const encodedExercise = encodeURIComponent(g.exercise);
 
@@ -5342,8 +5371,11 @@ function init() {
       const drafts = getSetDrafts();
       const draftKey = getDraftKey(currentDateStr, exercise);
       const hasDraft = !!drafts[draftKey];
+      const hasIncompleteDraft = hasDraft && getUncheckedEnteredDraftSets(drafts[draftKey]).length > 0;
       const hasSaved = logs.some(l => l.date === currentDateStr && l.exercise === exercise);
-      const label = hasSaved && hasDraft ? '記録と入力途中データ' : (hasDraft ? '入力途中データ' : '記録');
+      const label = hasSaved && hasIncompleteDraft
+        ? '記録と入力途中データ'
+        : (hasSaved ? '記録' : (hasIncompleteDraft ? '入力途中データ' : '下書き'));
       if (!confirm('「' + exercise + '」の' + label + 'を削除しますか？')) return;
       if (hasSaved) {
         logs = logs.filter(l => !(l.date === currentDateStr && l.exercise === exercise));
