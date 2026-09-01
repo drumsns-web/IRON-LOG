@@ -1802,6 +1802,7 @@ body span[style*="font-size:12px"] { font-size:14px !important; }
     let activeSetEditKey = '';
     let activeSetEditStartedAt = 0;
     let lastInputWarningSignature = '';
+    let previousSetModalContext = { type:'', mode:'recent', setIndex:-1, focusDate:'' };
 
     // Utils
     function formatDate(d) {
@@ -6335,7 +6336,23 @@ function init() {
     }
 
     function setSetDrafts(drafts) {
-      localStorage.setItem(STORE_DRAFTS, JSON.stringify(drafts));
+      const payload = JSON.stringify(drafts);
+      try {
+        localStorage.setItem(STORE_DRAFTS, payload);
+        return true;
+      } catch (err) {
+        console.warn('draft save failed, clearing auxiliary storage and retrying', err);
+      }
+      [STORE_DRAFT_HISTORY, STORE_LOCAL_BACKUPS].forEach(key => {
+        try { localStorage.removeItem(key); } catch (ignored) {}
+      });
+      try {
+        localStorage.setItem(STORE_DRAFTS, payload);
+        return true;
+      } catch (err) {
+        console.error('draft save retry failed', err);
+        return false;
+      }
     }
 
     function getDraftHistories() {
@@ -6384,46 +6401,59 @@ function init() {
     }
 
     function saveCurrentDraft(options = {}) {
-      if (!selectedExercise || !Array.isArray(currentSets) || currentSets.length === 0) return;
-      setDraftSaveStatus('保存中…', true);
-      syncVisibleSetInputs();
-      currentSets.forEach(set => normalizeCurrentSetMetric(set));
-      const memoEl = document.getElementById('sessionMemo');
-      const drafts = getSetDrafts();
-      const draftKey = getDraftKey();
-      const storedDraft = drafts[draftKey] || null;
-      if (options.passive && storedDraft && storedDraft.ownerTabId && storedDraft.ownerTabId !== entryTabSessionId &&
-          Number(storedDraft.updatedAt || 0) > Number(currentEntryLastSavedAt || 0)) {
-        setDraftSaveStatus('別タブの新しい入力内容を保持しています');
-        return;
+      if (!selectedExercise || !Array.isArray(currentSets) || currentSets.length === 0) return false;
+      try {
+        setDraftSaveStatus('保存中…', true);
+        syncVisibleSetInputs();
+        currentSets.forEach(set => normalizeCurrentSetMetric(set));
+        const memoEl = document.getElementById('sessionMemo');
+        const drafts = getSetDrafts();
+        const draftKey = getDraftKey();
+        const storedDraft = drafts[draftKey] || null;
+        if (options.passive && storedDraft && storedDraft.ownerTabId && storedDraft.ownerTabId !== entryTabSessionId &&
+            Number(storedDraft.updatedAt || 0) > Number(currentEntryLastSavedAt || 0)) {
+          setDraftSaveStatus('別タブの新しい入力内容を保持しています');
+          return false;
+        }
+        const checkedSyncSucceeded = options.skipCheckedSync ? true : syncCheckedSetsToLogs();
+        const recalledFrom = drafts[draftKey]?.recalledFrom || '';
+        const orderIndex = drafts[draftKey]?.orderIndex;
+        const savedAt = Date.now();
+        const nextDraft = {
+          date: currentDateStr,
+          exercise: selectedExercise,
+          sets: JSON.parse(JSON.stringify(currentSets)),
+          memo: memoEl ? memoEl.value : '',
+          recalledFrom: recalledFrom,
+          ...(Number.isFinite(orderIndex) ? { orderIndex } : {}),
+          ownerTabId: entryTabSessionId,
+          updatedAt: savedAt
+        };
+        if (drafts[draftKey] && getDraftComparable(drafts[draftKey]) !== getDraftComparable(nextDraft)) {
+          rememberDraftVersion(draftKey, drafts[draftKey]);
+        }
+        drafts[draftKey] = nextDraft;
+        if (!setSetDrafts(drafts)) {
+          setDraftSaveStatus(checkedSyncSucceeded
+            ? 'チェック済み記録は保存済み・入力途中の下書き保存に失敗しました'
+            : '保存容量を確認してください');
+          return checkedSyncSucceeded;
+        }
+        currentEntryLastSavedAt = savedAt;
+        try { getExerciseOrderForDate(currentDateStr); }
+        catch (err) { console.warn('exercise order refresh after draft save failed', err); }
+        clearTimeout(draftSaveStatusTimer);
+        draftSaveStatusTimer = setTimeout(() => {
+          const time = new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
+          setDraftSaveStatus(checkedSyncSucceeded ? `自動保存済み ${time}` : '下書きのみ保存・記録保存を再確認してください');
+          updateExerciseQuickBar();
+        }, 120);
+        return checkedSyncSucceeded;
+      } catch (err) {
+        console.error('current draft save failed', err);
+        setDraftSaveStatus('入力内容を保持中・保存を再確認してください');
+        return false;
       }
-      const checkedSyncSucceeded = options.skipCheckedSync ? true : syncCheckedSetsToLogs();
-      const recalledFrom = drafts[draftKey]?.recalledFrom || '';
-      const orderIndex = drafts[draftKey]?.orderIndex;
-      const savedAt = Date.now();
-      const nextDraft = {
-        date: currentDateStr,
-        exercise: selectedExercise,
-        sets: JSON.parse(JSON.stringify(currentSets)),
-        memo: memoEl ? memoEl.value : '',
-        recalledFrom: recalledFrom,
-        ...(Number.isFinite(orderIndex) ? { orderIndex } : {}),
-        ownerTabId: entryTabSessionId,
-        updatedAt: savedAt
-      };
-      if (drafts[draftKey] && getDraftComparable(drafts[draftKey]) !== getDraftComparable(nextDraft)) {
-        rememberDraftVersion(draftKey, drafts[draftKey]);
-      }
-      drafts[draftKey] = nextDraft;
-      setSetDrafts(drafts);
-      currentEntryLastSavedAt = savedAt;
-      getExerciseOrderForDate(currentDateStr);
-      clearTimeout(draftSaveStatusTimer);
-      draftSaveStatusTimer = setTimeout(() => {
-        const time = new Date().toLocaleTimeString('ja-JP', { hour:'2-digit', minute:'2-digit' });
-        setDraftSaveStatus(checkedSyncSucceeded ? `自動保存済み ${time}` : '下書きのみ保存・記録保存を再確認してください');
-        updateExerciseQuickBar();
-      }, 120);
     }
 
     function ensureCurrentExerciseDraftExists() {
@@ -7653,7 +7683,6 @@ function init() {
     function selectComparisonDateFromHistory(dateStr) {
       saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:dateStr });
       renderComparisonControl();
-      closePreviousSetModal();
       try {
         loadPrevSets();
       } catch (err) {
@@ -7661,6 +7690,7 @@ function init() {
         showCopyToast('日付は選択しました。再読み込みしてください');
         return;
       }
+      refreshPreviousSetModal();
       showCopyToast(`${formatComparisonDateLabel(dateStr)}を指定しました`);
     }
 
@@ -7673,14 +7703,15 @@ function init() {
     }
 
     function selectComparisonDateButton(event, dateStr) {
+      previousSetModalContext.focusDate = dateStr;
       flashHistoryActionButton(event, () => selectComparisonDateFromHistory(dateStr));
     }
 
     function loadExerciseDraftFromHistory(dateStr) {
       saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:dateStr });
       renderComparisonControl();
-      loadExerciseDraftFromSelectedDate();
-      closePreviousSetModal();
+      if (loadExerciseDraftFromSelectedDate()) closePreviousSetModal();
+      else refreshPreviousSetModal();
     }
 
     function loadExerciseDraftButton(event, dateStr) {
@@ -7692,6 +7723,7 @@ function init() {
       const title = document.getElementById('previousSetModalTitle');
       const body = document.getElementById('previousSetModalBody');
       if (!modal || !title || !body) return;
+      previousSetModalContext = { type:'history', mode, setIndex:-1, focusDate:previousSetModalContext.focusDate || '' };
       if (mode === 'date') {
         const date = getComparisonActionDate();
         if (!date) {
@@ -7781,14 +7813,20 @@ function init() {
         saveExerciseInputPreference(selectedExercise, { comparisonMode:'date', comparisonDate:latest });
         renderComparisonControl();
         showCopyToast('日付を選んでから読み込んでください');
-        return;
+        return false;
       }
       const date = getComparisonActionDate();
-      if (!date) return alert('読み込める過去日がありません。');
+      if (!date) {
+        alert('読み込める過去日がありません。');
+        return false;
+      }
       const source = getExerciseDraftSourceOnDate(date, selectedExercise);
-      if (!source) return alert(`指定日（${formatComparisonDateLabel(date)}）にこの種目の記録または下書きがありません。`);
+      if (!source) {
+        alert(`指定日（${formatComparisonDateLabel(date)}）にこの種目の記録または下書きがありません。`);
+        return false;
+      }
       const hasInput = currentSets.some(set => set.done || set.weight !== '' || set.reps !== '' || set.note);
-      if (hasInput && !confirm(`${formatComparisonDateLabel(date)}の${source.source === 'draft' ? '下書き' : '記録'}を、入力済みセットの後ろへ追加しますか？`)) return;
+      if (hasInput && !confirm(`${formatComparisonDateLabel(date)}の${source.source === 'draft' ? '下書き' : '記録'}を、入力済みセットの後ろへ追加しますか？`)) return false;
       captureSetEditUndo('指定日下書き呼び出し');
       const importedSets = source.sets.map(set => createDraftSetFromSource({ ...set, date:source.date }, selectedExercise));
       if (hasInput) {
@@ -7808,6 +7846,7 @@ function init() {
       saveCurrentDraft();
       showUndoToast('指定日下書き呼び出し');
       showCopyToast(`${formatComparisonDateLabel(date)}から読み込みました`);
+      return true;
     }
 
     function getPreviousSetNotePlaceholder(index) {
@@ -7889,14 +7928,23 @@ function init() {
       }, 150);
     }
 
-    function openPreviousSetModal(index) {
+    function viewPreviousSetHistoryDate(event, dateStr, index) {
+      previousSetModalContext.focusDate = dateStr;
+      flashHistoryActionButton(event, () => openPreviousSetModal(index, dateStr));
+    }
+
+    function openPreviousSetModal(index, focusDate = '') {
       const preference = getExerciseComparisonPreference();
       const comparisonSession = getExerciseComparisonSession(selectedExercise, currentDateStr, false, preference.mode, preference.date);
       const latestSession = getLatestSameExerciseSession();
+      const focusedSession = focusDate
+        ? getExerciseHistorySessions(selectedExercise, currentDateStr, 50).find(session => session.date === focusDate) || null
+        : null;
       const modal = document.getElementById('previousSetModal');
       const title = document.getElementById('previousSetModalTitle');
       const body = document.getElementById('previousSetModalBody');
       if (!modal || !title || !body) return;
+      previousSetModalContext = { type:'set', mode:'recent', setIndex:index, focusDate:focusDate || '' };
       const renderBlock = (heading, session, highlight = false) => {
         if (!session || !session.sets?.length) return `<div class="history-item"><div class="history-item-summary">${heading}: 記録がありません。</div></div>`;
         const selected = session.sets[index];
@@ -7914,19 +7962,31 @@ function init() {
         title.textContent = `${selectedExercise}・前回確認`;
         const sameDate = comparisonSession?.date && comparisonSession.date === latestSession?.date;
         const historyButtons = getExerciseHistorySessions(selectedExercise, currentDateStr, 5)
-          .map(session => `<button type="button" onclick="selectComparisonDateButton(event, '${session.date}')" style="min-height:34px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--text); font-size:12px; font-weight:800;">${formatComparisonDateLabel(session.date)}</button>`)
+          .map(session => `<button type="button" onclick="viewPreviousSetHistoryDate(event, '${session.date}', ${index})" style="min-height:34px; border:1px solid ${focusDate === session.date ? 'var(--accent-brand)' : 'var(--line)'}; border-radius:8px; background:${focusDate === session.date ? 'rgba(208,253,62,.12)' : 'var(--surface-2)'}; color:${focusDate === session.date ? 'var(--accent-brand)' : 'var(--text)'}; font-size:12px; font-weight:800;">${formatComparisonDateLabel(session.date)}</button>`)
           .join('');
-        body.innerHTML = `${renderBlock(`比較対象（${comparisonSession?.shortLabel || '前回'}）`, comparisonSession, true)}
-          ${sameDate ? '' : renderBlock('直近同種目', latestSession, false)}
+        const focusedIsLatest = focusedSession?.date && focusedSession.date === latestSession?.date;
+        const focusedIsComparison = focusedSession?.date && focusedSession.date === comparisonSession?.date;
+        body.innerHTML = `${focusedSession ? renderBlock('選択した日', focusedSession, true) : renderBlock('直近同種目', latestSession, true)}
+          ${focusedSession && !focusedIsLatest ? renderBlock('直近同種目', latestSession, false) : ''}
+          ${!sameDate && !focusedIsComparison ? renderBlock(`現在の比較対象（${comparisonSession?.shortLabel || '前回'}）`, comparisonSession, false) : ''}
           ${historyButtons ? `<div style="color:var(--muted); font-size:12px; font-weight:800; margin:10px 0 7px;">同種目の過去5回から選択</div><div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px;">${historyButtons}</div>` : ''}`;
       }
       modal.style.display = 'flex';
+    }
+
+    function refreshPreviousSetModal() {
+      if (previousSetModalContext.type === 'set' && previousSetModalContext.setIndex >= 0) {
+        openPreviousSetModal(previousSetModalContext.setIndex, previousSetModalContext.focusDate);
+      } else if (previousSetModalContext.type === 'history') {
+        openComparisonHistoryModal(previousSetModalContext.mode || 'recent');
+      }
     }
 
     function closePreviousSetModal(event) {
       if (event && event.target !== event.currentTarget) return;
       const modal = document.getElementById('previousSetModal');
       if (modal) modal.style.display = 'none';
+      previousSetModalContext = { type:'', mode:'recent', setIndex:-1, focusDate:'' };
     }
 
     function updateSetNote(idx, value) {
@@ -8007,10 +8067,10 @@ function init() {
         const metricType = s.metricType;
         const technique = normalizeTechnique(s.technique);
         const techniqueSummary = getTechniqueSummary(technique, s);
-        const hasSetPrevious = s.prevWeight !== '' || s.prevReps !== '';
-        const previousButtonLabel = s.prevComparisonDate
-          ? `${s.prevComparisonLabel || '過去記録'} ${formatComparisonDateLabel(s.prevComparisonDate)}`
-          : getPreviousSetButtonLabel(latestSameExerciseSession);
+        const hasSetPrevious = Boolean(latestSameExerciseSession?.sets?.length);
+        const previousButtonLabel = latestSameExerciseSession
+          ? `直近同種目 ${formatComparisonDateLabel(latestSameExerciseSession.date)}`
+          : '過去記録なし';
         const metricInput = metricType === 'PR'
           ? `<input type="number" min="0" inputmode="numeric" aria-label="パーシャルレップ回数" placeholder="${pPartial !== '' ? pPartial : '-'}" value="${s.partialReps ?? ''}" onfocus="this.select()" oninput="updatePartialRepsById('${setId}', this.value)">`
           : metricType === 'UP'
@@ -8939,45 +8999,55 @@ function init() {
     function toggleDone(idx) {
       const s = currentSets[idx];
       if (!s) return;
-      const previousCompletedAt = Number(s.completedAt) || 0;
-      s.done = !s.done;
+      try {
+        const previousCompletedAt = Number(s.completedAt) || 0;
+        s.done = !s.done;
 
-      // Auto-fill from placeholder if empty and marking as done
-      if (s.done) {
-        applyPreviousValuesToSet(s);
-        if (s.weight === '' || s.reps === '') {
+        // Auto-fill from placeholder if empty and marking as done
+        if (s.done) {
+          applyPreviousValuesToSet(s);
+          if (s.weight === '' || s.reps === '') {
+            s.done = false;
+            s.completedAt = null;
+            renderSetRows();
+            saveCurrentDraft();
+            showCopyToast('重量と回数を入力してからチェックしてください');
+            return;
+          }
+          s.manualCheckRequired = false;
+          markSetDone(s);
+        } else {
+          if (!removeAutoSavedSetRecord(s, { completedAt:previousCompletedAt })) {
+            s.done = true;
+            s.completedAt = previousCompletedAt;
+            renderSetRows();
+            return;
+          }
+          s.completedAt = null;
+        }
+
+        renderSetRows();
+        calcAdvice();
+        let checkedSaveFailed = false;
+        if (s.done && !autoSaveCheckedSet(idx, { skipDraftSave:true })) {
           s.done = false;
           s.completedAt = null;
+          checkedSaveFailed = true;
           renderSetRows();
-          saveCurrentDraft();
-          showCopyToast('重量と回数を入力してからチェックしてください');
-          return;
         }
-        s.manualCheckRequired = false;
-        markSetDone(s);
-      } else {
-        if (!removeAutoSavedSetRecord(s, { completedAt:previousCompletedAt })) {
-          s.done = true;
-          s.completedAt = previousCompletedAt;
-          renderSetRows();
-          return;
+        saveCurrentDraft({ skipCheckedSync:true });
+        if (checkedSaveFailed) {
+          clearTimeout(draftSaveStatusTimer);
+          setDraftSaveStatus('記録へ保存できなかったため、未チェックの下書きとして保持しました');
+          showCopyToast('保存できませんでした。入力内容は下書きに保持しています');
         }
-        s.completedAt = null;
-      }
-
-      renderSetRows();
-      calcAdvice();
-      let checkedSaveFailed = false;
-      if (s.done && !autoSaveCheckedSet(idx, { skipDraftSave:true })) {
+      } catch (err) {
+        console.error('set check save failed', err);
         s.done = false;
         s.completedAt = null;
-        checkedSaveFailed = true;
-        renderSetRows();
-      }
-      saveCurrentDraft({ skipCheckedSync:true });
-      if (checkedSaveFailed) {
-        clearTimeout(draftSaveStatusTimer);
-        setDraftSaveStatus('記録へ保存できなかったため、未チェックの下書きとして保持しました');
+        try { renderSetRows(); } catch (renderErr) { console.error('set check recovery render failed', renderErr); }
+        setDraftSaveStatus('保存処理を再確認してください');
+        showCopyToast('保存処理に失敗しました。もう一度チェックしてください');
       }
     }
 
@@ -9286,12 +9356,23 @@ function init() {
     }
 
     function openAiSheet(source) {
-      if ((source || 'exercise') === 'exercise') saveCurrentDraft();
+      if ((source || 'exercise') === 'exercise') {
+        try { saveCurrentDraft(); }
+        catch (err) { console.error('draft save before AI sheet failed', err); }
+      }
       aiSheetSource = source || 'exercise';
-      populateAiExercisePicker();
-      populateAiGoalFromPlan();
-      openSheetOverlay();
-      document.getElementById('aiSheet').style.transform = 'translateY(0)';
+      try { populateAiExercisePicker(); }
+      catch (err) { console.warn('AI exercise picker failed', err); }
+      try { populateAiGoalFromPlan(); }
+      catch (err) { console.warn('AI goal setup failed', err); }
+      try {
+        openSheetOverlay();
+        const sheet = document.getElementById('aiSheet');
+        if (sheet) sheet.style.transform = 'translateY(0)';
+      } catch (err) {
+        console.error('AI sheet open failed', err);
+        showCopyToast('AI相談画面を開けませんでした。もう一度押してください');
+      }
     }
     function closeAiSheet() { document.getElementById('sheetOverlay').style.opacity = '0'; document.getElementById('aiSheet').style.transform = 'translateY(100%)'; closeSheetOverlayWhenIdle(); }
 
