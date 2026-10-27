@@ -7407,23 +7407,11 @@ function init() {
       applyExerciseTimerPreference(selectedExercise);
       renderWeightModeControl();
       renderComparisonControl();
-      const comparisonPreference = getExerciseComparisonPreference();
-      let comparisonSession = null;
-      try {
-        comparisonSession = getExerciseComparisonSession(
-          selectedExercise,
-          currentDateStr,
-          comparisonPreference.mode === 'auto',
-          comparisonPreference.mode,
-          comparisonPreference.date
-        );
-      } catch (err) {
-        console.warn('comparison session load failed', err);
-        comparisonSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
-      }
-      const prevSets = Array.isArray(comparisonSession?.sets) ? comparisonSession.sets : [];
+
       const latestSameExerciseSession = getLatestSameExerciseSession(selectedExercise, currentDateStr);
-      const latestSameExerciseSets = latestSameExerciseSession ? latestSameExerciseSession.sets : [];
+      // 下敷きはプラン・曜日・種目順に関係なく、常に直近の同種目記録を使う。
+      const underlaySession = latestSameExerciseSession;
+      const prevSets = Array.isArray(underlaySession?.sets) ? underlaySession.sets : [];
       const suppliedSavedRecords = Array.isArray(options.savedRecords) ? options.savedRecords : [];
       const todayRecordedSets = suppliedSavedRecords.length
         ? suppliedSavedRecords
@@ -7436,7 +7424,7 @@ function init() {
       const prevMemoBox = document.getElementById('prevMemoBox');
       const prevMemoSet = prevSets.find(s => s.memo);
       if (prevMemoBox && prevMemoSet && prevMemoSet.memo) {
-        prevMemoBox.textContent = `${comparisonSession?.shortLabel || '前回'}のメモ: ${prevMemoSet.memo}`;
+        prevMemoBox.textContent = `直近同種目 ${formatComparisonDateLabel(underlaySession.date)}の種目メモ: ${prevMemoSet.memo}`;
         prevMemoBox.style.display = 'block';
       } else if (prevMemoBox) {
         prevMemoBox.style.display = 'none';
@@ -7448,12 +7436,12 @@ function init() {
       // 前回・今回が何種目目かを表示（疲労条件の差を可視化）
       const prevOrderBox = document.getElementById('prevOrderBox');
       if (prevSets.length > 0) {
-        const lastDate = comparisonSession.date;
+        const lastDate = underlaySession.date;
         if (lastDate !== currentDateStr) {
           const prevPos = getExOrderOnDate(lastDate, selectedExercise);
           const todayPos = getTodayPlannedOrder(selectedExercise);
           const dLabel = formatComparisonDateLabel(lastDate);
-          const compareLabel = comparisonSession.label || '前回';
+          const compareLabel = '直近同種目';
           if (prevPos !== todayPos) {
             prevOrderBox.innerHTML = `${compareLabel}（${dLabel}）は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回は${todayPos}種目目 <span style="color:var(--accent);">⚠ 順番が違うため扱える重量が変わる可能性があります</span>`;
             prevOrderBox.style.color = 'var(--accent)';
@@ -7461,7 +7449,7 @@ function init() {
             prevOrderBox.innerHTML = `${compareLabel}（${dLabel}）は${prevPos}種目目。その時の重量・回数を入力欄に薄く表示しています。<br>今回も${todayPos}種目目（同じ順番）`;
             prevOrderBox.style.color = 'var(--accent-brand)';
           }
-          const carryoverAdvice = getNextSessionCarryoverAdvice(prevSets, comparisonSession);
+          const carryoverAdvice = getNextSessionCarryoverAdvice(prevSets, underlaySession);
           if (carryoverAdvice) prevOrderBox.innerHTML += carryoverAdvice;
           prevOrderBox.style.display = 'block';
         } else {
@@ -7471,14 +7459,9 @@ function init() {
           prevOrderBox.style.display = 'block';
         }
       } else {
-        const emptyMessage = getComparisonEmptyMessage(comparisonSession);
-        if (emptyMessage) {
-          prevOrderBox.textContent = emptyMessage;
-          prevOrderBox.style.color = 'var(--muted)';
-          prevOrderBox.style.display = 'block';
-        } else {
-          prevOrderBox.style.display = 'none';
-        }
+        prevOrderBox.textContent = '直近の同種目記録がありません';
+        prevOrderBox.style.color = 'var(--muted)';
+        prevOrderBox.style.display = 'block';
       }
 
       if (prevSets.length > 0) {
@@ -7497,9 +7480,9 @@ function init() {
             prevAssistAmount: s.assistAmount ?? '',
             prevAssistMode: s.assistMode ?? '',
             prevTechnique: normalizeTechnique(s.technique),
-            prevComparisonLabel: comparisonSession.shortLabel || '前回',
-            prevComparisonDate: comparisonSession.date || '',
-            prevNote: latestSameExerciseSets[currentSets.length]?.note || '',
+            prevComparisonLabel: '直近同種目',
+            prevComparisonDate: underlaySession.date || '',
+            prevNote: s.note || '',
             weight: '', reps: '', rpe: rStr, rir: metricType === 'RIR' ? rirValue : '', partialReps: '', metricType: metricType,
             note: '',
             technique: { type:'none' },
@@ -7511,7 +7494,7 @@ function init() {
       } else {
         // Default 3 sets if no history
         for(let i=0; i<3; i++) {
-          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevRir: 2, prevPartialReps: '', prevBodyWeight:'', prevAssistAmount:'', prevAssistMode:'', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, prevComparisonLabel:'前回', prevComparisonDate:'', prevNote: latestSameExerciseSets[i]?.note || '', weight: '', reps: '', rpe: 8, rir: '', partialReps: '', note:'', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false, completedAt: null });
+          currentSets.push({ prevWeight: '', prevReps: '', prevRpe: 8, prevRir: 2, prevPartialReps: '', prevBodyWeight:'', prevAssistAmount:'', prevAssistMode:'', prevMetricType: getExerciseMetricDefault(), prevTechnique:{type:'none'}, prevComparisonLabel:'直近同種目', prevComparisonDate:'', prevNote:'', weight: '', reps: '', rpe: 8, rir: '', partialReps: '', note:'', metricType: getExerciseMetricDefault(), technique:{type:'none'}, done: false, completedAt: null });
         }
       }
 
@@ -7530,6 +7513,12 @@ function init() {
         prevComparisonDate:set.prevComparisonDate,
         prevNote:set.prevNote
       }));
+      const emptyUnderlayTemplate = {
+        prevWeight:'', prevReps:'', prevRpe:8, prevRir:2, prevPartialReps:'',
+        prevBodyWeight:'', prevAssistAmount:'', prevAssistMode:'',
+        prevMetricType:getExerciseMetricDefault(), prevTechnique:{type:'none'},
+        prevComparisonLabel:'直近同種目', prevComparisonDate:underlaySession?.date || '', prevNote:''
+      };
 
       const draft = loadCurrentDraft();
       const draftHasInput = draftContainsEnteredData(draft);
@@ -7549,11 +7538,12 @@ function init() {
             restored.recalledTemplate = true;
           }
           const normalized = normalizeCurrentSetMetric(restored);
-          const freshComparison = comparisonTemplateSets[idx];
-          if (freshComparison) {
-            mergeComparisonIntoDraftSet(normalized, freshComparison, Boolean(draft.recalledFrom || normalized.prevComparisonDate));
-            if (!normalized.done) normalized.manualCheckRequired = true;
+          const freshComparison = comparisonTemplateSets[idx] || emptyUnderlayTemplate;
+          // 明示的に過去日を下敷きへ適用した場合だけ、その指定日を保持する。
+          if (!normalized._explicitPreviousSource) {
+            mergeComparisonIntoDraftSet(normalized, freshComparison, false);
           }
+          if (!normalized.done) normalized.manualCheckRequired = true;
           return normalized;
         });
         const memoEl = document.getElementById('sessionMemo');
@@ -7581,8 +7571,8 @@ function init() {
             manualCheckRequired: false,
             completedAt: Number(record.completedAt) || null
           });
-          const freshComparison = comparisonTemplateSets[idx];
-          if (freshComparison) mergeComparisonIntoDraftSet(restored, freshComparison, true);
+          const freshComparison = comparisonTemplateSets[idx] || emptyUnderlayTemplate;
+          mergeComparisonIntoDraftSet(restored, freshComparison, false);
           return restored;
         });
         const memoEl = document.getElementById('sessionMemo');
@@ -7788,6 +7778,7 @@ function init() {
         prevComparisonLabel:'指定日',
         prevComparisonDate:set.date || '',
         prevNote: set.note || set.prevNote || '',
+        _explicitPreviousSource:true,
         weight: '',
         reps: '',
         rpe: rpeValue,
